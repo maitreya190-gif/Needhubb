@@ -227,19 +227,10 @@ profilesRouter.post('/me/personality', authenticate, async (req, res, next) => {
       return next(badRequest('Personality test already taken', 'ALREADY_TAKEN'))
     }
 
-    let profile
-    try {
-      // analyzePersonality tries Lyzr first, silently falls back to Groq.
-      // Only throws when BOTH are unavailable — that's a rare hard failure.
-      profile = await analyzePersonality(answers)
-    } catch (aiErr) {
-      console.error('[personality] both Lyzr and Groq failed:', (aiErr as Error).message)
-      return res.status(502).json({
-        error: 'Personality analyzer is temporarily unavailable. Please try again in a moment.',
-        code: 'LYZR_UNAVAILABLE',
-        detail: (aiErr as Error).message,
-      })
-    }
+    // analyzePersonality has a guaranteed local fallback so it never
+    // throws — the tier-3 Big-Five scoring engine runs offline and
+    // always returns a valid profile even if Lyzr and Groq are both down.
+    const profile = await analyzePersonality(answers)
 
     // Persist only the DB-shape (strip the `poweredBy` badge before writing).
     const dbFields = {

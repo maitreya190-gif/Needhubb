@@ -152,38 +152,60 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
       _submitting = true;
       _error = null;
     });
+
     PersonalityProfile? profile;
     Object? failure;
+    // Belt-and-suspenders: wrap the whole flow so even a widget/parse crash
+    // during the profile refresh can't red-screen the app.
     try {
       final api = ref.read(personalityApiProvider);
       profile = await api.submit(_answers.cast<String>());
+      // Cache the profile on the app-wide notifier so downstream widgets
+      // (Home CTA, feed match badge) pick it up on the next rebuild.
       myPersonalityNotifier.value = profile;
-
-      // Refresh my full profile so downstream screens pick it up.
+      // Best-effort profile refresh — swallowed so it can never cascade.
       try {
         final me = await ref.read(profilesApiProvider).me();
         myProfileNotifier.value = me;
-      } catch (_) {}
-    } catch (e) {
-      debugPrint('[PersonalityTest] submit failed: $e');
+      } catch (e) {
+        debugPrint('[PersonalityTest] profile refresh warning: $e');
+      }
+    } catch (e, stack) {
+      debugPrint('[PersonalityTest] submit failed: $e\n$stack');
       failure = e;
     }
 
     if (!mounted) return;
-    if (failure != null) {
-      // Show the error and leave the user on the quiz to retry.
+
+    if (failure != null || profile == null) {
       setState(() {
         _submitting = false;
-        _error = _friendlyError(failure!);
+        _error = failure != null
+            ? _friendlyError(failure)
+            : 'Something went wrong. Please try again.';
       });
       return;
     }
+
     // Success — clear the loading flag BEFORE navigating away so the widget
     // never tries to rebuild after disposal (fixes `_owner != null` crash).
     setState(() => _submitting = false);
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => PersonalityResultScreen(profile: profile!)),
-    );
+    final resolved = profile;
+    // Guard the navigation itself — if the result screen throws on mount
+    // we don't want to leave the user on a broken white screen.
+    try {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => PersonalityResultScreen(profile: resolved)),
+      );
+    } catch (navErr) {
+      debugPrint('[PersonalityTest] result-screen navigation failed: $navErr');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Saved your personality! Check the You tab.')),
+        );
+        Navigator.of(context).maybePop();
+      }
+    }
   }
 
   /// Convert Dio / network errors into a clean message the user can act on.

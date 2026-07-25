@@ -194,12 +194,15 @@ Ground every score in the answers. Return ONLY the JSON. No prefix, no suffix.`
 
 /**
  * Analyze 10 quiz answers and return a normalized personality profile.
- * Tries Lyzr first (branded feature), falls back silently to Groq so the
- * quiz still works when Lyzr is down. Only throws when BOTH are unavailable.
+ * 3-tier fallback — this function is GUARANTEED to succeed:
+ *   1. Lyzr agent (branded, preferred)
+ *   2. Groq LLM (using the same key as moderation/decompose)
+ *   3. Local deterministic Big-Five scoring engine (always works, no network)
+ * Never throws. The demo cannot break because Lyzr broke.
  */
 export async function analyzePersonality(
   answers: string[],
-): Promise<PersonalityProfile & { poweredBy: 'lyzr' | 'groq' }> {
+): Promise<PersonalityProfile & { poweredBy: 'lyzr' | 'groq' | 'local' }> {
   const message = JSON.stringify(
     Object.fromEntries(answers.map((a, i) => [`q${i + 1}`, a])),
   )
@@ -213,8 +216,122 @@ export async function analyzePersonality(
   }
 
   // Attempt 2: Groq via the same key we already use for moderation + decompose.
-  const groqProfile = await callGroqPersonality(message)
-  return { ...groqProfile, poweredBy: 'groq' }
+  try {
+    const groqProfile = await callGroqPersonality(message)
+    return { ...groqProfile, poweredBy: 'groq' }
+  } catch (err) {
+    console.warn('[personality] Groq failed, using local scoring engine:', (err as Error).message)
+  }
+
+  // Attempt 3: Local Big-Five scoring engine — deterministic, no network,
+  // never fails. The demo cannot break.
+  return { ...computeLocalPersonality(answers), poweredBy: 'local' }
+}
+
+/**
+ * Deterministic Big-Five scorer. Never fails. Maps each answer position to
+ * trait deltas based on the semantic direction of the option chosen. The
+ * result is a plausible personality profile grounded in the answers.
+ */
+function computeLocalPersonality(answers: string[]): PersonalityProfile {
+  const traits = { openness: 50, conscientiousness: 50, extraversion: 50, agreeableness: 50, emotionalStability: 50 }
+
+  const bump = (k: keyof typeof traits, delta: number) => {
+    traits[k] = Math.max(0, Math.min(100, traits[k] + delta))
+  }
+
+  const a = answers.map((x) => x.toLowerCase())
+
+  // Q1 — Saturday: walk/new = openness, solo project = conscientious, group = extraversion, cozy = agreeableness
+  if (a[0]?.includes('walk') || a[0]?.includes('new')) bump('openness', 15)
+  if (a[0]?.includes('solo') || a[0]?.includes('project')) bump('conscientiousness', 15)
+  if (a[0]?.includes('group')) bump('extraversion', 18)
+  if (a[0]?.includes('cozy') || a[0]?.includes('close')) bump('agreeableness', 12)
+
+  // Q2 — Meet new: ask questions = openness, listen = agreeableness, joke = extraversion, wait = introvert
+  if (a[1]?.includes('ask')) bump('openness', 12)
+  if (a[1]?.includes('listen')) bump('agreeableness', 15)
+  if (a[1]?.includes('joke') || a[1]?.includes('ice')) bump('extraversion', 15)
+  if (a[1]?.includes('wait')) bump('extraversion', -12)
+
+  // Q3 — Workspace: place = conscientious high; chaos = openness; pile/inspiration = openness; laptop lands = low conscientiousness
+  if (a[2]?.includes('place')) bump('conscientiousness', 18)
+  if (a[2]?.includes('chaos') || a[2]?.includes('rotating') || a[2]?.includes('inspiration')) bump('openness', 12)
+  if (a[2]?.includes('wherever') || a[2]?.includes('lands')) bump('conscientiousness', -12)
+
+  // Q4 — Cancel plans: relief = introvert/emotional stability, curiosity = agreeableness, annoyed = low stability, swap = extraversion
+  if (a[3]?.includes('relief') || a[3]?.includes('reset')) bump('emotionalStability', 12)
+  if (a[3]?.includes('curiosity') || a[3]?.includes('okay')) bump('agreeableness', 12)
+  if (a[3]?.includes('annoyed')) bump('emotionalStability', -8)
+  if (a[3]?.includes('swap') || a[3]?.includes('three other')) bump('extraversion', 15)
+
+  // Q5 — Happiest: build/hands = conscientious, learn = openness, help = agreeableness, energy = extraversion
+  if (a[4]?.includes('build') || a[4]?.includes('hands')) bump('conscientiousness', 12)
+  if (a[4]?.includes('learn')) bump('openness', 15)
+  if (a[4]?.includes('help')) bump('agreeableness', 18)
+  if (a[4]?.includes('energy') || a[4]?.includes('surrounded')) bump('extraversion', 15)
+
+  // Q6 — Quote: depth = conscientiousness, curious = openness, people = agreeableness, ship = extraversion/conscientious
+  if (a[5]?.includes('depth')) bump('conscientiousness', 12)
+  if (a[5]?.includes('curious')) bump('openness', 15)
+  if (a[5]?.includes('people')) bump('agreeableness', 15)
+  if (a[5]?.includes('ship') || a[5]?.includes('polish')) bump('conscientiousness', 10)
+
+  // Q7 — Stress: withdraw = introvert, talk = extraversion, task = conscientious, body = emotional stability
+  if (a[6]?.includes('withdraw') || a[6]?.includes('recharge')) bump('extraversion', -15)
+  if (a[6]?.includes('talk')) bump('extraversion', 12)
+  if (a[6]?.includes('task') || a[6]?.includes('distract')) bump('conscientiousness', 10)
+  if (a[6]?.includes('body') || a[6]?.includes('walk') || a[6]?.includes('workout')) bump('emotionalStability', 15)
+
+  // Q8 — Draws you: unexpected = openness, listened = agreeableness, warm/easy = agreeableness, niche = openness
+  if (a[7]?.includes('unexpected')) bump('openness', 12)
+  if (a[7]?.includes('listened')) bump('agreeableness', 15)
+  if (a[7]?.includes('warm') || a[7]?.includes('easy')) bump('agreeableness', 12)
+  if (a[7]?.includes('niche')) bump('openness', 12)
+
+  // Q9 — Try new: trust recommended = agreeableness, data = conscientious, itch = openness, bored = openness
+  if (a[8]?.includes('trust') || a[8]?.includes('recommended')) bump('agreeableness', 12)
+  if (a[8]?.includes('data') || a[8]?.includes('convinced')) bump('conscientiousness', 12)
+  if (a[8]?.includes('itch') || a[8]?.includes('months')) bump('openness', 12)
+  if (a[8]?.includes('bored')) bump('openness', 15)
+
+  // Q10 — Compliment: person I call = agreeableness, make things = conscientiousness, see something = openness, easy = extraversion
+  if (a[9]?.includes('call when') || a[9]?.includes('hard')) bump('agreeableness', 15)
+  if (a[9]?.includes('make things happen')) bump('conscientiousness', 15)
+  if (a[9]?.includes('see something') || a[9]?.includes('no one else')) bump('openness', 15)
+  if (a[9]?.includes('easy')) bump('extraversion', 12)
+
+  // Pick a nickname from the dominant trait.
+  const entries = Object.entries(traits) as Array<[keyof typeof traits, number]>
+  entries.sort((x, y) => y[1] - x[1])
+  const [top] = entries
+  const nicknames: Record<keyof typeof traits, string> = {
+    openness: 'The Explorer',
+    conscientiousness: 'The Builder',
+    extraversion: 'The Connector',
+    agreeableness: 'The Anchor',
+    emotionalStability: 'The Steady One',
+  }
+  const summaries: Record<keyof typeof traits, string> = {
+    openness: 'A curious mind drawn to new ideas and fresh experiences over routine.',
+    conscientiousness: 'A grounded doer who turns intentions into finished, well-crafted things.',
+    extraversion: 'Energized by people — you spark rooms and gather good company easily.',
+    agreeableness: 'Warm, generous, and the person people call when things get hard.',
+    emotionalStability: 'A calm steady presence who handles turbulence without losing focus.',
+  }
+  const vibes: Record<keyof typeof traits, string[]> = {
+    openness: ['curious', 'inventive', 'open-minded'],
+    conscientiousness: ['reliable', 'focused', 'grounded'],
+    extraversion: ['warm', 'social', 'energizing'],
+    agreeableness: ['kind', 'loyal', 'thoughtful'],
+    emotionalStability: ['steady', 'composed', 'calm'],
+  }
+  return {
+    traits,
+    nickname: nicknames[top[0]],
+    summary: summaries[top[0]],
+    vibeTags: vibes[top[0]],
+  }
 }
 
 async function callLyzrPersonality(message: string): Promise<PersonalityProfile> {
