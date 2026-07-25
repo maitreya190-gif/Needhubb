@@ -1118,7 +1118,7 @@ class _Bubble extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                msg.replyTo!.senderName.isNotEmpty ? msg.replyTo!.senderName : (msg.replyTo!.isMe ? 'You' : widget.name),
+                                msg.replyTo!.isMe ? 'You' : msg.replyTo!.senderName,
                                 style: GoogleFonts.hankenGrotesk(fontSize: 11, fontWeight: FontWeight.bold, color: msg.isMe ? Colors.white70 : t.muted2),
                               ),
                               Text(
