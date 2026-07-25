@@ -104,19 +104,17 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     try {
       await acceptFriendRequest(req.id, api);
       if (!mounted) return;
-      setState(() {
-        _acceptedChats.insert(
-          0,
-          _ChatPreview(
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ConversationScreen(
             name: req.otherDisplayName ?? 'Friend',
             initials: _initialsFor(req.otherDisplayName ?? '?'),
-            lastMessage: 'Friend request accepted',
-            time: 'now',
-            unread: 0,
             avatarColor: NeedHubTokens.forest,
+            userId: req.fromUserId,
           ),
-        );
-      });
+        ),
+      );
+      _refreshChats();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -924,32 +922,44 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                               ),
                             ),
                             GestureDetector(
-                              onTap: alreadyFriend || sent
-                                  ? null
-                                  : () => _sendReal(u),
+                              onTap: alreadyFriend
+                                  ? () {
+                                      Navigator.pop(context);
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => ConversationScreen(
+                                            name: u.name,
+                                            initials: initials,
+                                            avatarColor: NeedHubTokens.forest,
+                                            userId: u.id,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  : sent
+                                      ? null
+                                      : () => _sendReal(u),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 150),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 7),
                                 decoration: BoxDecoration(
                                   color: alreadyFriend
-                                      ? t.chip
+                                      ? NeedHubTokens.forest
                                       : (sent ? t.chip : NeedHubTokens.clay),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: (alreadyFriend || sent)
+                                  border: sent
                                       ? Border.all(color: t.rail, width: 1)
                                       : null,
                                 ),
                                 child: Text(
                                   alreadyFriend
-                                      ? 'Friend'
+                                      ? 'Message'
                                       : (sent ? 'Pending' : 'Add'),
                                   style: GoogleFonts.hankenGrotesk(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: (alreadyFriend || sent)
-                                        ? t.muted
-                                        : Colors.white,
+                                    color: sent ? t.muted : Colors.white,
                                   ),
                                 ),
                               ),

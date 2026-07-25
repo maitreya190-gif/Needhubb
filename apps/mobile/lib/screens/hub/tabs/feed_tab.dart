@@ -35,6 +35,14 @@ class _FeedTabState extends ConsumerState<FeedTab> {
     feedNeedsNotifier.addListener(_bump);
     feedRankerNotifier.addListener(_bump);
     unreadCountNotifier.addListener(_bump);
+    Future.microtask(() async {
+      try {
+        final api = ref.read(needsApiProvider);
+        final result = await api.feed(sort: 'smart', take: 60);
+        feedNeedsNotifier.value = result.needs;
+        feedRankerNotifier.value = result.ranker;
+      } catch (_) {}
+    });
   }
 
   @override
@@ -1083,6 +1091,8 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
     super.initState();
     chitChatAvailableNotifier.addListener(_bump);
     chitchatRosterNotifier.addListener(_bump);
+    friendUserIdsNotifier.addListener(_bump);
+    outgoingRequestUserIdsNotifier.addListener(_bump);
     Future.delayed(const Duration(milliseconds: 650), () {
       if (mounted) setState(() => _loading = false);
     });
@@ -1101,6 +1111,8 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
   void dispose() {
     chitChatAvailableNotifier.removeListener(_bump);
     chitchatRosterNotifier.removeListener(_bump);
+    friendUserIdsNotifier.removeListener(_bump);
+    outgoingRequestUserIdsNotifier.removeListener(_bump);
     super.dispose();
   }
 

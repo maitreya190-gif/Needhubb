@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { badRequest, forbidden, notFound } from '../../lib/http-error'
 import { uploadFile, storageKey } from '../../lib/storage'
+import { isBlockedBetween, areFriends } from '../friends/friends.service'
 
 export const messagingRouter: IRouter = Router()
 
@@ -119,6 +120,13 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
 
     const recipient = await prisma.user.findUnique({ where: { id: recipientId }, select: { id: true } })
     if (!recipient) return next(notFound('User not found', 'USER_NOT_FOUND'))
+
+    if (await isBlockedBetween(senderId, recipientId)) {
+      return next(forbidden('Cannot message this user', 'BLOCKED'))
+    }
+    if (!await areFriends(senderId, recipientId)) {
+      return next(forbidden('Must be friends to send DMs', 'NOT_FRIENDS'))
+    }
 
     let imageUrl: string | null = null
     if (req.file) {
