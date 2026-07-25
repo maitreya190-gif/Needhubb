@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/user_state.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/messaging_api.dart';
 import '../../services/profiles_api.dart';
@@ -121,7 +122,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       try {
         final msgs = await api.messages(_resolvedThreadId!, limit: 50);
         if (!mounted) return;
-        final myId = myProfileNotifier.value?.id;
+        final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
         setState(() {
           _messages = msgs
               .map((m) => _Message(
@@ -129,7 +130,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     imageUrl: m.imageUrl,
                     isMe: myId != null && m.senderId == myId,
                     time: m.createdAt,
-                    reactions: m.reactions.values.map((e) => e.toString()).toList(),
+                    reactionsMap: _parseReactionsMap(m.reactions),
                     replyTo: m.replyTo != null ? _Message(
                       text: m.replyTo!.body.isEmpty ? null : m.replyTo!.body,
                       isMe: myId != null && m.replyTo!.senderId == myId,
@@ -157,24 +158,32 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   Future<void> _tail() async {
     if (_resolvedThreadId == null || widget.userId == null) return;
     final api = ref.read(messagingApiProvider);
-    final myId = myProfileNotifier.value?.id;
+    final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
     try {
       final newer = await api.messages(
         _resolvedThreadId!,
         limit: 30,
       );
 
+      bool hasNewMessage = false;
       setState(() {
         for (final m in newer.reversed) {
-          final existingIdx = _messages.indexWhere((existing) => existing.remoteId == m.id);
+          final existingIdx = _messages.indexWhere((existing) =>
+              existing.remoteId == m.id ||
+              (existing.remoteId == null &&
+                  existing.isMe &&
+                  myId != null &&
+                  m.senderId == myId &&
+                  existing.text == (m.body.isEmpty ? null : m.body)));
           if (existingIdx != -1) {
-            // Update existing message (e.g. for new reactions or read receipts)
             _messages[existingIdx] = _messages[existingIdx].copyWith(
-              reactions: m.reactions.values.map((e) => e.toString()).toList(),
+              remoteId: m.id,
+              reactionsMap: _parseReactionsMap(m.reactions),
               isRead: m.readAt != null,
             );
           } else {
             // Add new message
+            hasNewMessage = true;
             _messages.add(_Message(
               text: m.body.isEmpty ? null : m.body,
               imageUrl: m.imageUrl,
@@ -183,7 +192,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               isRead: m.readAt != null,
               remoteId: m.id,
               senderName: m.senderName,
-              reactions: m.reactions.values.map((e) => e.toString()).toList(),
+              reactionsMap: _parseReactionsMap(m.reactions),
               replyTo: m.replyTo != null ? _Message(
                 text: m.replyTo!.body.isEmpty ? null : m.replyTo!.body,
                 isMe: myId != null && m.replyTo!.senderId == myId,
@@ -197,7 +206,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           _lastRealMessageId = newer.first.id;
         }
       });
-      _scrollToBottom();
+      if (hasNewMessage) {
+        _scrollToBottom();
+      }
     } catch (_) {/* keep last state */}
   }
 
@@ -363,16 +374,18 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   }
 
   Future<void> _addReaction(int idx, String emoji) async {
+    if (idx < 0 || idx >= _messages.length) return;
     final msg = _messages[idx];
+    final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id ?? 'me';
+
     setState(() {
-      final reacts = List<String>.from(msg.reactions);
-      if (reacts.contains(emoji)) {
-        reacts.removeWhere((e) => e == emoji);
+      final updatedMap = Map<String, String>.from(msg.reactionsMap);
+      if (updatedMap[myId] == emoji) {
+        updatedMap.remove(myId);
       } else {
-        reacts.clear();
-        reacts.add(emoji);
+        updatedMap[myId] = emoji;
       }
-      _messages[idx] = msg.copyWith(reactions: reacts);
+      _messages[idx] = msg.copyWith(reactionsMap: updatedMap);
     });
 
     if (msg.remoteId != null) {
@@ -380,9 +393,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         final serverReactions = await ref.read(messagingApiProvider).react(msg.remoteId!, emoji);
         if (mounted && serverReactions != null) {
           setState(() {
-            _messages[idx] = _messages[idx].copyWith(
-              reactions: serverReactions.values.map((e) => e.toString()).toList(),
-            );
+            final currentIdx = _messages.indexWhere((m) => m.remoteId == msg.remoteId);
+            if (currentIdx != -1) {
+              _messages[currentIdx] = _messages[currentIdx].copyWith(
+                reactionsMap: _parseReactionsMap(serverReactions),
+              );
+            }
           });
         }
       } catch (_) {}
@@ -507,7 +523,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       children: [
                         '❤️', '👍', '🔥', '😂', '😮', '😢', '🙏', '👏', '🎉', '💡', '😍', '💯'
                       ].map((emoji) {
-                        final isSelected = message.reactions.contains(emoji);
+                        final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id ?? 'me';
+                        final isSelected = message.reactionsMap[myId] == emoji;
                         return _PopUpEmojiButton(
                           emoji: emoji,
                           isSelected: isSelected,
@@ -786,6 +803,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   }
                   if (item is _IndexedMessage) {
                     return GestureDetector(
+                      onDoubleTap: () {
+                        HapticFeedback.lightImpact();
+                        _addReaction(item.index, '❤️');
+                      },
                       onLongPress: () => _showReactionMenu(item.index, item.message),
                       child: Dismissible(
                         key: ValueKey('msg_${item.index}_${item.message.remoteId ?? item.message.time.millisecondsSinceEpoch}'),
@@ -817,9 +838,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                                   item.message.replyTo?.remoteId,
                                   item.message.replyTo?.time),
                             ),
-                            if (item.message.reactions.isNotEmpty)
+                            if (item.message.reactionsMap.isNotEmpty)
                               _ReactionsBadgeBar(
-                                reactions: item.message.reactions,
+                                reactionsMap: item.message.reactionsMap,
+                                currentUserId: ref.read(authProvider).userId ?? myProfileNotifier.value?.id ?? 'me',
                                 isMe: item.message.isMe,
                                 t: t,
                                 onToggleEmoji: (emoji) => _addReaction(item.index, emoji),
@@ -986,7 +1008,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   }
 }
 
-// ── Data classes ──────────────────────────────────────────────────────────────
+Map<String, String> _parseReactionsMap(Map<String, dynamic>? raw) {
+  if (raw == null) return const {};
+  final result = <String, String>{};
+  raw.forEach((key, val) {
+    if (val != null) result[key] = val.toString();
+  });
+  return result;
+}
 
 class _Message {
   final String? text;
@@ -995,7 +1024,7 @@ class _Message {
   final String? imageUrl;
   final bool isMe;
   final DateTime time;
-  final List<String> reactions;
+  final Map<String, String> reactionsMap;
   final _Message? replyTo;
   final bool isRead;
   /// Server message id — set for messages loaded from the API.
@@ -1008,12 +1037,14 @@ class _Message {
     this.imageUrl,
     required this.isMe,
     required this.time,
-    List<String>? reactions,
+    Map<String, String>? reactionsMap,
     this.replyTo,
     this.isRead = false,
     this.remoteId,
     this.senderName = '',
-  }) : reactions = reactions ?? [];
+  }) : reactionsMap = reactionsMap ?? const {};
+
+  List<String> get reactions => reactionsMap.values.toList();
 
   _Message copyWith({
     String? text,
@@ -1021,7 +1052,7 @@ class _Message {
     String? imageUrl,
     bool? isMe,
     DateTime? time,
-    List<String>? reactions,
+    Map<String, String>? reactionsMap,
     _Message? replyTo,
     bool? isRead,
     String? remoteId,
@@ -1033,7 +1064,7 @@ class _Message {
       imageUrl: imageUrl ?? this.imageUrl,
       isMe: isMe ?? this.isMe,
       time: time ?? this.time,
-      reactions: reactions ?? List.from(this.reactions),
+      reactionsMap: reactionsMap ?? Map.from(this.reactionsMap),
       replyTo: replyTo ?? this.replyTo,
       isRead: isRead ?? this.isRead,
       remoteId: remoteId ?? this.remoteId,
@@ -1102,13 +1133,15 @@ class _DateDivider extends StatelessWidget {
 
 
 class _ReactionsBadgeBar extends StatelessWidget {
-  final List<String> reactions;
+  final Map<String, String> reactionsMap;
+  final String currentUserId;
   final ValueChanged<String> onToggleEmoji;
   final NeedHubTokens t;
   final bool isMe;
 
   const _ReactionsBadgeBar({
-    required this.reactions,
+    required this.reactionsMap,
+    required this.currentUserId,
     required this.onToggleEmoji,
     required this.t,
     required this.isMe,
@@ -1116,7 +1149,7 @@ class _ReactionsBadgeBar extends StatelessWidget {
 
   Map<String, int> get _counts {
     final map = <String, int>{};
-    for (final r in reactions) {
+    for (final r in reactionsMap.values) {
       map[r] = (map[r] ?? 0) + 1;
     }
     return map;
@@ -1124,8 +1157,9 @@ class _ReactionsBadgeBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (reactions.isEmpty) return const SizedBox.shrink();
+    if (reactionsMap.isEmpty) return const SizedBox.shrink();
     final counts = _counts;
+    final myReaction = reactionsMap[currentUserId];
 
     return Padding(
       padding: EdgeInsets.only(
@@ -1137,9 +1171,11 @@ class _ReactionsBadgeBar extends StatelessWidget {
         spacing: 4,
         runSpacing: 4,
         children: counts.entries.map((entry) {
+          final isSelected = myReaction == entry.key;
           return _ReactionBadgeChip(
             emoji: entry.key,
             count: entry.value,
+            isSelected: isSelected,
             onTap: () => onToggleEmoji(entry.key),
             t: t,
           );
@@ -1152,12 +1188,14 @@ class _ReactionsBadgeBar extends StatelessWidget {
 class _ReactionBadgeChip extends StatefulWidget {
   final String emoji;
   final int count;
+  final bool isSelected;
   final VoidCallback onTap;
   final NeedHubTokens t;
 
   const _ReactionBadgeChip({
     required this.emoji,
     required this.count,
+    required this.isSelected,
     required this.onTap,
     required this.t,
   });
@@ -1172,6 +1210,9 @@ class _ReactionBadgeChipState extends State<_ReactionBadgeChip> {
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
+    final activeBg = widget.isSelected ? NeedHubTokens.clay.withValues(alpha: 0.18) : t.card;
+    final activeBorder = widget.isSelected ? NeedHubTokens.clay : t.rail;
+
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) => setState(() => _pressed = false),
@@ -1184,34 +1225,33 @@ class _ReactionBadgeChipState extends State<_ReactionBadgeChip> {
         scale: _pressed ? 0.9 : 1.0,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
           decoration: BoxDecoration(
-            color: t.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: NeedHubTokens.clay.withValues(alpha: 0.35),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            color: activeBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: activeBorder, width: widget.isSelected ? 1.4 : 1.0),
+            boxShadow: widget.isSelected
+                ? [
+                    BoxShadow(
+                      color: NeedHubTokens.clay.withValues(alpha: 0.15),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(widget.emoji, style: const TextStyle(fontSize: 13)),
+              Text(widget.emoji, style: const TextStyle(fontSize: 13.5)),
               if (widget.count > 1) ...[
-                const SizedBox(width: 3),
+                const SizedBox(width: 3.5),
                 Text(
                   '${widget.count}',
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: t.ink,
+                    fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w600,
+                    color: widget.isSelected ? NeedHubTokens.clay : t.ink,
                   ),
                 ),
               ],
@@ -1686,32 +1726,7 @@ class _Bubble extends StatelessWidget {
               ),
             ],
           ),
-          if (msg.reactions.isNotEmpty)
-            Padding(
-              padding: EdgeInsets.only(
-                  top: 4, left: msg.isMe ? 0 : 32, right: msg.isMe ? 4 : 0),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: t.card,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: t.rail, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 4)
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: msg.reactions
-                      .map((e) =>
-                          Text(e, style: const TextStyle(fontSize: 14)))
-                      .toList(),
-                ),
-              ),
-            ),
+
         ],
       ),
     );

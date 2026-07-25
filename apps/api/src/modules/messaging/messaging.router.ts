@@ -237,8 +237,9 @@ messagingRouter.post('/messages/:id/react', authenticate, async (req, res, next)
       return next(forbidden('Not allowed to react to this message', 'FORBIDDEN'))
     }
 
-    const currentReactions: Record<string, string> = 
-      (msg.reactions as Record<string, string> | null) || {}
+    const currentReactions: Record<string, string> = {
+      ...((msg.reactions as Record<string, string> | null) || {}),
+    }
     
     if (currentReactions[userId] === emoji) {
       delete currentReactions[userId]
@@ -250,6 +251,19 @@ messagingRouter.post('/messages/:id/react', authenticate, async (req, res, next)
       where: { id: msgId },
       data: { reactions: currentReactions },
     })
+
+    const recipientId = msg.senderId === userId ? (thread.userAId === userId ? thread.userBId : thread.userAId) : msg.senderId
+    if (recipientId !== userId && currentReactions[userId] === emoji) {
+      const reactor = await prisma.user.findUnique({ where: { id: userId }, select: { displayName: true } })
+      await pushNotification(prisma, {
+        userId: recipientId,
+        type: 'MESSAGE_RECEIVED',
+        title: reactor?.displayName ?? 'New reaction',
+        body: `Reacted ${emoji} to your message`,
+        refType: 'USER',
+        refId: userId,
+      })
+    }
 
     res.json({ ok: true, reactions: updated.reactions })
   } catch (err) { next(err) }

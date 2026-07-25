@@ -94,7 +94,7 @@ class DmMessage {
       body: j['body'] as String? ?? '',
       imageUrl: j['imageUrl'] as String?,
       replyTo: j['replyTo'] != null ? DmMessage.fromJson(j['replyTo'] as Map<String, dynamic>) : null,
-      reactions: j['reactions'] as Map<String, dynamic>? ?? const {},
+      reactions: j['reactions'] is Map ? (j['reactions'] as Map).cast<String, dynamic>() : const {},
       createdAt: _parseDateTime(j['createdAt']),
       readAt: j['readAt'] != null ? _parseDateTime(j['readAt']) : null,
     );
@@ -131,8 +131,8 @@ class MessagingApi {
 
   Future<Map<String, dynamic>?> react(String messageId, String emoji) async {
     final res = await _api.post('/chats/messages/$messageId/react', {'emoji': emoji});
-    if (res['reactions'] is Map<String, dynamic>) {
-      return res['reactions'] as Map<String, dynamic>;
+    if (res['reactions'] is Map) {
+      return (res['reactions'] as Map).cast<String, dynamic>();
     }
     return null;
   }
