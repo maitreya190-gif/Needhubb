@@ -124,9 +124,6 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
     if (await isBlockedBetween(senderId, recipientId)) {
       return next(forbidden('Cannot message this user', 'BLOCKED'))
     }
-    if (!await areFriends(senderId, recipientId)) {
-      return next(forbidden('Must be friends to send DMs', 'NOT_FRIENDS'))
-    }
 
     let imageUrl: string | null = null
     if (req.file) {
