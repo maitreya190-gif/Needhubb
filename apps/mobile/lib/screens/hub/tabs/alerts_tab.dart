@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../services/notification_navigator.dart';
 import '../../../services/notifications_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
@@ -170,7 +171,11 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                             _NotifRow(
                               notif: e.value,
                               t: t,
-                              onTap: () => _markOneRead(e.value),
+                              onTap: () => NotificationNavigator.handleTap(
+                                context: context,
+                                notif: e.value,
+                                ref: ref,
+                              ),
                             ),
                             if (!isLast)
                               Divider(color: t.rail, height: 1, indent: 76),

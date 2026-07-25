@@ -1,0 +1,214 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../screens/hub/conversation_screen.dart';
+import '../screens/hub/tabs/feed_tab.dart';
+import '../screens/needs/need_detail_screen.dart';
+import '../screens/person/person_screen.dart';
+import '../screens/redeem/redeem_screen.dart';
+import '../theme/tokens.dart';
+import 'needs_api.dart';
+import 'notifications_api.dart';
+import 'profiles_api.dart';
+import 'social_providers.dart';
+
+class NotificationNavigator {
+  static Future<void> handleTap({
+    required BuildContext context,
+    required NhNotification notif,
+    required WidgetRef ref,
+    bool isBottomSheet = false,
+  }) async {
+    // 1. Mark notification as read immediately (optimistic UI update)
+    final api = ref.read(notificationsApiProvider);
+    if (notif.isUnread) {
+      final now = DateTime.now();
+      notificationsListNotifier.value = notificationsListNotifier.value
+          .map((n) => n.id == notif.id
+              ? NhNotification(
+                  id: n.id,
+                  type: n.type,
+                  title: n.title,
+                  body: n.body,
+                  refType: n.refType,
+                  refId: n.refId,
+                  createdAt: n.createdAt,
+                  readAt: now,
+                )
+              : n)
+          .toList();
+      unreadCountNotifier.value =
+          (unreadCountNotifier.value - 1).clamp(0, 9999);
+      try {
+        await api.markRead(notif.id);
+      } catch (_) {}
+    }
+
+    if (!context.mounted) return;
+
+    // 2. Dismiss bottom sheet if open
+    if (isBottomSheet && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+
+    final type = notif.type.toUpperCase();
+    final refType = notif.refType?.toUpperCase();
+    final refId = notif.refId;
+
+    // Helper for loading feedback if network fetch is required
+    void showLoading() {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Opening...'),
+          duration: Duration(milliseconds: 600),
+        ),
+      );
+    }
+
+    // A. FRIEND_REQUEST_ACCEPTED or MESSAGE_RECEIVED -> Redirect directly to DM Conversation Screen!
+    if (type == 'FRIEND_REQUEST_ACCEPTED' ||
+        type == 'MESSAGE_RECEIVED' ||
+        type.contains('MESSAGE') ||
+        type.contains('CHAT')) {
+      if (refId != null && refId.isNotEmpty) {
+        showLoading();
+        try {
+          final profilesApi = ref.read(profilesApiProvider);
+          final user = await profilesApi.getById(refId);
+          if (!context.mounted) return;
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ConversationScreen(
+                name: user.displayName,
+                initials: _initials(user.displayName),
+                avatarColor: NeedHubTokens.forest,
+                avatarUrl: user.avatarUrl,
+                userId: user.id,
+              ),
+            ),
+          );
+          return;
+        } catch (_) {
+          // If refId is not a user ID, attempt opening ConversationScreen with refId as userId
+          if (context.mounted) {
+            final fallbackName = notif.body.split(' accepted').first;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ConversationScreen(
+                  name: fallbackName.isNotEmpty ? fallbackName : 'Chat',
+                  initials: _initials(fallbackName),
+                  avatarColor: NeedHubTokens.forest,
+                  userId: refId,
+                ),
+              ),
+            );
+            return;
+          }
+        }
+      }
+    }
+
+    // B. FRIEND_REQUEST_RECEIVED -> Redirect to Person Profile Screen or Connect Tab
+    if (type == 'FRIEND_REQUEST_RECEIVED' || type.contains('FRIEND')) {
+      if (refId != null && refId.isNotEmpty) {
+        showLoading();
+        try {
+          final profilesApi = ref.read(profilesApiProvider);
+          final user = await profilesApi.getById(refId);
+          if (!context.mounted) return;
+          Navigator.of(context).push(
+            PersonScreen.route(
+              name: user.displayName,
+              initials: _initials(user.displayName),
+              avatarColor: NeedHubTokens.forest,
+              avatarUrl: user.avatarUrl,
+              userId: user.id,
+            ),
+          );
+          return;
+        } catch (_) {}
+      }
+      if (context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const FeedTab(initialSurface: 'connect'),
+          ),
+        );
+        return;
+      }
+    }
+
+    // C. NEED_RESPONSE_RECEIVED / NEED_UPDATE / NEED_COMPLETED -> Redirect to Need Detail Screen
+    if (type == 'NEED_RESPONSE_RECEIVED' ||
+        type == 'NEED_UPDATE' ||
+        type == 'NEED_COMPLETED' ||
+        refType == 'NEED') {
+      if (refId != null && refId.isNotEmpty) {
+        showLoading();
+        try {
+          final needsApi = ref.read(needsApiProvider);
+          final need = await needsApi.getById(refId);
+          if (!context.mounted) return;
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
+          );
+          return;
+        } catch (_) {}
+      }
+      if (context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const FeedTab(initialSurface: 'earn'),
+          ),
+        );
+        return;
+      }
+    }
+
+    // D. REDEMPTION_READY -> Redirect to Redeem Screen
+    if (type == 'REDEMPTION_READY' || refType == 'REDEMPTION') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const RedeemScreen()),
+      );
+      return;
+    }
+
+    // E. REVIEW_RECEIVED / POINTS_AWARDED / CERT_APPROVED -> Open Person/User Profile
+    if (type == 'REVIEW_RECEIVED' ||
+        type == 'POINTS_AWARDED' ||
+        type == 'CERT_APPROVED' ||
+        type == 'CERT_REJECTED') {
+      if (refId != null && refId.isNotEmpty) {
+        Navigator.of(context).push(
+          PersonScreen.route(
+            name: notif.title,
+            initials: 'NH',
+            avatarColor: NeedHubTokens.forest,
+            userId: refId,
+          ),
+        );
+        return;
+      }
+    }
+
+    // Fallback: If refId exists, push PersonScreen
+    if (refId != null && refId.isNotEmpty) {
+      Navigator.of(context).push(
+        PersonScreen.route(
+          name: notif.title,
+          initials: 'NH',
+          avatarColor: NeedHubTokens.forest,
+          userId: refId,
+        ),
+      );
+    }
+  }
+
+  static String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts[0].isEmpty) return '?';
+    if (parts.length == 1) {
+      return parts[0].substring(0, parts[0].length.clamp(1, 2)).toUpperCase();
+    }
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+}

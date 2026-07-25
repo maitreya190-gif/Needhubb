@@ -6,6 +6,7 @@ import '../../../models/person.dart';
 import '../../../models/user_state.dart';
 import '../../../services/chitchat_api.dart';
 import '../../../services/needs_api.dart';
+import '../../../services/notification_navigator.dart';
 import '../../../services/notifications_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
@@ -1661,11 +1662,18 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
                 itemBuilder: (_, i) {
                   final n = list[i];
                   final color = _colorFor(n.type);
-                  return Container(
-                    color: n.isUnread
-                        ? color.withValues(alpha: 0.04)
-                        : Colors.transparent,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  return InkWell(
+                    onTap: () => NotificationNavigator.handleTap(
+                      context: context,
+                      notif: n,
+                      ref: ref,
+                      isBottomSheet: true,
+                    ),
+                    child: Container(
+                      color: n.isUnread
+                          ? color.withValues(alpha: 0.04)
+                          : Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1713,8 +1721,9 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
                         ),
                       ],
                     ),
-                  );
-                },
+                  ),
+                );
+              },
               ),
             ),
         ],
