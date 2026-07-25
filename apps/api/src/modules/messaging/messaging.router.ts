@@ -97,7 +97,7 @@ messagingRouter.get('/:threadId/messages', authenticate, async (req, res, next) 
       take: limit,
       include: {
         sender: { select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } } },
-        replyTo: { select: { id: true, body: true, sender: { select: { id: true, displayName: true } } } }
+        replyTo: { select: { id: true, body: true, imageUrl: true, senderId: true, createdAt: true, sender: { select: { id: true, displayName: true } } } }
       },
     })
     
@@ -187,7 +187,7 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
         include: {
           sender: { select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } } },
           thread: { select: { id: true } },
-          replyTo: { select: { id: true, body: true, sender: { select: { id: true, displayName: true } } } }
+          replyTo: { select: { id: true, body: true, imageUrl: true, senderId: true, createdAt: true, sender: { select: { id: true, displayName: true } } } }
         },
       })
       const preview = body ? body.slice(0, 60) : '📷 Image'

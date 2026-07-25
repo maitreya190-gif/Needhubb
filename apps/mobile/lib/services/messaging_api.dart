@@ -129,8 +129,12 @@ class MessagingApi {
 
   Future<void> deleteMessage(String id) => _api.delete('/chats/messages/$id');
 
-  Future<void> react(String messageId, String emoji) async {
-    await _api.post('/chats/messages/$messageId/react', {'emoji': emoji});
+  Future<Map<String, dynamic>?> react(String messageId, String emoji) async {
+    final res = await _api.post('/chats/messages/$messageId/react', {'emoji': emoji});
+    if (res['reactions'] is Map<String, dynamic>) {
+      return res['reactions'] as Map<String, dynamic>;
+    }
+    return null;
   }
 }
 

@@ -367,17 +367,24 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     setState(() {
       final reacts = List<String>.from(msg.reactions);
       if (reacts.contains(emoji)) {
-        reacts.remove(emoji);
+        reacts.removeWhere((e) => e == emoji);
       } else {
+        reacts.clear();
         reacts.add(emoji);
       }
       _messages[idx] = msg.copyWith(reactions: reacts);
-      _reactingIndex = null;
     });
 
     if (msg.remoteId != null) {
       try {
-        await ref.read(messagingApiProvider).react(msg.remoteId!, emoji);
+        final serverReactions = await ref.read(messagingApiProvider).react(msg.remoteId!, emoji);
+        if (mounted && serverReactions != null) {
+          setState(() {
+            _messages[idx] = _messages[idx].copyWith(
+              reactions: serverReactions.values.map((e) => e.toString()).toList(),
+            );
+          });
+        }
       } catch (_) {}
     }
   }
