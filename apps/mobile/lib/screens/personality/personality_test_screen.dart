@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -150,13 +151,37 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
       debugPrint('[PersonalityTest] submit failed: $e');
       if (mounted) {
         setState(() {
-          _error = 'Could not analyze your answers. $e';
+          _error = _friendlyError(e);
         });
       }
     } finally {
       // Always release the submitting flag so the button can be tried again.
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// Convert Dio / network errors into a message the user can act on.
+  String _friendlyError(Object e) {
+    if (e is DioException) {
+      final status = e.response?.statusCode;
+      final data = e.response?.data;
+      final code = data is Map ? data['code']?.toString() : null;
+      if (status == 401 || code == 'AUTH_REQUIRED') {
+        return 'Your session expired. Log out and log in, then retry.';
+      }
+      if (code == 'ALREADY_TAKEN') {
+        return "You've already taken the test — check your You tab.";
+      }
+      if (status == 400) {
+        final msg = data is Map ? data['error']?.toString() : null;
+        return msg ?? 'Something in your answers was invalid.';
+      }
+      if (status == 404) {
+        return 'This build is missing the personality endpoint — please restart the API server.';
+      }
+      return 'Network error (${status ?? "no response"}). Check your connection.';
+    }
+    return 'Could not analyze your answers. $e';
   }
 
   @override
