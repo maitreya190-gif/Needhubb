@@ -15,6 +15,8 @@ class AlertsTab extends ConsumerStatefulWidget {
 
 class _AlertsTabState extends ConsumerState<AlertsTab> {
   bool _busy = false;
+  bool _selectMode = false;
+  final Set<String> _selectedIds = {};
 
   @override
   void initState() {
@@ -50,7 +52,6 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
     final api = ref.read(notificationsApiProvider);
     try {
       await api.markAllRead();
-      // Optimistic local update.
       final now = DateTime.now();
       notificationsListNotifier.value = notificationsListNotifier.value
           .map((n) => NhNotification(
@@ -75,30 +76,217 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
     }
   }
 
-  Future<void> _markOneRead(NhNotification n) async {
-    if (!n.isUnread) return;
+  // ── Clear options bottom sheet ─────────────────────────────────────────
+  void _showClearSheet() {
+    final t = context.tokens;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: t.paper,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: t.rail,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Text('Clear Notifications',
+                style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 18, fontWeight: FontWeight.w700, color: t.ink)),
+            const SizedBox(height: 4),
+            Text('Choose which notifications to remove',
+                style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted)),
+            const SizedBox(height: 20),
+            _ClearOption(
+              icon: Icons.today_rounded,
+              label: 'Last 24 hours',
+              subtitle: 'Clear notifications from today',
+              color: NeedHubTokens.forest,
+              t: t,
+              onTap: () {
+                Navigator.pop(ctx);
+                _clearByRange('day');
+              },
+            ),
+            const SizedBox(height: 8),
+            _ClearOption(
+              icon: Icons.date_range_rounded,
+              label: 'Last 7 days',
+              subtitle: 'Clear notifications from this week',
+              color: NeedHubTokens.ochre,
+              t: t,
+              onTap: () {
+                Navigator.pop(ctx);
+                _clearByRange('week');
+              },
+            ),
+            const SizedBox(height: 8),
+            _ClearOption(
+              icon: Icons.delete_sweep_rounded,
+              label: 'All time',
+              subtitle: 'Clear all notifications permanently',
+              color: NeedHubTokens.clay,
+              t: t,
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmClearAll();
+              },
+            ),
+            const SizedBox(height: 8),
+            _ClearOption(
+              icon: Icons.checklist_rounded,
+              label: 'Select manually',
+              subtitle: 'Pick specific notifications to clear',
+              color: t.ink,
+              t: t,
+              onTap: () {
+                Navigator.pop(ctx);
+                setState(() {
+                  _selectMode = true;
+                  _selectedIds.clear();
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmClearAll() {
+    final t = context.tokens;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: t.paper,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Clear all notifications?',
+            style: GoogleFonts.bricolageGrotesque(
+                fontSize: 17, fontWeight: FontWeight.w700, color: t.ink)),
+        content: Text(
+            'This will permanently delete all your notifications. This action cannot be undone.',
+            style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted2)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel',
+                style: GoogleFonts.hankenGrotesk(
+                    fontWeight: FontWeight.w600, color: t.muted)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _clearByRange('all');
+            },
+            child: Text('Clear all',
+                style: GoogleFonts.hankenGrotesk(
+                    fontWeight: FontWeight.w700, color: NeedHubTokens.clay)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _clearByRange(String range) async {
+    if (_busy) return;
+    setState(() => _busy = true);
     final api = ref.read(notificationsApiProvider);
-    // Optimistic update.
-    final now = DateTime.now();
-    notificationsListNotifier.value = notificationsListNotifier.value
-        .map((x) => x.id == n.id
-            ? NhNotification(
-                id: x.id,
-                type: x.type,
-                title: x.title,
-                body: x.body,
-                refType: x.refType,
-                refId: x.refId,
-                createdAt: x.createdAt,
-                readAt: now,
-              )
-            : x)
-        .toList();
-    unreadCountNotifier.value =
-        (unreadCountNotifier.value - 1).clamp(0, 9999);
     try {
-      await api.markRead(n.id);
-    } catch (_) {/* revert would be noisy — just log */}
+      final deleted = await api.clearByRange(range);
+      // Optimistic: filter out from local list
+      final now = DateTime.now();
+      Duration? cutoff;
+      if (range == 'day') cutoff = const Duration(hours: 24);
+      if (range == 'week') cutoff = const Duration(days: 7);
+
+      if (cutoff != null) {
+        final threshold = now.subtract(cutoff);
+        notificationsListNotifier.value = notificationsListNotifier.value
+            .where((n) => n.createdAt.isBefore(threshold))
+            .toList();
+      } else {
+        // 'all'
+        notificationsListNotifier.value = [];
+      }
+
+      // Refresh unread count
+      try {
+        unreadCountNotifier.value = await api.unreadCount();
+      } catch (_) {}
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$deleted notification${deleted == 1 ? '' : 's'} cleared'),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _deleteSelected() async {
+    if (_busy || _selectedIds.isEmpty) return;
+    setState(() => _busy = true);
+    final api = ref.read(notificationsApiProvider);
+    try {
+      final deleted = await api.clearSelected(_selectedIds.toList());
+      notificationsListNotifier.value = notificationsListNotifier.value
+          .where((n) => !_selectedIds.contains(n.id))
+          .toList();
+      try {
+        unreadCountNotifier.value = await api.unreadCount();
+      } catch (_) {}
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$deleted notification${deleted == 1 ? '' : 's'} cleared'),
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _selectMode = false;
+          _selectedIds.clear();
+        });
+      }
+    }
+  }
+
+  Future<void> _deleteSingle(NhNotification notif) async {
+    final api = ref.read(notificationsApiProvider);
+    // Optimistic removal
+    notificationsListNotifier.value =
+        notificationsListNotifier.value.where((n) => n.id != notif.id).toList();
+    if (notif.isUnread) {
+      unreadCountNotifier.value =
+          (unreadCountNotifier.value - 1).clamp(0, 9999);
+    }
+    try {
+      await api.deleteOne(notif.id);
+    } catch (_) {/* best-effort */}
   }
 
   @override
@@ -117,22 +305,18 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
       final chatNotifs = groups['Chat']!;
       final bySender = <String, List<NhNotification>>{};
       for (final n in chatNotifs) {
-        final key = n.refId ?? n.id; // group by sender (refId) 
+        final key = n.refId ?? n.id;
         bySender.putIfAbsent(key, () => []).add(n);
       }
       final coalesced = <NhNotification>[];
       for (final entry in bySender.entries) {
         final senderNotifs = entry.value;
-        // Sort newest first
         senderNotifs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         final newest = senderNotifs.first;
         final count = senderNotifs.length;
         final hasUnread = senderNotifs.any((n) => n.isUnread);
-
-        // Build a clean sender name (strip any existing count suffix)
         final cleanTitle =
             newest.title.replaceAll(RegExp(r'\s*\(\d+ messages?\)'), '');
-
         coalesced.add(NhNotification(
           id: newest.id,
           type: newest.type,
@@ -144,7 +328,6 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
           readAt: hasUnread ? null : newest.readAt,
         ));
       }
-      // Sort coalesced list newest first
       coalesced.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       groups['Chat'] = coalesced;
     }
@@ -157,32 +340,115 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
         bottom: false,
         child: Column(
           children: [
+            // ── Header ───────────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               child: Row(
                 children: [
                   Text('Alerts',
                       style: GoogleFonts.bricolageGrotesque(
-                          fontSize: 26, fontWeight: FontWeight.w800, color: t.ink)),
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: t.ink)),
                   const Spacer(),
-                  TextButton(
-                    onPressed: _busy ? null : _markAllRead,
-                    child: Text('Mark all read',
-                        style: GoogleFonts.hankenGrotesk(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: NeedHubTokens.clay)),
-                  ),
+                  if (_selectMode) ...[
+                    TextButton(
+                      onPressed: () => setState(() {
+                        _selectMode = false;
+                        _selectedIds.clear();
+                      }),
+                      child: Text('Cancel',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: t.muted)),
+                    ),
+                  ] else ...[
+                    TextButton(
+                      onPressed: _busy ? null : _markAllRead,
+                      child: Text('Mark all read',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: NeedHubTokens.clay)),
+                    ),
+                  ],
                 ],
               ),
             ),
+            // ── Sub-header: Clear button & selection actions ─────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Row(
+                children: [
+                  if (_selectMode) ...[
+                    // Select-all toggle
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          if (_selectedIds.length == list.length) {
+                            _selectedIds.clear();
+                          } else {
+                            _selectedIds
+                              ..clear()
+                              ..addAll(list.map((n) => n.id));
+                          }
+                        });
+                      },
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _selectedIds.length == list.length
+                                ? Icons.check_box_rounded
+                                : Icons.check_box_outline_blank_rounded,
+                            size: 20,
+                            color: NeedHubTokens.clay,
+                          ),
+                          const SizedBox(width: 6),
+                          Text('Select all',
+                              style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: t.muted)),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    Text('${_selectedIds.length} selected',
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12, color: t.muted)),
+                    const SizedBox(width: 12),
+                    _PillButton(
+                      label: 'Delete',
+                      icon: Icons.delete_outline_rounded,
+                      color: NeedHubTokens.clay,
+                      enabled: _selectedIds.isNotEmpty && !_busy,
+                      onTap: _deleteSelected,
+                    ),
+                  ] else ...[
+                    const Spacer(),
+                    if (list.isNotEmpty)
+                      _PillButton(
+                        label: 'Clear',
+                        icon: Icons.filter_list_off_rounded,
+                        color: t.muted,
+                        enabled: !_busy,
+                        onTap: _showClearSheet,
+                      ),
+                  ],
+                ],
+              ),
+            ),
+            // ── Body ─────────────────────────────────────────────────────
             if (list.isEmpty)
               Expanded(
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.notifications_none_rounded, size: 44, color: t.muted),
+                      Icon(Icons.notifications_none_rounded,
+                          size: 44, color: t.muted),
                       const SizedBox(height: 12),
                       Text('No notifications yet',
                           style: GoogleFonts.hankenGrotesk(
@@ -203,17 +469,48 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                     return [
                       _GroupHeader(label: group, color: groupColor, t: t),
                       ...alerts.asMap().entries.map((e) {
+                        final n = e.value;
                         final isLast = e.key == alerts.length - 1;
                         return Column(
                           children: [
-                            _NotifRow(
-                              notif: e.value,
-                              t: t,
-                              onTap: () => NotificationNavigator.handleTap(
-                                context: context,
-                                notif: e.value,
-                                ref: ref,
+                            Dismissible(
+                              key: ValueKey(n.id),
+                              direction: _selectMode
+                                  ? DismissDirection.none
+                                  : DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                color: NeedHubTokens.clay.withValues(alpha: 0.15),
+                                padding: const EdgeInsets.only(right: 24),
+                                child: const Icon(Icons.delete_outline_rounded,
+                                    color: NeedHubTokens.clay, size: 22),
                               ),
+                              onDismissed: (_) => _deleteSingle(n),
+                              child: _selectMode
+                                  ? _SelectableNotifRow(
+                                      notif: n,
+                                      t: t,
+                                      selected: _selectedIds.contains(n.id),
+                                      onToggle: () {
+                                        setState(() {
+                                          if (_selectedIds.contains(n.id)) {
+                                            _selectedIds.remove(n.id);
+                                          } else {
+                                            _selectedIds.add(n.id);
+                                          }
+                                        });
+                                      },
+                                    )
+                                  : _NotifRow(
+                                      notif: n,
+                                      t: t,
+                                      onTap: () =>
+                                          NotificationNavigator.handleTap(
+                                        context: context,
+                                        notif: n,
+                                        ref: ref,
+                                      ),
+                                    ),
                             ),
                             if (!isLast)
                               Divider(color: t.rail, height: 1, indent: 76),
@@ -258,6 +555,8 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
         return NeedHubTokens.forest;
       case 'Earn':
         return NeedHubTokens.ochre;
+      case 'Chat':
+        return NeedHubTokens.clay;
       case 'Impact':
         return NeedHubTokens.clay;
       default:
@@ -266,12 +565,130 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
   }
 }
 
+// ── Pill button widget ─────────────────────────────────────────────────────────
+
+class _PillButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _PillButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: AnimatedOpacity(
+        opacity: enabled ? 1.0 : 0.4,
+        duration: const Duration(milliseconds: 200),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: color),
+              const SizedBox(width: 5),
+              Text(label,
+                  style: GoogleFonts.hankenGrotesk(
+                      fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Clear option tile ──────────────────────────────────────────────────────────
+
+class _ClearOption extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final Color color;
+  final NeedHubTokens t;
+  final VoidCallback onTap;
+
+  const _ClearOption({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.color,
+    required this.t,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 20, color: color),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: t.ink)),
+                    const SizedBox(height: 2),
+                    Text(subtitle,
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12, color: t.muted)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, size: 20, color: t.muted),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Group header ───────────────────────────────────────────────────────────────
+
 class _GroupHeader extends StatelessWidget {
   final String label;
   final Color color;
   final NeedHubTokens t;
 
-  const _GroupHeader({required this.label, required this.color, required this.t});
+  const _GroupHeader(
+      {required this.label, required this.color, required this.t});
 
   @override
   Widget build(BuildContext context) {
@@ -298,6 +715,8 @@ class _GroupHeader extends StatelessWidget {
     );
   }
 }
+
+// ── Notification row ───────────────────────────────────────────────────────────
 
 class _NotifRow extends StatelessWidget {
   final NhNotification notif;
@@ -391,19 +810,21 @@ class _NotifRow extends StatelessWidget {
                               fontWeight: notif.isUnread
                                   ? FontWeight.w700
                                   : FontWeight.w600,
-                              color: t.ink,
+                              color: context.tokens.ink,
                             )),
                       ),
                       const SizedBox(width: 8),
                       Text(_timeAgo,
                           style: GoogleFonts.hankenGrotesk(
-                              fontSize: 12, color: t.muted)),
+                              fontSize: 12, color: context.tokens.muted)),
                     ],
                   ),
                   const SizedBox(height: 3),
                   Text(notif.body,
                       style: GoogleFonts.hankenGrotesk(
-                          fontSize: 13, color: t.muted2, height: 1.4)),
+                          fontSize: 13,
+                          color: context.tokens.muted2,
+                          height: 1.4)),
                 ],
               ),
             ),
@@ -419,6 +840,70 @@ class _NotifRow extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Selectable notification row (manual selection mode) ────────────────────────
+
+class _SelectableNotifRow extends StatelessWidget {
+  final NhNotification notif;
+  final NeedHubTokens t;
+  final bool selected;
+  final VoidCallback onToggle;
+
+  const _SelectableNotifRow({
+    required this.notif,
+    required this.t,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onToggle,
+      child: Container(
+        color: selected
+            ? NeedHubTokens.clay.withValues(alpha: 0.08)
+            : (notif.isUnread
+                ? NeedHubTokens.clay.withValues(alpha: 0.03)
+                : Colors.transparent),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Checkbox
+            Icon(
+              selected
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              size: 22,
+              color: selected ? NeedHubTokens.clay : t.muted,
+            ),
+            const SizedBox(width: 10),
+            // Notification content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(notif.title,
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: t.ink)),
+                  const SizedBox(height: 2),
+                  Text(notif.body,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13, color: t.muted2)),
+                ],
+              ),
+            ),
           ],
         ),
       ),

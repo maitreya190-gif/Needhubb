@@ -61,6 +61,22 @@ class NotificationsApi {
 
   Future<void> markAllRead() =>
       _api.post('/notifications/read-all', const {});
+
+  /// Delete a single notification.
+  Future<void> deleteOne(String id) =>
+      _api.delete('/notifications/$id');
+
+  /// Bulk clear notifications by range: 'day', 'week', or 'all'.
+  Future<int> clearByRange(String range) async {
+    final r = await _api.post('/notifications/clear', {'range': range});
+    return (r['deleted'] as int?) ?? 0;
+  }
+
+  /// Delete selected notifications by their IDs.
+  Future<int> clearSelected(List<String> ids) async {
+    final r = await _api.post('/notifications/clear-selected', {'ids': ids});
+    return (r['deleted'] as int?) ?? 0;
+  }
 }
 
 final notificationsListNotifier = ValueNotifier<List<NhNotification>>([
