@@ -64,24 +64,29 @@ class NotificationNavigator {
       );
     }
 
-    // A. FRIEND_REQUEST_ACCEPTED or MESSAGE_RECEIVED -> ALWAYS Redirect directly to DM Conversation Screen!
-    final isFriendAccepted = type == 'FRIEND_REQUEST_ACCEPTED' ||
+    // A. CHAT ROUTING: FRIEND_REQUEST_ACCEPTED, MESSAGE_RECEIVED, or NEED_ACCEPTED
+    final isChatRouting = type == 'FRIEND_REQUEST_ACCEPTED' ||
         type.contains('FRIEND_ACCEPTED') ||
-        notif.title.toLowerCase().contains('accepted') ||
-        notif.body.toLowerCase().contains('accepted your friend request');
-
-    final isDmOrChat = isFriendAccepted ||
         type == 'MESSAGE_RECEIVED' ||
         type.contains('MESSAGE') ||
-        type.contains('CHAT');
+        type.contains('CHAT') ||
+        type == 'NEED_ACCEPTED' ||
+        notif.title.toLowerCase().contains('accepted');
 
-    if (isDmOrChat) {
-      final nameFromBody = notif.body.contains(' accepted')
-          ? notif.body.split(' accepted').first
-          : (notif.body.contains(' sent') ? notif.body.split(' sent').first : notif.title);
+    if (isChatRouting) {
+      String chatName = 'Chat';
+      if (notif.body.toLowerCase().contains(' accepted')) {
+        chatName = notif.body.split(RegExp(r'(?i) accepted')).first.trim();
+      } else if (notif.body.toLowerCase().contains(' sent')) {
+        chatName = notif.body.split(RegExp(r'(?i) sent')).first.trim();
+      } else if (notif.title.toLowerCase().contains('accepted')) {
+        chatName = notif.title.replaceFirst(RegExp(r'(?i)Your req has been '), '').replaceFirst(RegExp(r'(?i)accepted'), '').trim();
+      }
+      if (chatName.isEmpty) chatName = notif.title;
 
       if (refId != null && refId.isNotEmpty) {
         showLoading();
+        // 1. Try to fetch as a User
         try {
           final profilesApi = ref.read(profilesApiProvider);
           final user = await profilesApi.getById(refId);
@@ -98,52 +103,55 @@ class NotificationNavigator {
             ),
           );
           return;
-        } catch (_) {
-          if (context.mounted) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ConversationScreen(
-                  name: nameFromBody.isNotEmpty ? nameFromBody : 'Chat',
-                  initials: _initials(nameFromBody),
-                  avatarColor: NeedHubTokens.forest,
-                  userId: refId,
-                ),
-              ),
-            );
-            return;
-          }
-        }
-      } else {
-        if (context.mounted) {
+        } catch (_) {}
+
+        // 2. Try to fetch as a Need (if refId is a Need, open chat with the Poster)
+        try {
+          final needsApi = ref.read(needsApiProvider);
+          final need = await needsApi.getById(refId);
+          if (!context.mounted) return;
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => ConversationScreen(
-                name: nameFromBody.isNotEmpty ? nameFromBody : 'Chat',
-                initials: _initials(nameFromBody),
+                name: need.poster.displayName,
+                initials: _initials(need.poster.displayName),
                 avatarColor: NeedHubTokens.forest,
+                avatarUrl: need.poster.profile?.avatarUrl,
+                userId: need.poster.id,
               ),
             ),
           );
           return;
-        }
+        } catch (_) {}
+      }
+      
+      // Fallback for chat
+      if (context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ConversationScreen(
+              name: chatName,
+              initials: _initials(chatName),
+              avatarColor: NeedHubTokens.forest,
+              userId: refId,
+            ),
+          ),
+        );
+        return;
       }
     }
 
-    // B. NEED_RESPONSE_RECEIVED / NEED_UPDATE / NEED_OFFER / NEED_COMPLETED / NEED_ACCEPTED -> ALWAYS Redirect directly to NeedDetailScreen for exact target need!
+    // B. NEED ROUTING: NEED_RESPONSE_RECEIVED, NEED_UPDATE, NEED_COMPLETED, NEED_OFFER
     final isNeedNotif = type == 'NEED_RESPONSE_RECEIVED' ||
         type == 'NEED_UPDATE' ||
         type == 'NEED_COMPLETED' ||
-        type == 'NEED_ACCEPTED' ||
         type == 'NEED_OFFER' ||
         type.contains('NEED') ||
         type.contains('OFFER') ||
-        refType == 'NEED' ||
-        refType == 'need';
+        refType == 'NEED';
 
     if (isNeedNotif) {
       Need? targetNeed;
-
-      // 1. Check local mockNeeds for matching id or title
       if (refId != null && refId.isNotEmpty) {
         for (final n in mockNeeds) {
           if (n.id == refId) {
@@ -152,7 +160,6 @@ class NotificationNavigator {
           }
         }
       }
-
       if (targetNeed == null) {
         for (final n in mockNeeds) {
           if (notif.body.toLowerCase().contains(n.title.toLowerCase()) ||
@@ -162,125 +169,88 @@ class NotificationNavigator {
           }
         }
       }
-
       if (targetNeed != null && context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => NeedDetailScreen(need: targetNeed!)),
-        );
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => NeedDetailScreen(need: targetNeed!)));
         return;
       }
 
-      // 2. Fetch from API if refId is provided
       if (refId != null && refId.isNotEmpty) {
         showLoading();
         try {
           final needsApi = ref.read(needsApiProvider);
           final fetched = await needsApi.getById(refId);
           if (!context.mounted) return;
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => NeedDetailScreen(need: fetched)),
-          );
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => NeedDetailScreen(need: fetched)));
           return;
         } catch (_) {}
       }
 
-      // 3. Fallback: Open first need in mockNeeds directly
-      if (context.mounted) {
-        final fallback = mockNeeds.isNotEmpty ? mockNeeds.first : null;
-        if (fallback != null) {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => NeedDetailScreen(need: fallback)),
-          );
-        }
+      if (context.mounted && mockNeeds.isNotEmpty) {
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => NeedDetailScreen(need: mockNeeds.first)));
         return;
       }
     }
 
-    // C. FRIEND_REQUEST_RECEIVED -> Redirect directly to Person Profile Screen for that user (where Accept/Decline decision card is displayed)
-    if (type == 'FRIEND_REQUEST_RECEIVED' || (type.contains('FRIEND') && !isFriendAccepted)) {
-      final nameFromBody = notif.body.contains(' sent')
-          ? notif.body.split(' sent').first
-          : notif.title;
-
+    // C. FRIEND REQUEST RECEIVED -> Person Profile
+    if (type == 'FRIEND_REQUEST_RECEIVED' || type.contains('FRIEND')) {
+      final nameFromBody = notif.body.contains(' sent') ? notif.body.split(' sent').first : notif.title;
       if (refId != null && refId.isNotEmpty) {
         showLoading();
         try {
           final profilesApi = ref.read(profilesApiProvider);
           final user = await profilesApi.getById(refId);
           if (!context.mounted) return;
-          Navigator.of(context).push(
-            PersonScreen.route(
-              name: user.displayName,
-              initials: _initials(user.displayName),
-              avatarColor: NeedHubTokens.forest,
-              avatarUrl: user.avatarUrl,
-              userId: user.id,
-            ),
-          );
+          Navigator.of(context).push(PersonScreen.route(
+            name: user.displayName, initials: _initials(user.displayName),
+            avatarColor: NeedHubTokens.forest, avatarUrl: user.avatarUrl, userId: user.id,
+          ));
           return;
-        } catch (_) {
-          if (context.mounted) {
-            Navigator.of(context).push(
-              PersonScreen.route(
-                name: nameFromBody.isNotEmpty ? nameFromBody : 'Friend Request',
-                initials: _initials(nameFromBody),
-                avatarColor: NeedHubTokens.forest,
-                userId: refId,
-              ),
-            );
-            return;
-          }
-        }
-      } else {
-        if (context.mounted) {
-          Navigator.of(context).push(
-            PersonScreen.route(
-              name: nameFromBody.isNotEmpty ? nameFromBody : 'Friend Request',
-              initials: _initials(nameFromBody),
-              avatarColor: NeedHubTokens.forest,
-            ),
-          );
-          return;
-        }
+        } catch (_) {}
       }
-    }
-
-    // D. REDEMPTION_READY -> Redirect to Redeem Screen
-    if (type == 'REDEMPTION_READY' || refType == 'REDEMPTION') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const RedeemScreen()),
-      );
-      return;
-    }
-
-    // E. REVIEW_RECEIVED / POINTS_AWARDED / CERT_APPROVED -> Open Person/User Profile
-    if (type == 'REVIEW_RECEIVED' ||
-        type == 'POINTS_AWARDED' ||
-        type == 'CERT_APPROVED' ||
-        type == 'CERT_REJECTED') {
-      if (refId != null && refId.isNotEmpty) {
-        Navigator.of(context).push(
-          PersonScreen.route(
-            name: notif.title,
-            initials: 'NH',
-            avatarColor: NeedHubTokens.forest,
-            userId: refId,
-          ),
-        );
+      if (context.mounted) {
+        Navigator.of(context).push(PersonScreen.route(
+          name: nameFromBody, initials: _initials(nameFromBody), avatarColor: NeedHubTokens.forest, userId: refId,
+        ));
         return;
       }
     }
 
-    // Fallback: If refId exists, push PersonScreen
-    if (refId != null && refId.isNotEmpty) {
-      Navigator.of(context).push(
-        PersonScreen.route(
-          name: notif.title,
-          initials: 'NH',
-          avatarColor: NeedHubTokens.forest,
-          userId: refId,
-        ),
-      );
+    // D. REDEMPTION
+    if (type == 'REDEMPTION_READY' || refType == 'REDEMPTION') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RedeemScreen()));
+      return;
+    }
+
+    // E. IMPACT (REVIEW, POINTS, CERT) -> Try Need, then Try User
+    if (type == 'REVIEW_RECEIVED' || type == 'POINTS_AWARDED' || type.contains('CERT_')) {
+      if (refId != null && refId.isNotEmpty) {
+        showLoading();
+        try {
+          final needsApi = ref.read(needsApiProvider);
+          final need = await needsApi.getById(refId);
+          if (!context.mounted) return;
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)));
+          return;
+        } catch (_) {}
+
+        try {
+          final profilesApi = ref.read(profilesApiProvider);
+          final user = await profilesApi.getById(refId);
+          if (!context.mounted) return;
+          Navigator.of(context).push(PersonScreen.route(
+            name: user.displayName, initials: _initials(user.displayName),
+            avatarColor: NeedHubTokens.forest, avatarUrl: user.avatarUrl, userId: user.id,
+          ));
+          return;
+        } catch (_) {}
+      }
+    }
+
+    // F. Fallback
+    if (refId != null && refId.isNotEmpty && context.mounted) {
+      Navigator.of(context).push(PersonScreen.route(
+        name: notif.title, initials: 'NH', avatarColor: NeedHubTokens.forest, userId: refId,
+      ));
     }
   }
 
