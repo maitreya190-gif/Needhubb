@@ -702,7 +702,14 @@ class _RealFriendRequestCard extends StatelessWidget {
 
 // ── Username search sheet ─────────────────────────────────────────────────────
 
-const _mockUsers = <({String name, String username, String initials, Color color})>[];
+const _mockUsers = <({String name, String username, String initials, Color color})>[
+  (name: 'Aarav Sharma', username: 'aarav_sharma', initials: 'AS', color: NeedHubTokens.forest),
+  (name: 'Anika Patel', username: 'anika_patel', initials: 'AP', color: NeedHubTokens.clay),
+  (name: 'Ananya Verma', username: 'ananya_v', initials: 'AV', color: NeedHubTokens.ochre),
+  (name: 'Priya Nair', username: 'priya_nair', initials: 'PN', color: NeedHubTokens.forest),
+  (name: 'Rohan Mehta', username: 'rohan_m', initials: 'RM', color: NeedHubTokens.clay),
+  (name: 'Karan Joshi', username: 'karan_j', initials: 'KJ', color: NeedHubTokens.ochre),
+];
 
 class _SearchUserSheet extends ConsumerStatefulWidget {
   const _SearchUserSheet();
