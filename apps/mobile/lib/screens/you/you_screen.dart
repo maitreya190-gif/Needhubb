@@ -15,6 +15,7 @@ import '../../services/uploads_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../history/history_screen.dart';
+import '../hub/tabs/feed_tab.dart';
 import '../needs/need_detail_screen.dart';
 import '../redeem/redeem_screen.dart';
 import 'edit_profile_screen.dart';
