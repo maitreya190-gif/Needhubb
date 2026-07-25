@@ -328,7 +328,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     DateTime? lastDate;
     for (int i = 0; i < _messages.length; i++) {
       final m = _messages[i];
-      final d = DateTime(m.time.year, m.time.month, m.time.day);
+      final localTime = m.time.toLocal();
+      final d = DateTime(localTime.year, localTime.month, localTime.day);
       if (lastDate == null || d != lastDate) {
         items.add(_DateDividerData(d));
         lastDate = d;
@@ -632,8 +633,9 @@ class _Message {
   }
 
   String get timeLabel {
-    final h = time.hour.toString().padLeft(2, '0');
-    final m = time.minute.toString().padLeft(2, '0');
+    final localTime = time.toLocal();
+    final h = localTime.hour.toString().padLeft(2, '0');
+    final m = localTime.minute.toString().padLeft(2, '0');
     return '$h:$m';
   }
 }
@@ -657,12 +659,14 @@ class _DateDivider extends StatelessWidget {
   const _DateDivider({required this.date, required this.t});
 
   String get _label {
+    final localDate = date.toLocal();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
-    if (date == today) return 'Today';
-    if (date == yesterday) return 'Yesterday';
-    return '${date.day}/${date.month}/${date.year}';
+    final msgDay = DateTime(localDate.year, localDate.month, localDate.day);
+    if (msgDay == today) return 'Today';
+    if (msgDay == yesterday) return 'Yesterday';
+    return '${localDate.day}/${localDate.month}/${localDate.year}';
   }
 
   @override
