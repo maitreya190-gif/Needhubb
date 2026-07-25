@@ -987,21 +987,26 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   Widget _buildFeedbackSection(BuildContext context, NeedHubTokens t) {
     final currentUserId = ref.read(authProvider).userId;
     final acceptedOffer = _realOffers.firstWhere(
-      (o) => o.status == 'ACCEPTED',
-      orElse: () => const _OfferData(
-        initials: '?',
-        name: 'Helper',
-        note: '',
-        amount: '—',
-        tint: NeedHubTokens.forest,
-      ),
+      (o) => o.status.toUpperCase() == 'ACCEPTED',
+      orElse: () => _realOffers.isNotEmpty
+          ? _realOffers.first
+          : const _OfferData(
+              initials: '?',
+              name: 'User',
+              note: '',
+              amount: '—',
+              tint: NeedHubTokens.forest,
+            ),
     );
 
     final isPoster = _isPoster;
     final isAcceptedHelper = acceptedOffer.responderId == currentUserId;
     final isParticipant = isPoster || isAcceptedHelper;
 
-    final counterpartyName = isPoster ? acceptedOffer.name : need.authorName;
+    final rawCounterpartyName = isPoster ? acceptedOffer.name : need.authorName;
+    final counterpartyName = (rawCounterpartyName.isEmpty || rawCounterpartyName == 'a')
+        ? (isPoster ? 'Helper' : 'Poster')
+        : rawCounterpartyName;
     final counterpartyId = isPoster ? acceptedOffer.responderId : need.posterId;
 
     final myReview = _needReviews.firstWhere(

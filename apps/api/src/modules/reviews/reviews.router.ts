@@ -33,21 +33,29 @@ reviewsRouter.post('/', authenticate, async (req, res, next) => {
     const need = await prisma.need.findUnique({
       where: { id: needId },
       include: {
-        responses: { where: { status: 'ACCEPTED' }, select: { responderId: true } },
+        responses: { select: { responderId: true, status: true } },
       },
     })
     if (!need) return next(notFound('Need not found'))
-    if (need.status !== 'FULFILLED' && need.status !== 'IN_PROGRESS')
+
+    const acceptedResponses = need.responses.filter((r) => r.status.toUpperCase() === 'ACCEPTED')
+    const hasAcceptedOffer = acceptedResponses.length > 0
+
+    if (need.status !== 'FULFILLED' && need.status !== 'IN_PROGRESS' && !hasAcceptedOffer)
       return next(unprocessable('Need is not fulfilled or accepted yet', 'NEED_NOT_FULFILLED'))
+
+    if (need.status === 'OPEN' && hasAcceptedOffer) {
+      await prisma.need.update({ where: { id: needId }, data: { status: 'FULFILLED' } })
+    }
 
     // Reviewer must have been either the poster or an accepted responder.
     const isPoster = need.posterId === me
-    const isAcceptedResponder = need.responses.some((r) => r.responderId === me)
+    const isAcceptedResponder = acceptedResponses.some((r) => r.responderId === me)
     if (!isPoster && !isAcceptedResponder)
       return next(forbidden('Not a participant of this need', 'NOT_PARTICIPANT'))
 
     // Reviewee must be the counterparty.
-    const counterpartyIds = new Set<string>([need.posterId, ...need.responses.map((r) => r.responderId)])
+    const counterpartyIds = new Set<string>([need.posterId, ...acceptedResponses.map((r) => r.responderId)])
     counterpartyIds.delete(me)
     if (!counterpartyIds.has(revieweeId))
       return next(badRequest('Reviewee was not a participant', 'INVALID_REVIEWEE'))
@@ -206,7 +214,7 @@ reviewsRouter.get('/need/:needId', async (req, res, next) => {
 
     const need = await prisma.need.findUnique({
       where: { id: req.params.needId },
-      include: { responses: { where: { status: 'ACCEPTED' }, select: { responderId: true } } },
+      include: { responses: { select: { responderId: true, status: true } } },
     })
     if (!need) return next(notFound('Need not found'))
 
@@ -219,7 +227,8 @@ reviewsRouter.get('/need/:needId', async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
     })
 
-    const participants = new Set<string>([need.posterId, ...need.responses.map((r) => r.responderId)])
+    const acceptedResponses = need.responses.filter((r) => r.status.toUpperCase() === 'ACCEPTED')
+    const participants = new Set<string>([need.posterId, ...acceptedResponses.map((r) => r.responderId)])
     const isParticipant = me != null && participants.has(me)
 
     const sanitized = reviews.map((r) => ({
