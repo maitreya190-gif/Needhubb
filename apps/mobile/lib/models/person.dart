@@ -21,6 +21,7 @@ class Person {
   final int points;
   final bool isOnline;
   final String? avatarUrl;
+  final String? gender;
 
   const Person({
     required this.id,
@@ -28,6 +29,7 @@ class Person {
     required this.initials,
     required this.avatarColor,
     this.avatarUrl,
+    this.gender,
     required this.location,
     required this.distanceKm,
     required this.interests,

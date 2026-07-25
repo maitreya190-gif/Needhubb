@@ -10,6 +10,7 @@ import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/profiles_api.dart';
+import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_button.dart';
 import '../../widgets/nh_text_field.dart';
