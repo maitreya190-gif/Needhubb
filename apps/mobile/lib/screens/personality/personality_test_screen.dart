@@ -290,6 +290,49 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                         ),
                       ),
                     ],
+                    // Big inline submit button on the last question so it
+                    // can never be hidden by device chrome or a broken
+                    // bottom bar layout. Always tappable — _submit()
+                    // handles missing answers itself.
+                    if (isLast) ...[
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton(
+                          onPressed: _submitting ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: NeedHubTokens.clay,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: _submitting
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white))
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.check_rounded,
+                                        size: 20, color: Colors.white),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Submit test',
+                                      style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: Colors.white),
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                   ],
                 ),
               ),
