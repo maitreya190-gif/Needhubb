@@ -95,7 +95,10 @@ messagingRouter.get('/:threadId/messages', authenticate, async (req, res, next) 
       where: { threadId, ...cursorWhere },
       orderBy: { createdAt: since ? 'asc' : 'desc' },
       take: limit,
-      include: { sender: { select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } } } },
+      include: {
+        sender: { select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } } },
+        replyTo: { select: { id: true, body: true, sender: { select: { id: true, displayName: true } } } }
+      },
     })
 
     // Mark fetched messages as read
@@ -115,6 +118,7 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
     const senderId = (req as AuthedRequest).userId!
     const { userId: recipientId } = req.params
     const body = (req.body.body as string | undefined)?.trim() ?? ''
+    const replyToId = req.body.replyToId as string | undefined
 
     if (!body && !req.file) return next(badRequest('Message body or image required', 'EMPTY_MESSAGE'))
     if (recipientId === senderId) return next(badRequest('Cannot DM yourself', 'SELF_DM'))
@@ -175,10 +179,11 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
         update: {},
       })
       const msg = await tx.dmMessage.create({
-        data: { threadId: thread.id, senderId, body: body || '', imageUrl },
+        data: { threadId: thread.id, senderId, body: body || '', imageUrl, replyToId, reactions: {} },
         include: {
           sender: { select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } } },
           thread: { select: { id: true } },
+          replyTo: { select: { id: true, body: true, sender: { select: { id: true, displayName: true } } } }
         },
       })
       const preview = body ? body.slice(0, 60) : '📷 Image'
@@ -207,5 +212,41 @@ messagingRouter.delete('/messages/:id', authenticate, async (req, res, next) => 
     if (msg.senderId !== userId) return next(forbidden('Not your message', 'FORBIDDEN'))
     await prisma.dmMessage.delete({ where: { id: req.params.id } })
     res.json({ ok: true })
+  } catch (err) { next(err) }
+})
+
+// ── POST /chats/messages/:id/react ────────────────────────────────────────────
+
+messagingRouter.post('/messages/:id/react', authenticate, async (req, res, next) => {
+  try {
+    const userId = (req as AuthedRequest).userId!
+    const msgId = req.params.id
+    const emoji = (req.body.emoji as string | undefined)?.trim()
+
+    if (!emoji) return next(badRequest('Emoji is required', 'NO_EMOJI'))
+
+    const msg = await prisma.dmMessage.findUnique({ where: { id: msgId } })
+    if (!msg) return next(notFound('Message not found', 'NOT_FOUND'))
+
+    const thread = await prisma.dmThread.findUnique({ where: { id: msg.threadId } })
+    if (!thread || (thread.userAId !== userId && thread.userBId !== userId)) {
+      return next(forbidden('Not allowed to react to this message', 'FORBIDDEN'))
+    }
+
+    const currentReactions: Record<string, string> = 
+      (msg.reactions as Record<string, string> | null) || {}
+    
+    if (currentReactions[userId] === emoji) {
+      delete currentReactions[userId]
+    } else {
+      currentReactions[userId] = emoji
+    }
+
+    const updated = await prisma.dmMessage.update({
+      where: { id: msgId },
+      data: { reactions: currentReactions },
+    })
+
+    res.json({ ok: true, reactions: updated.reactions })
   } catch (err) { next(err) }
 })

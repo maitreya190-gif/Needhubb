@@ -414,11 +414,15 @@ model DmMessage {
   senderId  String
   body      String
   imageUrl  String?
+  replyToId String?
+  reactions Json?
   readAt    DateTime?
   createdAt DateTime  @default(now())
 
-  thread DmThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender User     @relation("DmSender", fields: [senderId], references: [id], onDelete: Cascade)
+  thread  DmThread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender  User        @relation("DmSender", fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo DmMessage?  @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies DmMessage[] @relation("MessageReplies")
 
   @@index([threadId, createdAt])
 }

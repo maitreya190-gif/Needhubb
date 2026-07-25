@@ -49,6 +49,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   bool _isTyping = false;
   bool _sending = false;
   int? _reactingIndex;
+  _Message? _replyingTo;
 
   bool get _isFriend =>
       widget.userId != null &&
@@ -128,6 +129,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     imageUrl: m.imageUrl,
                     isMe: myId != null && m.senderId == myId,
                     time: m.createdAt,
+                    reactions: m.reactions.values.map((e) => e.toString()).toList(),
+                    replyTo: m.replyTo != null ? _Message(
+                      text: m.replyTo!.body.isEmpty ? null : m.replyTo!.body,
+                      isMe: myId != null && m.replyTo!.senderId == myId,
+                      time: m.replyTo!.createdAt,
+                      senderName: m.replyTo!.senderName,
+                    ) : null,
                     isRead: m.readAt != null,
                     remoteId: m.id,
                   ))
@@ -171,6 +179,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             imageUrl: m.imageUrl,
             isMe: myId != null && m.senderId == myId,
             time: m.createdAt,
+            reactions: m.reactions.values.map((e) => e.toString()).toList(),
+            replyTo: m.replyTo != null ? _Message(
+              text: m.replyTo!.body.isEmpty ? null : m.replyTo!.body,
+              isMe: myId != null && m.replyTo!.senderId == myId,
+              time: m.replyTo!.createdAt,
+              senderName: m.replyTo!.senderName,
+            ) : null,
             isRead: m.readAt != null,
             remoteId: m.id,
           ));
@@ -212,13 +227,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     if (imagePath != null) {
       final form = FormData.fromMap({
         if (text != null && text.isNotEmpty) 'body': text,
+        if (_replyingTo?.remoteId != null) 'replyToId': _replyingTo!.remoteId,
         'image': await MultipartFile.fromFile(imagePath,
             filename: imagePath.split('/').last),
       });
       res = await api.postForm('/chats/dm/${widget.userId}/messages', form);
     } else if (text != null && text.isNotEmpty) {
       res = await api.post(
-          '/chats/dm/${widget.userId}/messages', {'body': text});
+          '/chats/dm/${widget.userId}/messages', {
+            'body': text,
+            if (_replyingTo?.remoteId != null) 'replyToId': _replyingTo!.remoteId,
+          });
     } else {
       return;
     }
@@ -264,7 +283,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
     _controller.clear();
-    final msg = _Message(text: text, isMe: true, time: DateTime.now());
+    final replyRef = _replyingTo;
+    setState(() => _replyingTo = null);
+    
+    final msg = _Message(text: text, isMe: true, time: DateTime.now(), replyTo: replyRef);
     setState(() { _messages.add(msg); _isTyping = !_hasRealApi; });
     _scrollToBottom();
 
@@ -309,7 +331,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
   Future<void> _addImage(String path) async {
     if (_isBlocked) return;
-    final msg = _Message(imagePath: path, isMe: true, time: DateTime.now());
+    final replyRef = _replyingTo;
+    setState(() => _replyingTo = null);
+    
+    final msg = _Message(imagePath: path, isMe: true, time: DateTime.now(), replyTo: replyRef);
     setState(() { _messages.add(msg); _isTyping = !_hasRealApi; });
     _scrollToBottom();
 
@@ -332,9 +357,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     }
   }
 
-  void _addReaction(int idx, String emoji) {
+  Future<void> _addReaction(int idx, String emoji) async {
+    final msg = _messages[idx];
     setState(() {
-      final msg = _messages[idx];
       final reacts = List<String>.from(msg.reactions);
       if (reacts.contains(emoji)) {
         reacts.remove(emoji);
@@ -344,6 +369,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       _messages[idx] = msg.copyWith(reactions: reacts);
       _reactingIndex = null;
     });
+
+    if (msg.remoteId != null) {
+      try {
+        await ref.read(messagingApiProvider).react(msg.remoteId!, emoji);
+      } catch (_) {}
+    }
   }
 
   List<dynamic> get _listItems {
@@ -561,32 +592,48 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         initials: widget.initials, color: widget.avatarColor, t: t);
                   }
                   if (item is _IndexedMessage) {
+                    final bubbleStack = Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        _Bubble(
+                          msg: item.message,
+                          t: t,
+                          avatarColor: widget.avatarColor,
+                          initials: widget.initials,
+                          senderName: item.message.isMe ? 'You' : widget.name,
+                        ),
+                        if (_reactingIndex == item.index)
+                          Positioned(
+                            top: -44,
+                            right: item.message.isMe ? 0 : null,
+                            left: item.message.isMe ? null : 36,
+                            child: _ReactionPicker(
+                              onPick: (emoji) => _addReaction(item.index, emoji),
+                              t: t,
+                            ),
+                          ),
+                      ],
+                    );
+                    
                     return GestureDetector(
                       onLongPress: () {
                         HapticFeedback.mediumImpact();
                         setState(() => _reactingIndex = item.index);
                       },
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          _Bubble(
-                            msg: item.message,
-                            t: t,
-                            avatarColor: widget.avatarColor,
-                            initials: widget.initials,
-                            senderName: item.message.isMe ? 'You' : widget.name,
-                          ),
-                          if (_reactingIndex == item.index)
-                            Positioned(
-                              top: -44,
-                              right: item.message.isMe ? 0 : null,
-                              left: item.message.isMe ? null : 36,
-                              child: _ReactionPicker(
-                                onPick: (emoji) => _addReaction(item.index, emoji),
-                                t: t,
-                              ),
-                            ),
-                        ],
+                      child: Dismissible(
+                        key: ValueKey('msg_${item.index}_${item.message.remoteId ?? item.message.time.millisecondsSinceEpoch}'),
+                        direction: DismissDirection.endToStart,
+                        confirmDismiss: (_) async {
+                          HapticFeedback.lightImpact();
+                          setState(() => _replyingTo = item.message);
+                          return false; // Don't actually dismiss
+                        },
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 20),
+                          child: Icon(Icons.reply_rounded, color: t.muted2),
+                        ),
+                        child: bubbleStack,
                       ),
                     );
                   }
@@ -596,12 +643,50 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             ),
 
             // Input bar
-            Container(
-              padding: EdgeInsets.fromLTRB(12, 10, 12, bottomPad + 10),
-              decoration: BoxDecoration(
-                color: t.card,
-                border: Border(top: BorderSide(color: t.rail, width: 1)),
-              ),
+            Column(
+              children: [
+                if (_replyingTo != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: t.card,
+                      border: Border(top: BorderSide(color: t.rail, width: 1)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.reply_rounded, color: NeedHubTokens.forest, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _replyingTo!.isMe ? 'Replying to yourself' : 'Replying to ${widget.name}',
+                                style: GoogleFonts.hankenGrotesk(fontSize: 12, fontWeight: FontWeight.bold, color: NeedHubTokens.forest),
+                              ),
+                              Text(
+                                _replyingTo!.text ?? 'Image',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close_rounded, color: t.muted2, size: 20),
+                          onPressed: () => setState(() => _replyingTo = null),
+                        ),
+                      ],
+                    ),
+                  ),
+                Container(
+                  padding: EdgeInsets.fromLTRB(12, 10, 12, bottomPad + 10),
+                  decoration: BoxDecoration(
+                    color: t.card,
+                    border: Border(top: BorderSide(color: t.rail, width: 1)),
+                  ),
               child: _isBlocked
                   ? SizedBox(
                       height: 42,
@@ -672,6 +757,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         ),
                       ],
                     ),
+                ),
+              ],
             ),
           ],
         ),
@@ -690,9 +777,11 @@ class _Message {
   final bool isMe;
   final DateTime time;
   final List<String> reactions;
+  final _Message? replyTo;
   final bool isRead;
   /// Server message id — set for messages loaded from the API.
   final String? remoteId;
+  final String senderName;
 
   _Message({
     this.text,
@@ -701,8 +790,10 @@ class _Message {
     required this.isMe,
     required this.time,
     List<String>? reactions,
+    this.replyTo,
     this.isRead = false,
     this.remoteId,
+    this.senderName = '',
   }) : reactions = reactions ?? [];
 
   _Message copyWith({
@@ -712,8 +803,10 @@ class _Message {
     bool? isMe,
     DateTime? time,
     List<String>? reactions,
+    _Message? replyTo,
     bool? isRead,
     String? remoteId,
+    String? senderName,
   }) {
     return _Message(
       text: text ?? this.text,
@@ -722,8 +815,10 @@ class _Message {
       isMe: isMe ?? this.isMe,
       time: time ?? this.time,
       reactions: reactions ?? List.from(this.reactions),
+      replyTo: replyTo ?? this.replyTo,
       isRead: isRead ?? this.isRead,
       remoteId: remoteId ?? this.remoteId,
+      senderName: senderName ?? this.senderName,
     );
   }
 
@@ -1010,6 +1105,31 @@ class _Bubble extends StatelessWidget {
                         : CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (msg.replyTo != null)
+                        Container(
+                          margin: EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border(left: BorderSide(color: NeedHubTokens.forest.withValues(alpha: 0.8), width: 3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                msg.replyTo!.senderName.isNotEmpty ? msg.replyTo!.senderName : (msg.replyTo!.isMe ? 'You' : widget.name),
+                                style: GoogleFonts.hankenGrotesk(fontSize: 11, fontWeight: FontWeight.bold, color: msg.isMe ? Colors.white70 : t.muted2),
+                              ),
+                              Text(
+                                msg.replyTo!.text ?? 'Image',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.hankenGrotesk(fontSize: 12, color: msg.isMe ? Colors.white60 : t.muted),
+                              ),
+                            ],
+                          ),
+                        ),
                       if (isImage)
                         Padding(
                           padding: EdgeInsets.only(

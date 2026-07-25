@@ -68,6 +68,8 @@ class DmMessage {
   final String senderName;
   final String body;
   final String? imageUrl;
+  final DmMessage? replyTo;
+  final Map<String, dynamic> reactions;
   final DateTime createdAt;
   final DateTime? readAt;
 
@@ -77,6 +79,8 @@ class DmMessage {
     required this.senderName,
     required this.body,
     this.imageUrl,
+    this.replyTo,
+    this.reactions = const {},
     required this.createdAt,
     this.readAt,
   });
@@ -89,6 +93,8 @@ class DmMessage {
       senderName: sender['displayName'] as String? ?? '',
       body: j['body'] as String? ?? '',
       imageUrl: j['imageUrl'] as String?,
+      replyTo: j['replyTo'] != null ? DmMessage.fromJson(j['replyTo'] as Map<String, dynamic>) : null,
+      reactions: j['reactions'] as Map<String, dynamic>? ?? const {},
       createdAt: _parseDateTime(j['createdAt']),
       readAt: j['readAt'] != null ? _parseDateTime(j['readAt']) : null,
     );
@@ -122,6 +128,10 @@ class MessagingApi {
   }
 
   Future<void> deleteMessage(String id) => _api.delete('/chats/messages/$id');
+
+  Future<void> react(String messageId, String emoji) async {
+    await _api.post('/chats/messages/$messageId/react', {'emoji': emoji});
+  }
 }
 
 /// Global chats list, hydrated on chats tab open + focus.
