@@ -10,6 +10,7 @@ import '../../services/api_client.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_report_sheet.dart';
+import '../hub/conversation_screen.dart';
 
 class _OfferData {
   final String initials;
@@ -106,21 +107,51 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
           );
         }).toList();
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[NeedDetailScreen] Failed to hydrate offers for ${need.id}: $e');
+    }
   }
 
   Future<void> _acceptOffer(String responseId) async {
     try {
       final api = ref.read(apiClientProvider);
-      await api.patch('/needs/${need.id}/responses/$responseId', {'status': 'ACCEPTED'});
-      if (mounted) {
-        setState(() {
-          _realOffers = _realOffers
-              .map((o) => o.responseId == responseId ? o.withStatus('ACCEPTED') : o)
-              .toList();
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Offer accepted! Chat is now open.')),
+      final res = await api.patch(
+        '/needs/${need.id}/responses/$responseId',
+        {'status': 'ACCEPTED'},
+      );
+      if (!mounted) return;
+      final dmThreadId = res['dmThreadId'] as String?;
+      final accepted = _realOffers.firstWhere(
+        (o) => o.responseId == responseId,
+        orElse: () => const _OfferData(
+          initials: '?', name: 'Helper', note: '', amount: '—',
+          tint: NeedHubTokens.forest,
+        ),
+      );
+      setState(() {
+        _realOffers = _realOffers
+            .map((o) => o.responseId == responseId ? o.withStatus('ACCEPTED') : o)
+            .toList();
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Offer accepted! Opening chat…')),
+      );
+      // Jump straight into the conversation so the poster can message the
+      // responder right away. The DmThread was created server-side on accept.
+      if (accepted.responderId != null) {
+        await Future.delayed(const Duration(milliseconds: 300));
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ConversationScreen(
+              name: accepted.name,
+              initials: accepted.initials,
+              avatarColor: NeedHubTokens.forest,
+              avatarUrl: accepted.avatarUrl,
+              userId: accepted.responderId,
+              threadId: dmThreadId,
+            ),
+          ),
         );
       }
     } catch (e) {

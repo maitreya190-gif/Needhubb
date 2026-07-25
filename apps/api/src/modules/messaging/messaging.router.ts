@@ -128,16 +128,30 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
 
     const friends = await areFriends(senderId, recipientId)
     if (!friends) {
-      // Allow messaging without friendship if both users are in active chitchat mode.
+      // Allow messaging without friendship in two other cases:
+      //   1. Both users are in active chitchat mode
+      //   2. An accepted InterestResponse exists between the two users
+      //      (poster accepted the responder's offer, or vice versa) —
+      //      this is the "you can chat once accepted" flow.
       const now = new Date()
-      const [myProfile, theirProfile] = await Promise.all([
+      const [myProfile, theirProfile, acceptedResp] = await Promise.all([
         prisma.profile.findUnique({ where: { userId: senderId }, select: { chitchatAvailableUntil: true } }),
         prisma.profile.findUnique({ where: { userId: recipientId }, select: { chitchatAvailableUntil: true } }),
+        prisma.interestResponse.findFirst({
+          where: {
+            status: 'ACCEPTED',
+            OR: [
+              { responderId: senderId, need: { posterId: recipientId } },
+              { responderId: recipientId, need: { posterId: senderId } },
+            ],
+          },
+          select: { id: true },
+        }),
       ])
       const chitchatActive = myProfile?.chitchatAvailableUntil && myProfile.chitchatAvailableUntil > now
         && theirProfile?.chitchatAvailableUntil && theirProfile.chitchatAvailableUntil > now
-      if (!chitchatActive) {
-        return next(forbidden('Must be friends or both in chitchat mode to send messages', 'NOT_FRIENDS'))
+      if (!chitchatActive && !acceptedResp) {
+        return next(forbidden('Must be friends, both in chitchat mode, or have an accepted offer to send messages', 'NOT_FRIENDS'))
       }
     }
 

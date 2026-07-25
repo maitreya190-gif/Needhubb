@@ -504,17 +504,32 @@ needsRouter.patch('/:id/responses/:respId', authenticate, async (req, res, next)
     if (!resp || resp.needId !== req.params.id) return next(notFound('Response not found', 'RESPONSE_NOT_FOUND'))
     if (resp.need.posterId !== userId) return next(forbidden('Only the poster can decide', 'NOT_POSTER'))
 
+    // Canonical DmThread key: smaller id first (matches messaging router).
+    const [userAId, userBId] = userId < resp.responderId
+      ? [userId, resp.responderId]
+      : [resp.responderId, userId]
+
     const updated = await prisma.$transaction(async (tx) => {
       const r = await tx.interestResponse.update({
         where: { id: resp.id }, data: { status: parsed.data.status },
       })
-      // On accept, also spin up the MessageThread if not already
+      let dmThreadId: string | null = null
+      // On accept, spin up both the MessageThread (offer-linked) AND a DmThread
+      // (surfaces in /chats). Guarantees the two users can DM after acceptance,
+      // even without a friendship, because /chats/dm/:userId/messages checks
+      // for accepted InterestResponse to bypass the friends-only rule.
       if (parsed.data.status === 'ACCEPTED') {
         await tx.messageThread.upsert({
           where: { responseId: r.id },
           create: { responseId: r.id },
           update: {},
         })
+        const dm = await tx.dmThread.upsert({
+          where: { userAId_userBId: { userAId, userBId } },
+          create: { userAId, userBId },
+          update: {},
+        })
+        dmThreadId = dm.id
       }
       await pushNotification(tx, {
         userId: resp.responderId,
@@ -524,10 +539,10 @@ needsRouter.patch('/:id/responses/:respId', authenticate, async (req, res, next)
         refType: 'need',
         refId: resp.needId,
       })
-      return r
+      return { r, dmThreadId }
     })
 
-    res.json(updated)
+    res.json({ ...updated.r, dmThreadId: updated.dmThreadId })
   } catch (err) { next(err) }
 })
 
