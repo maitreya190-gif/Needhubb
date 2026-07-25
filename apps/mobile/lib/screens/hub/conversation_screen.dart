@@ -9,7 +9,6 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
-import '../../services/messaging_api.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
@@ -49,7 +48,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   final _picker = ImagePicker();
   bool _isTyping = false;
   bool _sending = false;
-  int? _reactingIndex;
   _Message? _replyingTo;
 
   bool get _isFriend =>
@@ -66,8 +64,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
   late List<_Message> _messages;
   String? _resolvedThreadId;
-  String? _lastRealMessageId;
-  bool _initialLoaded = false;
   Timer? _tailPoller;
 
   @override
@@ -141,13 +137,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     remoteId: m.id,
                   ))
               .toList();
-          if (msgs.isNotEmpty) _lastRealMessageId = msgs.last.id;
-          _initialLoaded = true;
         });
         _scrollToBottom();
       } catch (_) {/* keep empty */}
     } else {
-      if (mounted) setState(() => _initialLoaded = true);
+      if (mounted) setState(() {});
     }
 
     // Tail-poll every 2s while foregrounded.
@@ -203,7 +197,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           }
         }
         if (newer.isNotEmpty) {
-          _lastRealMessageId = newer.first.id;
         }
       });
       if (hasNewMessage) {
@@ -263,7 +256,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         (res['thread'] as Map<String, dynamic>?)?['id'] as String?;
     final msgId = res['id'] as String?;
     if (threadId != null) _resolvedThreadId = threadId;
-    if (msgId != null) _lastRealMessageId = msgId;
     if (msgId != null && mounted) {
       // Stamp the just-appended local bubble with the server id so tail
       // dedupe recognises it.
@@ -409,7 +401,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final msg = _messages[idx];
     setState(() {
       _messages.removeAt(idx);
-      _reactingIndex = null;
     });
 
     if (msg.remoteId != null) {
@@ -436,7 +427,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         ),
       );
     }
-    setState(() => _reactingIndex = null);
+    setState(() {});
   }
 
   void _scrollToMessage(String? remoteId, DateTime? time) {
@@ -611,7 +602,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final items = _listItems;
 
     return GestureDetector(
-      onTap: () => setState(() => _reactingIndex = null),
+      onTap: () => setState(() {}),
       child: Scaffold(
         backgroundColor: t.paper,
         appBar: AppBar(
