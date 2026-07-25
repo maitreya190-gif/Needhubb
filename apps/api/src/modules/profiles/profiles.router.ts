@@ -107,7 +107,7 @@ profilesRouter.get('/search', authenticate, async (req, res, next) => {
   try {
     const me = (req as AuthedRequest).userId!
     const raw = ((req.query.q as string) ?? '').trim()
-    if (raw.length < 2) return res.json([])
+    if (raw.length < 1) return res.json([])
     const users = await prisma.user.findMany({
       where: {
         AND: [
