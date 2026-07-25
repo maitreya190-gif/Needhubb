@@ -1138,14 +1138,28 @@ class _EarnCard extends StatelessWidget {
 
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              '${need.authorName} · ${need.location}',
-                              style: GoogleFonts.hankenGrotesk(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: t.muted2,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${need.authorName} · ${need.location}',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: t.muted2,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (need.posterFaceVerified && need.category == 'connect') ...[
+                                  const SizedBox(width: 4),
+                                  const Icon(
+                                    Icons.verified_user_rounded,
+                                    size: 12,
+                                    color: Color(0xFF2563EB),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           ValueListenableBuilder<int>(

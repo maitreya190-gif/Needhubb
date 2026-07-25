@@ -471,14 +471,26 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                need.authorName,
-                                                style:
-                                                    GoogleFonts.hankenGrotesk(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: t.ink,
-                                                ),
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    need.authorName,
+                                                    style:
+                                                        GoogleFonts.hankenGrotesk(
+                                                      fontSize: 14,
+                                                      fontWeight: FontWeight.w700,
+                                                      color: t.ink,
+                                                    ),
+                                                  ),
+                                                  if (need.posterFaceVerified) ...[
+                                                    const SizedBox(width: 4),
+                                                    const Icon(
+                                                      Icons.verified_user_rounded,
+                                                      size: 12,
+                                                      color: Color(0xFF2563EB),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
                                               Builder(builder: (context) {
                                                 final userOffers = (mockOffers[need.id] ?? []).map((o) => _OfferData(

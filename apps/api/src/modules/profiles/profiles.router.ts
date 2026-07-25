@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { notFound, badRequest } from '../../lib/http-error'
 import { uploadFile, deleteFile, storageKey } from '../../lib/storage'
+import { verifyFace } from '../../lib/face-verify'
 
 export const profilesRouter: IRouter = Router()
 
@@ -164,6 +165,31 @@ profilesRouter.delete('/me/avatar', authenticate, async (req, res, next) => {
     }
     await prisma.profile.update({ where: { userId }, data: { avatarUrl: null } })
     res.json({ ok: true })
+  } catch (err) { next(err) }
+})
+
+// ── POST /profile/me/face-verify ─────────────────────────────────────────────
+
+profilesRouter.post('/me/face-verify', authenticate, upload.single('selfie'), async (req, res, next) => {
+  try {
+    const userId = (req as AuthedRequest).userId!
+    if (!req.file) return next(badRequest('No image uploaded', 'NO_IMAGE'))
+
+    // Process in memory only — image is never written to disk
+    const result = await verifyFace(req.file.buffer, req.file.mimetype)
+
+    if (!result.verified) {
+      return res.status(400).json({ verified: false, reason: result.reason })
+    }
+
+    await prisma.profile.upsert({
+      where: { userId },
+      update: { faceVerifiedAt: new Date() },
+      create: { userId, faceVerifiedAt: new Date() },
+    })
+
+    // Image buffer is dereferenced here — never stored
+    res.json({ verified: true })
   } catch (err) { next(err) }
 })
 

@@ -82,6 +82,7 @@ class Need {
   final List<String> tags;
   final String? posterGender;
   final String? posterAvatarUrl;
+  final bool posterFaceVerified;
 
   const Need({
     required this.id,
@@ -99,6 +100,7 @@ class Need {
     this.tags = const [],
     this.posterGender,
     this.posterAvatarUrl,
+    this.posterFaceVerified = false,
   });
 
   String get timeAgo {

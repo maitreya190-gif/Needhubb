@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -273,6 +274,12 @@ class YouScreen extends ConsumerWidget {
                 children: [
                   // ── My Posted Needs & History ──────────────────────────────
                   _MyPostedNeedsSection(t: t),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Face Verification ─────────────────────────────────────
+                  _FaceVerifySection(t: t),
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
@@ -1576,6 +1583,202 @@ class _PromptCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Face Verification Section ─────────────────────────────────────────────────
+
+class _FaceVerifySection extends ConsumerStatefulWidget {
+  final NeedHubTokens t;
+  const _FaceVerifySection({required this.t});
+
+  @override
+  ConsumerState<_FaceVerifySection> createState() => _FaceVerifySectionState();
+}
+
+class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
+  bool _verifying = false;
+
+  Future<void> _startVerification() async {
+    if (_verifying) return;
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.front,
+      imageQuality: 85,
+    );
+    if (file == null || !mounted) return;
+
+    setState(() => _verifying = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final form = FormData.fromMap({
+        'selfie': await MultipartFile.fromFile(
+          file.path,
+          filename: 'selfie.jpg',
+        ),
+      });
+      await api.postForm('/profile/me/face-verify', form);
+
+      // Refresh the profile so faceVerifiedAt is updated
+      try {
+        final profilesApi = ref.read(profilesApiProvider);
+        myProfileNotifier.value = await profilesApi.me();
+      } catch (_) {}
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Face verified! Badge now appears on your connect needs'),
+          ),
+        );
+        setState(() {});
+      }
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final data = e.response?.data;
+      final reason = (data is Map ? data['reason'] : null) as String? ??
+          'Verification failed. Please retake in good lighting.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(reason)),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Verification failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _verifying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    return ValueListenableBuilder<ProfileMe?>(
+      valueListenable: myProfileNotifier,
+      builder: (_, me, __) {
+        final isVerified = me?.faceVerifiedAt != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'FACE VERIFICATION',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: t.muted2,
+                letterSpacing: 0.7,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isVerified
+                    ? NeedHubTokens.forest.withValues(alpha: 0.06)
+                    : t.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isVerified
+                      ? NeedHubTokens.forest.withValues(alpha: 0.30)
+                      : t.rail,
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isVerified
+                          ? NeedHubTokens.forest.withValues(alpha: 0.12)
+                          : t.chip,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isVerified
+                          ? Icons.verified_user_rounded
+                          : Icons.face_retouching_natural_rounded,
+                      color: isVerified ? NeedHubTokens.forest : t.muted2,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isVerified ? 'Face Verified' : 'Verify Your Face',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: isVerified ? NeedHubTokens.forest : t.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          isVerified
+                              ? 'Verified badge shown on your connect needs'
+                              : 'Take a selfie to get a verified badge on your connect needs',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12,
+                            color: t.muted,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isVerified) ...[
+                    const SizedBox(width: 8),
+                    _verifying
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: NeedHubTokens.forest,
+                            ),
+                          )
+                        : GestureDetector(
+                            onTap: _startVerification,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: NeedHubTokens.forest,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.camera_alt_rounded,
+                                      size: 14, color: Colors.white),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Verify',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

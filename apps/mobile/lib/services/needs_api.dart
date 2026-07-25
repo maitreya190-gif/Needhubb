@@ -78,6 +78,8 @@ Need _needFromJson(Map<String, dynamic> j) {
   final createdAt = createdIso != null
       ? (DateTime.tryParse(createdIso) ?? DateTime.now())
       : DateTime.now();
+  final profile = poster['profile'] as Map<String, dynamic>? ?? const {};
+  final posterFaceVerified = profile['faceVerifiedAt'] != null;
 
   return Need(
     id: j['id'] as String,
@@ -94,6 +96,7 @@ Need _needFromJson(Map<String, dynamic> j) {
     budgetMax: (j['budgetMax'] as num?)?.toInt(),
     tags: _tagsFor(j),
     posterAvatarUrl: posterProfile['avatarUrl'] as String?,
+    posterFaceVerified: posterFaceVerified,
   );
 }
 

@@ -18,6 +18,7 @@ class ProfileMe {
   final int pointsTotal;
   final List<String> interestLabels;
   final List<String> skillLabels;
+  final DateTime? faceVerifiedAt;
 
   const ProfileMe({
     required this.id,
@@ -36,6 +37,7 @@ class ProfileMe {
     required this.pointsTotal,
     required this.interestLabels,
     required this.skillLabels,
+    this.faceVerifiedAt,
   });
 
   factory ProfileMe.fromJson(Map<String, dynamic> j) {
@@ -73,6 +75,11 @@ class ProfileMe {
         .whereType<String>()
         .toList();
 
+    final faceVerifiedAtStr = profile['faceVerifiedAt'] as String?;
+    final faceVerifiedAt = faceVerifiedAtStr != null
+        ? DateTime.tryParse(faceVerifiedAtStr)
+        : null;
+
     return ProfileMe(
       id: (j['id'] as String?) ?? (profile['id'] as String?) ?? '',
       displayName: (j['displayName'] as String?) ?? (j['name'] as String?) ?? '',
@@ -90,6 +97,7 @@ class ProfileMe {
       pointsTotal: (profile['pointsTotal'] as int?) ?? 0,
       interestLabels: interests,
       skillLabels: skills,
+      faceVerifiedAt: faceVerifiedAt,
     );
   }
 }

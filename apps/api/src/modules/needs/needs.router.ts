@@ -214,7 +214,7 @@ needsRouter.get('/', async (req, res, next) => {
           select: {
             id: true, displayName: true,
             profile: { select: {
-              avatarUrl: true, gender: true, lat: true, lng: true,
+              avatarUrl: true, gender: true, lat: true, lng: true, faceVerifiedAt: true,
               interests: { include: { interest: { select: { label: true } } } },
             } },
           },
@@ -368,7 +368,7 @@ needsRouter.get('/:id', async (req, res, next) => {
         poster: {
           select: {
             id: true, displayName: true,
-            profile: { select: { avatarUrl: true, bio: true, pointsTotal: true } },
+            profile: { select: { avatarUrl: true, bio: true, pointsTotal: true, faceVerifiedAt: true } },
           },
         },
         subNeeds: true,
