@@ -8,6 +8,7 @@ import '../../models/need.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
+import '../../services/needs_api.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../services/uploads_api.dart';

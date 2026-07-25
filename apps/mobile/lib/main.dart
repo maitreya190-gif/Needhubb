@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'models/need.dart';
 import 'models/user_state.dart';
 import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
