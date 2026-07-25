@@ -1,7 +1,10 @@
 {
   "name": "needhub",
   "private": true,
-  "workspaces": ["apps/api", "packages/*"],
+  "workspaces": [
+    "apps/api",
+    "packages/*"
+  ],
   "scripts": {
     "dev:api": "pnpm --filter @needhub/api dev",
     "build:api": "pnpm --filter @needhub/api build",
@@ -9,8 +12,5 @@
   },
   "devDependencies": {
     "typescript": "^5.4.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "esbuild", "prisma"]
   }
 }
