@@ -1035,13 +1035,19 @@ class _EarnCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          Text(
-                            '0 offers',
-                            style: GoogleFonts.hankenGrotesk(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: cat,
-                            ),
+                          ValueListenableBuilder<int>(
+                            valueListenable: offersNotifier,
+                            builder: (_, __, ___) {
+                              final count = need.totalOfferCount;
+                              return Text(
+                                '$count ${count == 1 ? 'offer' : 'offers'}',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: cat,
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

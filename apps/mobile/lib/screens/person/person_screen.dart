@@ -7,6 +7,7 @@ import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_report_sheet.dart';
+import '../history/history_screen.dart';
 
 class PersonScreen extends ConsumerStatefulWidget {
   final String name;
@@ -420,6 +421,129 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                           ],
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Past Work & Ratings ────────────────────────────────────
+                  Row(
+                    children: [
+                      Text(
+                        'PAST WORK & RATINGS',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: t.muted2,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Ratings only',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: NeedHubTokens.clay,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () {
+                      final myId = myProfileNotifier.value?.id;
+                      final isOwn = widget.userId != null && widget.userId == myId;
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => HistoryScreen(
+                            isOwnProfile: isOwn,
+                            personName: name,
+                            userId: widget.userId,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: t.card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: t.rail, width: 1),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: NeedHubTokens.ochre.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.star_rounded,
+                                  color: NeedHubTokens.ochre,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Past Work History',
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: t.ink,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '5 completed tasks • 4.8 ★ average',
+                                      style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 12, color: t.muted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(Icons.chevron_right_rounded,
+                                  size: 20, color: t.muted2),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: t.chip,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.lock_outline_rounded,
+                                    size: 13, color: t.muted2),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Written feedback comments are private to profile owner',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 11.5,
+                                      color: t.muted2,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),

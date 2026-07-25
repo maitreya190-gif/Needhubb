@@ -65,6 +65,20 @@ class Need {
     if (distanceKm! < 1) return '${(distanceKm! * 1000).round()}m away';
     return '${distanceKm!.toStringAsFixed(1)}km away';
   }
+
+  int get totalOfferCount {
+    final userOffersCount = (mockOffers[id] ?? []).length;
+    final base = category == 'earn' ? 2 : 0;
+    return base + userOffersCount;
+  }
+
+  NeedOffer? get myOffer {
+    final list = mockOffers[id] ?? [];
+    final idx = list.indexWhere((o) => o.name == 'You' || o.initials == 'ME');
+    return idx != -1 ? list[idx] : null;
+  }
+
+  bool get hasUserApplied => myOffer != null;
 }
 
 // Mock feed data — replaced by real API in Phase 2
