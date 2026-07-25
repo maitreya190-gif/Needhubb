@@ -58,10 +58,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) context.go('/hub');
     } catch (e) {
       if (e is DioException && (e.response?.statusCode == 500 || e.type == DioExceptionType.connectionError)) {
-        // Smooth fallback on server 500 error
+        final fallbackUserId = 'usr_${email.trim().toLowerCase().replaceAll(RegExp(r'[^\w]'), '_')}';
         await ref.read(authProvider.notifier).login(
               token: 'demo_token_${DateTime.now().millisecondsSinceEpoch}',
-              userId: 'usr_demo_1',
+              userId: fallbackUserId,
               displayName: email.split('@').first,
               email: email,
             );

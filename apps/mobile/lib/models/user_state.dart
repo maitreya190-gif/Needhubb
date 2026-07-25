@@ -1,6 +1,38 @@
 import 'package:flutter/foundation.dart';
 import '../services/friends_api.dart';
 import '../services/chitchat_api.dart';
+import '../services/notifications_api.dart';
+import '../services/profiles_api.dart';
+
+void resetAllUserNotifiersOnLogout() {
+  pointsNotifier.value = 340;
+  ratingsGivenNotifier.value = {};
+  chitChatAvailableNotifier.value = false;
+  customInterestsNotifier.value = [];
+  customSkillsNotifier.value = [];
+  friendsNotifier.value = {};
+  blockedNotifier.value = {};
+  friendUserIdsNotifier.value = {};
+  blockedUserIdsNotifier.value = {};
+  friendRequestsInboxNotifier.value = const [];
+  friendRequestsOutboxNotifier.value = const [];
+  friendRequestNotifier.value = 0;
+  outgoingRequestUserIdsNotifier.value = {};
+  chitchatAvailableUntilNotifier.value = null;
+  chitchatRosterNotifier.value = const [];
+  bioNotifier.value = "";
+  promptSkillNotifier.value = "";
+  promptCollabNotifier.value = "";
+  promptNeedNotifier.value = "";
+  genderNotifier.value = null;
+  locationNotifier.value = 'Bangalore';
+  avatarUrlNotifier.value = null;
+  myProfileNotifier.value = null;
+  notificationsListNotifier.value = const [];
+  unreadCountNotifier.value = 0;
+  earnFilterNotifier.value = const FeedFilter();
+  connectFilterNotifier.value = const FeedFilter();
+}
 
 // Points balance (redeem deducts from here)
 final pointsNotifier = ValueNotifier<int>(340);

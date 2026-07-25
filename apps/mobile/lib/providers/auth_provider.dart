@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import '../models/user_state.dart';
+
 class AuthState {
   final String? token;
   final String? userId;
@@ -69,6 +71,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? displayName,
     String? email,
   }) async {
+    resetAllUserNotifiersOnLogout();
     await _storage.write(key: _tokenKey, value: token);
     await _storage.write(key: _userIdKey, value: userId);
     if (displayName != null) {
@@ -89,6 +92,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Clear all auth data and return to the logged-out state.
   Future<void> logout() async {
     await _storage.deleteAll();
+    resetAllUserNotifiersOnLogout();
     state = const AuthState();
   }
 }
