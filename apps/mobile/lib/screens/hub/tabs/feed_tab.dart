@@ -230,12 +230,22 @@ class _FeedTabState extends ConsumerState<FeedTab> {
             Expanded(
               child: _surface == 'connect'
                   ? _ConnectFeed(
-                      needs: feedNeeds.where((n) => n.category.toLowerCase() == 'connect').toList(),
+                      needs: feedNeeds
+                          .where((n) =>
+                              n.category.toLowerCase() == 'connect' &&
+                              n.authorName != 'You' &&
+                              n.authorInitials != 'ME')
+                          .toList(),
                       t: t,
                       rankerLabel: rankerLabel)
                   : _surface == 'earn'
                       ? _EarnFeed(
-                          needs: feedNeeds.where((n) => n.category.toLowerCase() == 'earn').toList(),
+                          needs: feedNeeds
+                              .where((n) =>
+                                  n.category.toLowerCase() == 'earn' &&
+                                  n.authorName != 'You' &&
+                                  n.authorInitials != 'ME')
+                              .toList(),
                           t: t,
                           rankerLabel: rankerLabel)
                       : _ChitChatFeedInline(t: t),
