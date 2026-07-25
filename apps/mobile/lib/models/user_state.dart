@@ -250,9 +250,9 @@ class FeedFilter {
     Set<String>? interests,
     Set<String>? skills,
     String? sortBy,
-  })  : genders = genders ?? const {},
-        interests = interests ?? const {},
-        skills = skills ?? const {},
+  })  : genders = genders ?? const <String>{},
+        interests = interests ?? const <String>{},
+        skills = skills ?? const <String>{},
         sortBy = sortBy ?? 'newest';
 
   FeedFilter copyWith({
