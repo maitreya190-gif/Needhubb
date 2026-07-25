@@ -1,70 +1,74 @@
 /**
  * AI face verification — privacy-first.
- * The image buffer is processed here and NEVER written to disk or stored.
- * If the vision model confirms a real human face, the caller sets the DB flag.
+ *
+ * Uses Face++ (Megvii) dedicated face detection API.
+ * The image buffer is processed in-memory and NEVER written to disk or stored.
+ * If exactly one real human face is detected, the caller sets the DB flag.
+ *
+ * Setup:
+ *   1. Sign up at console.faceplusplus.com
+ *   2. Create an app → copy API Key + API Secret
+ *   3. Add to .env:  FACEPP_API_KEY=...  FACEPP_API_SECRET=...
  */
 
-const VISION_PROMPT =
-  'Does this image show exactly one real, live human face? ' +
-  'Not a photo-of-a-photo, not a drawing, not a mask, not a group, not an animal. ' +
-  'Reply with EXACTLY one word: VERIFIED or REJECTED'
+const FACEPP_URL = 'https://api-us.faceplusplus.com/facepp/v3/detect'
+const TIMEOUT_MS = 15_000
 
 export type FaceVerifyResult = { verified: boolean; reason: string }
 
 export async function verifyFace(
   imageBuffer: Buffer,
-  mimeType: string,
+  _mimeType: string,
 ): Promise<FaceVerifyResult> {
-  const baseUrl = process.env.LLM_BASE_URL
-  const apiKey = process.env.LLM_API_KEY
-  const model = process.env.VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct'
+  const apiKey = process.env.FACEPP_API_KEY
+  const apiSecret = process.env.FACEPP_API_SECRET
 
-  if (!baseUrl || !apiKey) throw new Error('Vision LLM not configured')
+  if (!apiKey || !apiSecret) {
+    throw new Error('Face++ not configured — set FACEPP_API_KEY and FACEPP_API_SECRET in .env')
+  }
 
   const b64 = imageBuffer.toString('base64')
-  const dataUrl = `data:${mimeType};base64,${b64}`
+
+  const form = new FormData()
+  form.append('api_key', apiKey)
+  form.append('api_secret', apiSecret)
+  form.append('image_base64', b64)
+  form.append('return_attributes', 'none')
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 20_000)
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
   try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
+    const res = await fetch(FACEPP_URL, {
       method: 'POST',
       signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 10,
-        temperature: 0,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'image_url', image_url: { url: dataUrl } },
-              { type: 'text', text: VISION_PROMPT },
-            ],
-          },
-        ],
-      }),
+      body: form,
     })
 
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      throw new Error(`Vision LLM ${res.status}: ${body.slice(0, 200)}`)
+      throw new Error(`Face++ ${res.status}: ${body.slice(0, 200)}`)
     }
 
     const data = (await res.json()) as {
-      choices?: { message?: { content?: string } }[]
+      faces?: { face_token: string }[]
+      error_message?: string
     }
-    const answer = data.choices?.[0]?.message?.content?.trim().toUpperCase() ?? ''
-    const verified = answer.startsWith('VERIFIED')
-    return {
-      verified,
-      reason: verified ? 'Face confirmed' : 'No real human face detected — please retake in good lighting',
+
+    if (data.error_message) {
+      throw new Error(`Face++ error: ${data.error_message}`)
     }
+
+    const faceCount = data.faces?.length ?? 0
+
+    if (faceCount === 0) {
+      return { verified: false, reason: 'No face detected — please take a clear selfie in good lighting' }
+    }
+    if (faceCount > 1) {
+      return { verified: false, reason: 'Multiple faces detected — please take a solo selfie' }
+    }
+
+    return { verified: true, reason: 'Face confirmed' }
   } finally {
     clearTimeout(timeout)
     // imageBuffer goes out of scope — GC'd, never stored
