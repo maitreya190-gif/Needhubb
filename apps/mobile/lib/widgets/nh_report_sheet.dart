@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/user_state.dart';
+import '../services/api_client.dart';
 import '../services/social_providers.dart';
 import '../theme/tokens.dart';
 

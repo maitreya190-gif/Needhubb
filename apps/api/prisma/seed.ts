@@ -242,6 +242,15 @@ const DEMO_NEEDS = [
   },
 ]
 
+const TEST_USERS = [
+  { email: 'a@t.co', displayName: 'a' },
+  { email: 'b@t.co', displayName: 'b' },
+  { email: 'c@t.co', displayName: 'c' },
+  { email: 'd@t.co', displayName: 'd' },
+  { email: 'e@t.co', displayName: 'e' },
+  { email: 'f@t.co', displayName: 'f' },
+]
+
 const REDEMPTION_ITEMS = [
   { title: 'Amazon Voucher ₹100', description: 'Redeemable on Amazon India', pointsCost: 120, stock: 50 },
   { title: 'Cafe Coffee Day ₹150', description: 'Any small food + coffee combo', pointsCost: 180, stock: 30 },
@@ -344,9 +353,45 @@ async function main() {
   }
   console.log(`  ✓ ${DEMO_USERS.length} demo users with profiles`)
 
+  // ── Test users (password: 0) ──────────────────────────────────────────────
+  const testPasswordHash = await bcrypt.hash('0', 10)
+  for (const t of TEST_USERS) {
+    const user = await prisma.user.upsert({
+      where: { email: t.email },
+      update: { displayName: t.displayName, emailVerifiedAt: new Date() },
+      create: {
+        email: t.email,
+        displayName: t.displayName,
+        passwordHash: testPasswordHash,
+        emailVerifiedAt: new Date(),
+      },
+    })
+    await prisma.profile.upsert({
+      where: { userId: user.id },
+      update: {},
+      create: { userId: user.id, pointsTotal: 100 },
+    })
+  }
+  console.log(`  ✓ ${TEST_USERS.length} test users (password: 0)`)
+
   // ── Demo needs — clear old ones from the demo posters, then reseed ────────
   const demoPosterIds = Object.values(usersById)
-  await prisma.need.deleteMany({ where: { posterId: { in: demoPosterIds } } })
+  const oldNeeds = await prisma.need.findMany({ where: { posterId: { in: demoPosterIds } }, select: { id: true } })
+  const oldNeedIds = oldNeeds.map(n => n.id)
+  if (oldNeedIds.length > 0) {
+    const oldResponses = await prisma.interestResponse.findMany({ where: { needId: { in: oldNeedIds } }, select: { id: true } })
+    const oldResponseIds = oldResponses.map(r => r.id)
+    if (oldResponseIds.length > 0) {
+      const oldThreads = await prisma.messageThread.findMany({ where: { responseId: { in: oldResponseIds } }, select: { id: true } })
+      const oldThreadIds = oldThreads.map(t => t.id)
+      if (oldThreadIds.length > 0) {
+        await prisma.message.deleteMany({ where: { threadId: { in: oldThreadIds } } })
+        await prisma.messageThread.deleteMany({ where: { id: { in: oldThreadIds } } })
+      }
+      await prisma.interestResponse.deleteMany({ where: { id: { in: oldResponseIds } } })
+    }
+    await prisma.need.deleteMany({ where: { id: { in: oldNeedIds } } })
+  }
 
   for (const n of DEMO_NEEDS) {
     const posterId = usersById[n.posterEmail]
