@@ -22,7 +22,7 @@ adminRouter.get('/certificates', async (req, res) => {
   const status = (req.query.status as string) || 'PENDING_REVIEW'
   const certs = await prisma.certificate.findMany({
     where: { status: status as any },
-    include: { user: { select: { id: true, displayName: true, email: true } } },
+    include: { user: { select: { id: true, username: true, displayName: true, email: true } } },
     orderBy: { createdAt: 'desc' },
   })
   res.json(certs)
@@ -96,7 +96,7 @@ adminRouter.get('/reports', async (req, res) => {
       ...(source ? { meta: { source } } : {}),
     },
     include: {
-      reporter: { select: { id: true, displayName: true, email: true } },
+      reporter: { select: { id: true, username: true, displayName: true, email: true } },
       meta: true,
     },
     orderBy: { createdAt: 'desc' },
@@ -111,7 +111,7 @@ adminRouter.get('/moderation/flags', async (req, res) => {
   const reports = await prisma.report.findMany({
     where: { status: status as any, meta: { source } },
     include: {
-      reporter: { select: { id: true, displayName: true, email: true } },
+      reporter: { select: { id: true, username: true, displayName: true, email: true } },
       meta: true,
     },
     orderBy: { createdAt: 'desc' },
@@ -132,7 +132,7 @@ async function enrichReportsWithTargets(reports: any[]) {
       if (r.targetType === 'USER') {
         const u = await prisma.user.findUnique({
           where: { id: r.targetId },
-          select: { id: true, displayName: true, email: true },
+          select: { id: true, username: true, displayName: true, email: true },
         })
         if (u) target = { kind: 'USER', ...u }
       } else if (r.targetType === 'NEED') {
@@ -140,13 +140,13 @@ async function enrichReportsWithTargets(reports: any[]) {
           const posterId = r.targetId.slice('pending:'.length)
           const poster = await prisma.user.findUnique({
             where: { id: posterId },
-            select: { id: true, displayName: true },
+            select: { id: true, username: true, displayName: true },
           })
           target = {
             kind: 'NEED',
             pending: true,
             posterId,
-            posterName: poster?.displayName ?? 'Unknown',
+            posterName: poster?.username ?? poster?.displayName ?? 'Unknown',
             blockedText: (r.meta?.detail as any)?.text ?? null,
           }
         } else {
@@ -155,7 +155,7 @@ async function enrichReportsWithTargets(reports: any[]) {
             select: {
               id: true, title: true, description: true,
               needType: true, status: true,
-              poster: { select: { id: true, displayName: true } },
+              poster: { select: { id: true, username: true, displayName: true } },
             },
           })
           if (need) {
@@ -167,7 +167,7 @@ async function enrichReportsWithTargets(reports: any[]) {
               needType: need.needType,
               status: need.status,
               posterId: need.poster.id,
-              posterName: need.poster.displayName,
+              posterName: need.poster.username ?? need.poster.displayName,
             }
           }
         }
@@ -177,14 +177,14 @@ async function enrichReportsWithTargets(reports: any[]) {
           select: {
             id: true, body: true, imageUrl: true, createdAt: true,
             threadId: true,
-            sender: { select: { id: true, displayName: true } },
+            sender: { select: { id: true, username: true, displayName: true } },
           },
         })
         if (dm) {
           // Fetch last 20 messages from the thread for admin context.
           const contextMessages = await prisma.dmMessage.findMany({
             where: { threadId: dm.threadId },
-            include: { sender: { select: { id: true, displayName: true } } },
+            include: { sender: { select: { id: true, username: true, displayName: true } } },
             orderBy: { createdAt: 'desc' },
             take: 20,
           })
@@ -195,7 +195,7 @@ async function enrichReportsWithTargets(reports: any[]) {
             imageUrl: dm.imageUrl,
             createdAt: dm.createdAt,
             senderId: dm.sender.id,
-            senderName: dm.sender.displayName,
+            senderName: dm.sender.username ?? dm.sender.displayName,
             contextMessages: contextMessages.reverse(),
           }
         }
@@ -318,6 +318,7 @@ adminRouter.get('/users', async (req, res) => {
       : undefined,
     select: {
       id: true,
+      username: true,
       displayName: true,
       email: true,
       verificationLevel: true,
@@ -346,7 +347,7 @@ adminRouter.get('/needs', async (req, res) => {
   const needs = await prisma.need.findMany({
     where: status ? { status: status as any } : undefined,
     include: {
-      poster: { select: { id: true, displayName: true, email: true } },
+      poster: { select: { id: true, username: true, displayName: true, email: true } },
     },
     orderBy: { createdAt: 'desc' },
     take,

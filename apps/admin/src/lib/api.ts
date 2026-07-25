@@ -81,7 +81,7 @@ export interface Cert {
   status: string
   pointsAwarded: number | null
   createdAt: string
-  user: { id: string; displayName: string; email: string }
+  user: { id: string; username: string | null; displayName: string; email: string }
 }
 
 export interface ContextMessage {
@@ -89,7 +89,7 @@ export interface ContextMessage {
   body: string
   imageUrl: string | null
   createdAt: string
-  sender: { id: string; displayName: string }
+  sender: { id: string; username: string | null; displayName: string }
 }
 
 export interface ReportTarget {
@@ -117,12 +117,13 @@ export interface Report {
   reason: string
   status: string
   createdAt: string
-  reporter: { id: string; displayName: string; email: string }
+  reporter: { id: string; username: string | null; displayName: string; email: string }
   target?: ReportTarget | null
 }
 
 export interface AdminUser {
   id: string
+  username: string | null
   displayName: string
   email: string
   verificationLevel: string
@@ -136,5 +137,5 @@ export interface AdminNeed {
   status: string
   needType: string
   createdAt: string
-  poster: { id: string; displayName: string; email: string }
+  poster: { id: string; username: string | null; displayName: string; email: string }
 }

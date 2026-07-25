@@ -4,6 +4,7 @@ import 'api_client.dart';
 class ProfileMe {
   final String id;
   final String displayName;
+  final String? username;
   final String? email;
   final String? bio;
   final String? gender;
@@ -21,6 +22,7 @@ class ProfileMe {
   const ProfileMe({
     required this.id,
     required this.displayName,
+    this.username,
     this.email,
     this.bio,
     this.gender,
@@ -74,6 +76,7 @@ class ProfileMe {
     return ProfileMe(
       id: (j['id'] as String?) ?? (profile['id'] as String?) ?? '',
       displayName: (j['displayName'] as String?) ?? (j['name'] as String?) ?? '',
+      username: j['username'] as String?,
       email: j['email'] as String?,
       bio: profile['bio'] as String?,
       gender: profile['gender'] as String?,

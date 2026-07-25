@@ -123,7 +123,7 @@ export default function NeedsPage() {
                       </span>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{n.poster.displayName}</div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>@{n.poster.username ?? n.poster.displayName}</div>
                       <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{n.poster.email}</div>
                     </td>
                     <td>

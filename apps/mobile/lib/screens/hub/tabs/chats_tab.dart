@@ -664,8 +664,9 @@ class _SearchUserSheet extends ConsumerStatefulWidget {
 class _RemoteUser {
   final String id;
   final String name;
+  final String? username;
   final String? avatarUrl;
-  _RemoteUser({required this.id, required this.name, this.avatarUrl});
+  _RemoteUser({required this.id, required this.name, this.username, this.avatarUrl});
 }
 
 class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
@@ -701,6 +702,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
             return _RemoteUser(
               id: j['id'] as String,
               name: j['displayName'] as String? ?? '',
+              username: j['username'] as String?,
               avatarUrl: profile?['avatarUrl'] as String?,
             );
           }).toList();
@@ -915,12 +917,23 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Text(
-                                u.name,
-                                style: GoogleFonts.hankenGrotesk(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: t.ink),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '@${u.username ?? u.name}',
+                                    style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: t.ink),
+                                  ),
+                                  if (u.username != null)
+                                    Text(
+                                      u.name,
+                                      style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 12, color: t.muted),
+                                    ),
+                                ],
                               ),
                             ),
                             GestureDetector(

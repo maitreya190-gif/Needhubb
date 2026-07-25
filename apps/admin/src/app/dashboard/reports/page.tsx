@@ -135,7 +135,7 @@ function ReportRow({
     <>
       <tr style={{ opacity: acting ? 0.5 : 1 }}>
         <td>
-          <div style={{ fontWeight: 600, fontSize: 13.5 }}>{report.reporter.displayName}</div>
+          <div style={{ fontWeight: 600, fontSize: 13.5 }}>@{report.reporter.username ?? report.reporter.displayName}</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{report.reporter.email}</div>
         </td>
         <td>
@@ -244,7 +244,7 @@ function ChatContextPanel({ messages, flaggedId }: { messages: ContextMessage[];
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>{m.sender.displayName}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>@{m.sender.username ?? m.sender.displayName}</span>
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>
               {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>

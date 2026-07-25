@@ -112,7 +112,7 @@ function CertRow({
   return (
     <tr style={{ opacity: acting ? 0.5 : 1 }}>
       <td>
-        <div style={{ fontWeight: 600, fontSize: 13.5 }}>{cert.user.displayName}</div>
+        <div style={{ fontWeight: 600, fontSize: 13.5 }}>@{cert.user.username ?? cert.user.displayName}</div>
         <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{cert.user.email}</div>
       </td>
       <td>

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
+import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../services/uploads_api.dart';
 import '../../theme/tokens.dart';
@@ -127,6 +128,20 @@ class YouScreen extends ConsumerWidget {
                                   fontWeight: FontWeight.w800,
                                   color: t.onDark,
                                 ),
+                              ),
+                              const SizedBox(height: 2),
+                              ValueListenableBuilder<ProfileMe?>(
+                                valueListenable: myProfileNotifier,
+                                builder: (_, me, __) => me?.username != null
+                                    ? Text(
+                                        '@${me!.username}',
+                                        style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: t.onDarkMuted,
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
                               ),
                               const SizedBox(height: 2),
                               Text(

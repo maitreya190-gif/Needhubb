@@ -116,10 +116,10 @@ export default function UsersPage() {
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         color: '#fff', fontWeight: 800, fontSize: 13, flexShrink: 0,
                       }}>
-                        {u.displayName.charAt(0).toUpperCase()}
+                        {(u.username ?? u.displayName).charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: 13.5 }}>{u.displayName}</div>
+                        <div style={{ fontWeight: 600, fontSize: 13.5 }}>@{u.username ?? u.displayName}</div>
                         <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 1 }}>{u.email}</div>
                       </div>
                     </div>
@@ -157,7 +157,7 @@ export default function UsersPage() {
                       className="btn btn-danger"
                       style={{ fontSize: 12 }}
                       disabled={acting === u.id}
-                      onClick={() => deleteUser(u.id, u.displayName)}
+                      onClick={() => deleteUser(u.id, u.username ?? u.displayName)}
                     >
                       Delete
                     </button>

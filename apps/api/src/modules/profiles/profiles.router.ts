@@ -184,7 +184,7 @@ profilesRouter.get('/search', authenticate, async (req, res, next) => {
         ],
       },
       select: {
-        id: true, displayName: true, email: true,
+        id: true, username: true, displayName: true, email: true,
         profile: { select: { avatarUrl: true, bio: true } },
       },
       take: 20,
