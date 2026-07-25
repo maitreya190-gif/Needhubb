@@ -211,16 +211,37 @@ export async function analyzePersonality(
     const raw = (data.response ?? data.output ?? '').trim()
     if (!raw) throw new Error('Lyzr personality returned empty response')
 
-    // Strip any accidental markdown fences.
+    // Extract the first {...} JSON object from the response. Handles cases
+    // where Lyzr wraps the JSON in markdown fences or adds a preamble/suffix.
     const cleaned = raw
       .replace(/^```(?:json)?\s*/i, '')
       .replace(/```\s*$/i, '')
       .trim()
-
-    const parsed = JSON.parse(cleaned) as PersonalityProfile
-    if (!parsed.traits || typeof parsed.traits.openness !== 'number') {
-      throw new Error('Lyzr personality returned malformed profile')
+    let jsonText = cleaned
+    if (!jsonText.startsWith('{')) {
+      const firstBrace = jsonText.indexOf('{')
+      const lastBrace = jsonText.lastIndexOf('}')
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        jsonText = jsonText.slice(firstBrace, lastBrace + 1)
+      }
     }
+
+    let parsed: PersonalityProfile
+    try {
+      parsed = JSON.parse(jsonText) as PersonalityProfile
+    } catch (err) {
+      console.error('[lyzr] personality parse failure. Raw response:', raw.slice(0, 500))
+      throw new Error(`Lyzr personality returned unparseable JSON: ${(err as Error).message}`)
+    }
+    if (!parsed.traits || typeof parsed.traits.openness !== 'number') {
+      throw new Error('Lyzr personality returned malformed profile — missing traits')
+    }
+    // Coerce missing / fuzzy fields so downstream code never crashes.
+    parsed.nickname = parsed.nickname?.trim() || 'The NeedHubber'
+    parsed.summary = parsed.summary?.trim() || ''
+    parsed.vibeTags = Array.isArray(parsed.vibeTags)
+      ? parsed.vibeTags.map((t) => String(t).trim()).filter(Boolean).slice(0, 6)
+      : []
     return parsed
   } finally {
     clearTimeout(timeout)

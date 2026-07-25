@@ -118,6 +118,26 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
   bool _submitting = false;
   String? _error;
 
+  @override
+  void initState() {
+    super.initState();
+    // Defense-in-depth: if this screen ever opens for a user who already
+    // took the test, bounce them straight to their result screen. The
+    // Home CTA already handles this, but this covers any deep-link or
+    // stale navigation path.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final me = myProfileNotifier.value;
+      final existing = me?.personalityProfile;
+      if (existing != null && mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => PersonalityResultScreen(profile: existing),
+          ),
+        );
+      }
+    });
+  }
+
   Future<void> _submit() async {
     // Jump to the first unanswered question instead of just showing an error
     final firstMissing = _answers.indexWhere((a) => a == null || a.isEmpty);
@@ -132,9 +152,11 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
       _submitting = true;
       _error = null;
     });
+    PersonalityProfile? profile;
+    Object? failure;
     try {
       final api = ref.read(personalityApiProvider);
-      final profile = await api.submit(_answers.cast<String>());
+      profile = await api.submit(_answers.cast<String>());
       myPersonalityNotifier.value = profile;
 
       // Refresh my full profile so downstream screens pick it up.
@@ -142,22 +164,26 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
         final me = await ref.read(profilesApiProvider).me();
         myProfileNotifier.value = me;
       } catch (_) {}
-
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => PersonalityResultScreen(profile: profile)),
-      );
     } catch (e) {
       debugPrint('[PersonalityTest] submit failed: $e');
-      if (mounted) {
-        setState(() {
-          _error = _friendlyError(e);
-        });
-      }
-    } finally {
-      // Always release the submitting flag so the button can be tried again.
-      if (mounted) setState(() => _submitting = false);
+      failure = e;
     }
+
+    if (!mounted) return;
+    if (failure != null) {
+      // Show the error and leave the user on the quiz to retry.
+      setState(() {
+        _submitting = false;
+        _error = _friendlyError(failure!);
+      });
+      return;
+    }
+    // Success — clear the loading flag BEFORE navigating away so the widget
+    // never tries to rebuild after disposal (fixes `_owner != null` crash).
+    setState(() => _submitting = false);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => PersonalityResultScreen(profile: profile!)),
+    );
   }
 
   /// Convert Dio / network errors into a message the user can act on.
@@ -171,6 +197,9 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
       }
       if (code == 'ALREADY_TAKEN') {
         return "You've already taken the test — check your You tab.";
+      }
+      if (code == 'LYZR_UNAVAILABLE' || status == 502) {
+        return 'The AI analyzer is temporarily unavailable. Please try again in a minute.';
       }
       if (status == 400) {
         final msg = data is Map ? data['error']?.toString() : null;
