@@ -1706,23 +1706,26 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
             ],
           ),
           const SizedBox(height: 10),
-          if (list.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: NhEmptyState(
-                icon: Icons.notifications_none_rounded,
-                title: 'All quiet for now',
-                subtitle:
-                    "You'll be notified when someone responds to your needs or sends you a request",
-              ),
-            )
-          else
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: list.length,
-                separatorBuilder: (_, __) =>
-                    Divider(color: t.rail, height: 1, indent: 56),
+          ValueListenableBuilder<List<NhNotification>>(
+            valueListenable: notificationsListNotifier,
+            builder: (context, list, _) {
+              if (list.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: NhEmptyState(
+                    icon: Icons.notifications_none_rounded,
+                    title: 'All quiet for now',
+                    subtitle:
+                        "You'll be notified when someone responds to your needs or sends you a request",
+                  ),
+                );
+              }
+              return Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: list.length,
+                  separatorBuilder: (_, __) =>
+                      Divider(color: t.rail, height: 1, indent: 56),
                 itemBuilder: (_, i) {
                   final n = list[i];
                   final color = _colorFor(n.type);
@@ -1784,12 +1787,11 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
                           ),
                         ),
                       ],
-                    ),
-                  ),
                 );
               },
-              ),
-            ),
+              );
+            },
+          ),
         ],
       ),
     );
