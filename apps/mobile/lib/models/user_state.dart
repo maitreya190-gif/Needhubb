@@ -246,11 +246,14 @@ class FeedFilter {
     this.maxDistanceKm = 50,
     this.minBudget,
     this.maxBudget,
-    this.genders = const {},
-    this.interests = const {},
-    this.skills = const {},
-    this.sortBy = 'newest',
-  });
+    Set<String>? genders,
+    Set<String>? interests,
+    Set<String>? skills,
+    String? sortBy,
+  })  : genders = genders ?? const {},
+        interests = interests ?? const {},
+        skills = skills ?? const {},
+        sortBy = sortBy ?? 'newest';
 
   FeedFilter copyWith({
     double? maxDistanceKm,
