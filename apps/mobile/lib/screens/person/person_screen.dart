@@ -7,6 +7,7 @@ import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_report_sheet.dart';
+import '../history/history_screen.dart';
 
 class PersonScreen extends ConsumerStatefulWidget {
   final String name;
@@ -411,11 +412,20 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            _MiniStat(
-                              label: 'reviews',
-                              value: person != null
-                                  ? '${person.reviewCount}'
-                                  : '0',
+                            GestureDetector(
+                              onTap: person != null && person.reviewCount > 0
+                                  ? () => Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => HistoryScreen(userId: widget.userId),
+                                        ),
+                                      )
+                                  : null,
+                              child: _MiniStat(
+                                label: 'reviews',
+                                value: person != null
+                                    ? '${person.reviewCount}'
+                                    : '0',
+                              ),
                             ),
                           ],
                         ),

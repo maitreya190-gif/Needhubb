@@ -28,35 +28,58 @@ adminRouter.get('/certificates', async (req, res) => {
   res.json(certs)
 })
 
-adminRouter.patch('/certificates/:id', async (req, res) => {
+adminRouter.patch('/certificates/:id', async (req, res, next) => {
   const { id } = req.params
   const { status, pointsAwarded } = req.body as {
     status: 'APPROVED' | 'REJECTED'
     pointsAwarded?: number
   }
 
-  const cert = await prisma.certificate.update({
-    where: { id },
-    data: { status, pointsAwarded: pointsAwarded ?? null },
-  })
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const cert = await tx.certificate.update({
+        where: { id },
+        data: { status, pointsAwarded: pointsAwarded ?? null },
+      })
 
-  if (status === 'APPROVED' && pointsAwarded) {
-    await prisma.pointsLedger.create({
-      data: {
-        userId: cert.userId,
-        delta: pointsAwarded,
-        reason: `Certificate approved: ${cert.type}`,
-        refId: cert.id,
-      },
-    })
-    await prisma.profile.upsert({
-      where: { userId: cert.userId },
-      update: { pointsTotal: { increment: pointsAwarded } },
-      create: { userId: cert.userId, pointsTotal: pointsAwarded },
-    })
-  }
+      if (status === 'APPROVED' && pointsAwarded && pointsAwarded > 0) {
+        await tx.pointsLedger.create({
+          data: {
+            userId: cert.userId,
+            delta: pointsAwarded,
+            reason: `Certificate approved: ${cert.type}`,
+            refId: cert.id,
+          },
+        })
+        await tx.profile.upsert({
+          where: { userId: cert.userId },
+          update: { pointsTotal: { increment: pointsAwarded } },
+          create: { userId: cert.userId, pointsTotal: pointsAwarded },
+        })
+        await pushNotification(tx, {
+          userId: cert.userId,
+          type: 'CERT_APPROVED',
+          title: 'Certificate approved!',
+          body: `Your ${cert.type.replace(/_/g, ' ').toLowerCase()} certificate was approved. You earned ${pointsAwarded} points.`,
+          refType: 'CERTIFICATE',
+          refId: cert.id,
+        })
+      } else if (status === 'REJECTED') {
+        await pushNotification(tx, {
+          userId: cert.userId,
+          type: 'CERT_REJECTED',
+          title: 'Certificate not approved',
+          body: `Your ${cert.type.replace(/_/g, ' ').toLowerCase()} certificate could not be verified. You may resubmit with clearer documentation.`,
+          refType: 'CERTIFICATE',
+          refId: cert.id,
+        })
+      }
 
-  res.json(cert)
+      return cert
+    })
+
+    res.json(result)
+  } catch (err) { next(err) }
 })
 
 // ── Reports ───────────────────────────────────────────────────────────────────
@@ -98,10 +121,8 @@ adminRouter.get('/moderation/flags', async (req, res) => {
 
 /**
  * For each report, resolve the target's actual content so admins see what was
- * flagged instead of an opaque id. Attaches a `target` object with the fields
- * the admin panel renders (title/body/posterName for NEEDs, name/email for
- * USERs, body/senderName for MESSAGEs). Auto-moderation reports whose targetId
- * starts with "pending:" also get the intended text via meta.detail.
+ * flagged instead of an opaque id. For MESSAGE reports, also attaches the last
+ * 20 messages from the thread so admins have full context.
  */
 async function enrichReportsWithTargets(reports: any[]) {
   return Promise.all(
@@ -116,7 +137,6 @@ async function enrichReportsWithTargets(reports: any[]) {
         if (u) target = { kind: 'USER', ...u }
       } else if (r.targetType === 'NEED') {
         if (r.targetId.startsWith('pending:')) {
-          // Auto-moderation report for a need that was blocked before creation.
           const posterId = r.targetId.slice('pending:'.length)
           const poster = await prisma.user.findUnique({
             where: { id: posterId },
@@ -127,7 +147,6 @@ async function enrichReportsWithTargets(reports: any[]) {
             pending: true,
             posterId,
             posterName: poster?.displayName ?? 'Unknown',
-            // The blocked text is captured in ReportMeta.detail (matches + reasons).
             blockedText: (r.meta?.detail as any)?.text ?? null,
           }
         } else {
@@ -157,10 +176,18 @@ async function enrichReportsWithTargets(reports: any[]) {
           where: { id: r.targetId },
           select: {
             id: true, body: true, imageUrl: true, createdAt: true,
+            threadId: true,
             sender: { select: { id: true, displayName: true } },
           },
         })
         if (dm) {
+          // Fetch last 20 messages from the thread for admin context.
+          const contextMessages = await prisma.dmMessage.findMany({
+            where: { threadId: dm.threadId },
+            include: { sender: { select: { id: true, displayName: true } } },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+          })
           target = {
             kind: 'MESSAGE',
             id: dm.id,
@@ -169,6 +196,7 @@ async function enrichReportsWithTargets(reports: any[]) {
             createdAt: dm.createdAt,
             senderId: dm.sender.id,
             senderName: dm.sender.displayName,
+            contextMessages: contextMessages.reverse(),
           }
         }
       }
@@ -178,67 +206,98 @@ async function enrichReportsWithTargets(reports: any[]) {
   )
 }
 
-adminRouter.patch('/reports/:id/resolve', async (req, res) => {
+adminRouter.patch('/reports/:id/resolve', async (req, res, next) => {
   const { id } = req.params
   const { action, message } = req.body as {
-    action: 'dismiss' | 'warn' | 'ban_user' | 'remove_need' | 'remove_message'
+    action: 'dismiss' | 'warn' | 'warn_user' | 'ban_user' | 'remove_need' | 'remove_message'
     message?: string
   }
 
-  const report = await prisma.$transaction(async (tx) => {
-    const updated = await tx.report.update({
-      where: { id },
-      data: { status: 'RESOLVED' },
-    })
+  try {
+    const report = await prisma.$transaction(async (tx) => {
+      const updated = await tx.report.update({
+        where: { id },
+        data: { status: 'RESOLVED' },
+      })
 
-    if (action === 'warn') {
-      // Resolve the target user:
-      //   - USER report → targetId is the userId directly
-      //   - NEED report → look up the poster
-      //   - Auto-blocked moderation reports use targetId format "pending:{userId}"
-      //     because the need was rejected before creation. Parse that too.
-      let warnUserId: string | null = null
-      if (updated.targetType === 'USER') {
-        warnUserId = updated.targetId
-      } else if (updated.targetType === 'NEED') {
-        if (updated.targetId.startsWith('pending:')) {
-          warnUserId = updated.targetId.slice('pending:'.length)
-        } else {
-          const need = await tx.need.findUnique({
+      // Normalize warn_user (sent by admin portal) → warn (internal name).
+      const act = action === 'warn_user' ? 'warn' : action
+
+      if (act === 'warn') {
+        let warnUserId: string | null = null
+        if (updated.targetType === 'USER') {
+          warnUserId = updated.targetId
+        } else if (updated.targetType === 'NEED') {
+          if (updated.targetId.startsWith('pending:')) {
+            warnUserId = updated.targetId.slice('pending:'.length)
+          } else {
+            const need = await tx.need.findUnique({
+              where: { id: updated.targetId },
+              select: { posterId: true },
+            })
+            warnUserId = need?.posterId ?? null
+          }
+        } else if (updated.targetType === 'MESSAGE') {
+          const dm = await tx.dmMessage.findUnique({
             where: { id: updated.targetId },
-            select: { posterId: true },
+            select: { senderId: true },
           })
-          warnUserId = need?.posterId ?? null
+          warnUserId = dm?.senderId ?? null
+        }
+
+        if (warnUserId) {
+          await pushNotification(tx, {
+            userId: warnUserId,
+            type: 'REPORT_ACTIONED',
+            title: 'Warning from moderators',
+            body: message?.trim() || 'Your content was flagged and reviewed by our team. Please follow community guidelines.',
+            refType: 'REPORT',
+            refId: id,
+          })
+        }
+      } else if (act === 'ban_user' && updated.targetType === 'USER') {
+        await tx.user.delete({ where: { id: updated.targetId } })
+      } else if (act === 'remove_need' && updated.targetType === 'NEED') {
+        const need = await tx.need.findUnique({
+          where: { id: updated.targetId },
+          select: { posterId: true, title: true },
+        })
+        if (need) {
+          await pushNotification(tx, {
+            userId: need.posterId,
+            type: 'REPORT_ACTIONED',
+            title: 'Your post was removed',
+            body: `Your post "${need.title}" was removed for violating community guidelines.`,
+            refType: 'REPORT',
+            refId: id,
+          })
+          await tx.need.delete({ where: { id: updated.targetId } })
+        }
+      } else if (act === 'remove_message' && updated.targetType === 'MESSAGE') {
+        const dm = await tx.dmMessage.findUnique({
+          where: { id: updated.targetId },
+          select: { id: true, senderId: true },
+        })
+        if (dm) {
+          await pushNotification(tx, {
+            userId: dm.senderId,
+            type: 'REPORT_ACTIONED',
+            title: 'Message removed',
+            body: 'One of your messages was removed for violating community guidelines.',
+            refType: 'REPORT',
+            refId: id,
+          })
+          await tx.dmMessage.delete({ where: { id: updated.targetId } })
+        } else {
+          await tx.message.deleteMany({ where: { id: updated.targetId } })
         }
       }
 
-      if (warnUserId) {
-        await pushNotification(tx, {
-          userId: warnUserId,
-          type: 'REPORT_ACTIONED',
-          title: 'Warning from moderators',
-          body: message?.trim() || 'Your content was flagged and reviewed by our team. Please follow community guidelines.',
-          refType: 'REPORT',
-          refId: id,
-        })
-      }
-    } else if (action === 'ban_user' && updated.targetType === 'USER') {
-      await tx.user.delete({ where: { id: updated.targetId } })
-    } else if (action === 'remove_need' && updated.targetType === 'NEED') {
-      await tx.need.delete({ where: { id: updated.targetId } })
-    } else if (action === 'remove_message' && updated.targetType === 'MESSAGE') {
-      const dm = await tx.dmMessage.findUnique({ where: { id: updated.targetId }, select: { id: true } })
-      if (dm) {
-        await tx.dmMessage.delete({ where: { id: updated.targetId } })
-      } else {
-        await tx.message.deleteMany({ where: { id: updated.targetId } })
-      }
-    }
+      return updated
+    })
 
-    return updated
-  })
-
-  res.json({ ok: true, report })
+    res.json({ ok: true, report })
+  } catch (err) { next(err) }
 })
 
 // ── Users ─────────────────────────────────────────────────────────────────────

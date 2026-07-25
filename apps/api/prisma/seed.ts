@@ -478,6 +478,30 @@ async function main() {
   }
   console.log(`  ✓ ${REDEMPTION_ITEMS.length} redemption items`)
 
+  // ── Pending certificates for admin review ────────────────────────────────
+  const certDefs = [
+    { email: 'aarav.kumar@needhub.demo', type: 'NSS' as const, description: 'NSS camp 2025 — 7-day community service at govt school in Tumkur' },
+    { email: 'meera.kulkarni@needhub.demo', type: 'VOLUNTEERING' as const, description: 'Volunteered at Bangalore animal shelter for 3 months' },
+    { email: 'rohan.verma@needhub.demo', type: 'TREE_PLANTATION' as const, description: 'Planted 50 saplings with Green Bengaluru drive — July 2025' },
+  ]
+  for (const cd of certDefs) {
+    const uid = usersById[cd.email]
+    if (!uid) continue
+    const existing = await prisma.certificate.findFirst({ where: { userId: uid, type: cd.type } })
+    if (!existing) {
+      await prisma.certificate.create({
+        data: {
+          userId: uid,
+          type: cd.type,
+          description: cd.description,
+          fileUrl: `https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=800`,
+          status: 'PENDING_REVIEW',
+        },
+      })
+    }
+  }
+  console.log('  ✓ 3 pending certificates')
+
   // ── Sample notifications for the primary demo account ─────────────────────
   const primaryEmail = 'lightyagamimaitreya3@gmail.com'
   const primary = await prisma.user.findUnique({ where: { email: primaryEmail } })

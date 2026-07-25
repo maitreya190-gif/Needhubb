@@ -84,6 +84,32 @@ export interface Cert {
   user: { id: string; displayName: string; email: string }
 }
 
+export interface ContextMessage {
+  id: string
+  body: string
+  imageUrl: string | null
+  createdAt: string
+  sender: { id: string; displayName: string }
+}
+
+export interface ReportTarget {
+  kind: 'USER' | 'NEED' | 'MESSAGE'
+  // USER
+  displayName?: string
+  email?: string
+  // NEED
+  title?: string
+  description?: string
+  needType?: string
+  posterName?: string
+  pending?: boolean
+  blockedText?: string | null
+  // MESSAGE
+  body?: string
+  senderName?: string
+  contextMessages?: ContextMessage[]
+}
+
 export interface Report {
   id: string
   targetType: string
@@ -92,6 +118,7 @@ export interface Report {
   status: string
   createdAt: string
   reporter: { id: string; displayName: string; email: string }
+  target?: ReportTarget | null
 }
 
 export interface AdminUser {
