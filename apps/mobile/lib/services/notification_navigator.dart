@@ -106,7 +106,7 @@ class NotificationNavigator {
           return;
         } catch (_) {}
 
-        // 2. Try to fetch as a Need (if refId is a Need, open chat with the Poster)
+        // 2. Try to fetch as a Need
         try {
           final needsApi = ref.read(needsApiProvider);
           final need = await needsApi.getById(refId);
@@ -125,21 +125,10 @@ class NotificationNavigator {
           return;
         } catch (_) {}
       }
-      
-      // Fallback for chat
-      if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ConversationScreen(
-              name: chatName,
-              initials: _initials(chatName),
-              avatarColor: NeedHubTokens.forest,
-              userId: refId,
-            ),
-          ),
-        );
-        return;
-      }
+
+      // If we failed to resolve the refId via API, do NOT open a buggy fallback chat screen.
+      // We just return to prevent opening a chat with the profile name "your req has been accepted".
+      return;
     }
 
     // B. NEED ROUTING: NEED_RESPONSE_RECEIVED, NEED_UPDATE, NEED_COMPLETED, NEED_OFFER
@@ -222,36 +211,17 @@ class NotificationNavigator {
       return;
     }
 
-    // E. IMPACT (REVIEW, POINTS, CERT) -> Try Need, then Try User
-    if (type == 'REVIEW_RECEIVED' || type == 'POINTS_AWARDED' || type.contains('CERT_')) {
-      if (refId != null && refId.isNotEmpty) {
-        showLoading();
-        try {
-          final needsApi = ref.read(needsApiProvider);
-          final need = await needsApi.getById(refId);
-          if (!context.mounted) return;
-          Navigator.of(context).push(MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)));
-          return;
-        } catch (_) {}
 
-        try {
-          final profilesApi = ref.read(profilesApiProvider);
-          final user = await profilesApi.getById(refId);
-          if (!context.mounted) return;
-          Navigator.of(context).push(PersonScreen.route(
-            name: user.displayName, initials: _initials(user.displayName),
-            avatarColor: NeedHubTokens.forest, avatarUrl: user.avatarUrl, userId: user.id,
-          ));
-          return;
-        } catch (_) {}
-      }
+    // E. IMPACT (REVIEW, POINTS, CERT) -> NON-CLICKABLE
+    if (type == 'REVIEW_RECEIVED' || type == 'POINTS_AWARDED' || type.contains('CERT_')) {
+      // User explicitly requested to make impact notifications non-clickable.
+      return;
     }
 
     // F. Fallback
     if (refId != null && refId.isNotEmpty && context.mounted) {
-      Navigator.of(context).push(PersonScreen.route(
-        name: notif.title, initials: 'NH', avatarColor: NeedHubTokens.forest, userId: refId,
-      ));
+      // Don't arbitrarily push screens if we don't know the ID type.
+      // We do nothing instead of opening a buggy nameless screen.
     }
   }
 
