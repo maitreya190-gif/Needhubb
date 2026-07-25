@@ -685,7 +685,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
     setState(() => _query = v);
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () async {
-      if (v.trim().length < 2) {
+      if (v.trim().isEmpty) {
         setState(() => _remoteResults = const []);
         return;
       }
@@ -830,11 +830,11 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
             ),
 
             // Results — scrollable, shrinks when keyboard is open
-            if (_query.trim().length < 2)
+            if (_query.trim().isEmpty)
               Padding(
                 padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPad + 20),
                 child: Text(
-                  'Type at least 2 characters to search',
+                  'Type a name to search',
                   style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
                 ),
               )
