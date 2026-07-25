@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/need.dart';
 import '../../services/api_client.dart';
+import '../../services/notifications_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_report_sheet.dart';
@@ -454,14 +455,33 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                                   color: t.ink,
                                                 ),
                                               ),
-                                              Text(
-                                                '${need.location} · 0 offers',
-                                                style:
-                                                    GoogleFonts.hankenGrotesk(
-                                                  fontSize: 12,
-                                                  color: t.muted,
-                                                ),
-                                              ),
+                                              Builder(builder: (context) {
+                                                final userOffers = (mockOffers[need.id] ?? []).map((o) => _OfferData(
+                                                  initials: o.initials,
+                                                  name: o.name,
+                                                  note: o.note,
+                                                  amount: o.amount,
+                                                  tint: o.color,
+                                                )).toList();
+
+                                                final Map<String, _OfferData> mergedMap = {};
+                                                for (final o in _realOffers) {
+                                                  mergedMap['${o.name}_${o.note}'] = o;
+                                                }
+                                                for (final u in userOffers) {
+                                                  if (!mergedMap.containsKey('${u.name}_${u.note}')) {
+                                                    mergedMap['${u.name}_${u.note}'] = u;
+                                                  }
+                                                }
+                                                final count = mergedMap.length;
+                                                return Text(
+                                                  '${need.location} · $count ${count == 1 ? 'offer' : 'offers'}',
+                                                  style: GoogleFonts.hankenGrotesk(
+                                                    fontSize: 12,
+                                                    color: t.muted,
+                                                  ),
+                                                );
+                                              }),
                                             ],
                                           ),
                                         ],
@@ -477,22 +497,26 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                     ),
                     const SizedBox(height: 18),
 
-                    // Recent offers section
+                    // Recent offers section — all offers made by people are visible
                     Builder(builder: (context) {
-                      // Poster sees real API offers with accept/decline.
-                      // Non-poster sees only their own locally submitted offers.
-                      final userOffers = mockOffers[need.id] ?? [];
-                      final List<_OfferData> displayOffers = _isPoster
-                          ? _realOffers
-                          : userOffers
-                              .map((o) => _OfferData(
-                                    initials: o.initials,
-                                    name: o.name,
-                                    note: o.note,
-                                    amount: o.amount,
-                                    tint: o.color,
-                                  ))
-                              .toList();
+                      final userOffers = (mockOffers[need.id] ?? []).map((o) => _OfferData(
+                        initials: o.initials,
+                        name: o.name,
+                        note: o.note,
+                        amount: o.amount,
+                        tint: o.color,
+                      )).toList();
+
+                      final Map<String, _OfferData> mergedMap = {};
+                      for (final o in _realOffers) {
+                        mergedMap['${o.name}_${o.note}'] = o;
+                      }
+                      for (final u in userOffers) {
+                        if (!mergedMap.containsKey('${u.name}_${u.note}')) {
+                          mergedMap['${u.name}_${u.note}'] = u;
+                        }
+                      }
+                      final List<_OfferData> displayOffers = mergedMap.values.toList();
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -500,9 +524,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _isPoster
-                                  ? 'OFFERS (${displayOffers.length})'
-                                  : 'YOUR OFFER',
+                              'OFFERS (${displayOffers.length})',
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -514,12 +536,8 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                             if (displayOffers.isEmpty)
                               NhEmptyState(
                                 icon: Icons.inbox_outlined,
-                                title: _isPoster
-                                    ? 'No offers yet'
-                                    : 'No offer submitted',
-                                subtitle: _isPoster
-                                    ? 'You\'ll be notified when someone applies'
-                                    : 'Tap the button below to apply',
+                                title: 'No offers yet',
+                                subtitle: 'Offers made by people will appear here',
                               )
                             else
                               ...displayOffers.map((o) => Padding(
@@ -914,6 +932,23 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
       offers.insert(0, updatedOffer);
     }
     offersNotifier.value++;
+
+    // Generate clickable push notification for the offer
+    final newNotif = NhNotification(
+      id: 'notif_offer_${DateTime.now().millisecondsSinceEpoch}',
+      type: 'NEED_RESPONSE_RECEIVED',
+      title: 'New Offer Received!',
+      body: 'Someone made an offer of ₹$rateText on "${widget.need.title}": "$noteText"',
+      refType: 'NEED',
+      refId: widget.need.id,
+      createdAt: DateTime.now(),
+    );
+    notificationsListNotifier.value = [
+      newNotif,
+      ...notificationsListNotifier.value,
+    ];
+    unreadCountNotifier.value++;
+
     if (mounted) {
       setState(() {
         _sent = true;
@@ -1416,7 +1451,40 @@ class _ConnectSheetState extends State<_ConnectSheet> {
                   height: 52,
                   child: ElevatedButton(
                     onPressed: () {
-                      if (_controller.text.trim().isEmpty) return;
+                      final msg = _controller.text.trim();
+                      if (msg.isEmpty) return;
+
+                      final offers = mockOffers.putIfAbsent(widget.need.id, () => []);
+                      final existingIdx = offers.indexWhere((o) => o.name == 'You' || o.initials == 'ME');
+                      final updatedOffer = NeedOffer(
+                        name: 'You',
+                        initials: 'ME',
+                        note: msg,
+                        amount: '—',
+                        color: widget.categoryColor,
+                      );
+                      if (existingIdx != -1) {
+                        offers[existingIdx] = updatedOffer;
+                      } else {
+                        offers.insert(0, updatedOffer);
+                      }
+                      offersNotifier.value++;
+
+                      final newNotif = NhNotification(
+                        id: 'notif_offer_${DateTime.now().millisecondsSinceEpoch}',
+                        type: 'NEED_RESPONSE_RECEIVED',
+                        title: 'New Offer Received!',
+                        body: 'Someone responded to your need "${widget.need.title}": "$msg"',
+                        refType: 'NEED',
+                        refId: widget.need.id,
+                        createdAt: DateTime.now(),
+                      );
+                      notificationsListNotifier.value = [
+                        newNotif,
+                        ...notificationsListNotifier.value,
+                      ];
+                      unreadCountNotifier.value++;
+
                       setState(() => _sent = true);
                     },
                     style: ElevatedButton.styleFrom(
