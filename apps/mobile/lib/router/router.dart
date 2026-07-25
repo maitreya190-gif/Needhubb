@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
@@ -6,14 +7,23 @@ import '../screens/auth/signup_screen.dart';
 import '../screens/hub/hub_screen.dart';
 import '../screens/settings/settings_screen.dart';
 
+/// A ChangeNotifier that mirrors the Riverpod auth state so GoRouter's
+/// refreshListenable can react to login/logout WITHOUT recreating the
+/// router (and therefore the entire widget tree) on every state change.
+class _AuthChangeNotifier extends ChangeNotifier {
+  _AuthChangeNotifier(Ref ref) {
+    ref.listen<AuthState>(authProvider, (_, __) => notifyListeners());
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  // Watch auth state so the router rebuilds on login/logout.
-  final auth = ref.watch(authProvider);
+  final refreshNotifier = _AuthChangeNotifier(ref);
 
   return GoRouter(
-    initialLocation: auth.token != null ? '/hub' : '/login',
+    initialLocation: ref.read(authProvider).token != null ? '/hub' : '/login',
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
-      final loggedIn = auth.token != null;
+      final loggedIn = ref.read(authProvider).token != null;
       final loc = state.matchedLocation;
       final onAuth = loc == '/login' || loc.startsWith('/signup');
 
