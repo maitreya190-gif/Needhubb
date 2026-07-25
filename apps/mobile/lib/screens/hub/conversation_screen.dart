@@ -13,6 +13,7 @@ import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_empty_state.dart';
+import '../../widgets/nh_full_screen_image_viewer.dart';
 import '../../widgets/nh_report_sheet.dart';
 import '../person/person_screen.dart';
 
@@ -494,6 +495,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             t: t,
                             avatarColor: widget.avatarColor,
                             initials: widget.initials,
+                            senderName: item.message.isMe ? 'You' : widget.name,
                           ),
                           if (_reactingIndex == item.index)
                             Positioned(
@@ -824,21 +826,42 @@ class _AttachOption extends StatelessWidget {
   }
 }
 
+String? _resolveUrl(String? url) {
+  if (url == null || url.isEmpty) return null;
+  if (url.startsWith('http://localhost:3000') ||
+      url.startsWith('http://127.0.0.1:3000')) {
+    return url.replaceAll(
+        RegExp(r'http://(localhost|127\.0\.0\.1):3000'), 'http://10.0.2.2:3000');
+  }
+  if (url.startsWith('/')) {
+    return 'http://10.0.2.2:3000$url';
+  }
+  return url;
+}
+
 class _Bubble extends StatelessWidget {
   final _Message msg;
   final NeedHubTokens t;
   final Color avatarColor;
   final String initials;
+  final String senderName;
 
-  const _Bubble(
-      {required this.msg,
-      required this.t,
-      required this.avatarColor,
-      required this.initials});
+  const _Bubble({
+    required this.msg,
+    required this.t,
+    required this.avatarColor,
+    required this.initials,
+    this.senderName = '',
+  });
 
   @override
   Widget build(BuildContext context) {
     final isImage = msg.imagePath != null || msg.imageUrl != null;
+    final resolvedUrl = _resolveUrl(msg.imageUrl);
+    final heroTag = msg.remoteId ??
+        resolvedUrl ??
+        msg.imagePath ??
+        'img_${msg.time.millisecondsSinceEpoch}';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -871,93 +894,154 @@ class _Bubble extends StatelessWidget {
               Flexible(
                 child: Container(
                   constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.68),
-                  decoration: isImage
-                      ? null
-                      : BoxDecoration(
-                          color: msg.isMe ? NeedHubTokens.clay : t.card,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(18),
-                            topRight: const Radius.circular(18),
-                            bottomLeft: Radius.circular(msg.isMe ? 18 : 4),
-                            bottomRight: Radius.circular(msg.isMe ? 4 : 18),
-                          ),
-                          border: msg.isMe
-                              ? null
-                              : Border.all(color: t.rail, width: 1),
-                        ),
-                  padding: isImage
-                      ? EdgeInsets.zero
-                      : const EdgeInsets.fromLTRB(13, 10, 13, 8),
-                  child: isImage
-                      ? ClipRRect(
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(18),
-                            topRight: const Radius.circular(18),
-                            bottomLeft: Radius.circular(msg.isMe ? 18 : 4),
-                            bottomRight: Radius.circular(msg.isMe ? 4 : 18),
-                          ),
-                          child: msg.imageUrl != null
-                              ? Image.network(msg.imageUrl!,
-                                  fit: BoxFit.cover,
-                                  width: MediaQuery.of(context).size.width * 0.56,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    width: MediaQuery.of(context).size.width * 0.56,
-                                    height: 140,
-                                    color: t.rail,
-                                    alignment: Alignment.center,
-                                    child: Icon(Icons.broken_image_outlined,
-                                        color: t.muted),
-                                  ),
-                                )
-                              : Image.file(
-                                  File(msg.imagePath!),
-                                  fit: BoxFit.cover,
-                                  width: MediaQuery.of(context).size.width * 0.56,
-                                ),
-                        )
-                      : Column(
-                          crossAxisAlignment: msg.isMe
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              msg.text ?? '',
-                              style: GoogleFonts.hankenGrotesk(
-                                fontSize: 14,
-                                color: msg.isMe ? Colors.white : t.ink,
-                                height: 1.45,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
+                      maxWidth: MediaQuery.of(context).size.width * 0.72),
+                  decoration: BoxDecoration(
+                    color: msg.isMe ? NeedHubTokens.clay : t.card,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(18),
+                      topRight: const Radius.circular(18),
+                      bottomLeft: Radius.circular(msg.isMe ? 18 : 4),
+                      bottomRight: Radius.circular(msg.isMe ? 4 : 18),
+                    ),
+                    border: msg.isMe
+                        ? null
+                        : Border.all(color: t.rail, width: 1),
+                  ),
+                  padding: const EdgeInsets.all(6),
+                  child: Column(
+                    crossAxisAlignment: msg.isMe
+                        ? CrossAxisAlignment.end
+                        : CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isImage)
+                        Padding(
+                          padding: EdgeInsets.only(
+                              bottom: (msg.text != null && msg.text!.isNotEmpty) ? 6 : 4),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              NHFullScreenImageViewer.open(
+                                context,
+                                imageUrl: resolvedUrl,
+                                imagePath: msg.imagePath,
+                                heroTag: heroTag,
+                                title: senderName.isNotEmpty
+                                    ? senderName
+                                    : (msg.isMe ? 'You' : 'Image'),
+                                subtitle: msg.timeLabel,
+                              );
+                            },
+                            child: Stack(
+                              alignment: Alignment.center,
                               children: [
-                                Text(
-                                  msg.timeLabel,
-                                  style: GoogleFonts.hankenGrotesk(
-                                    fontSize: 10.5,
-                                    color: msg.isMe
-                                        ? Colors.white.withValues(alpha: 0.62)
-                                        : t.muted,
+                                Hero(
+                                  tag: heroTag,
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: resolvedUrl != null
+                                        ? Image.network(
+                                            resolvedUrl,
+                                            fit: BoxFit.cover,
+                                            width: MediaQuery.of(context).size.width * 0.64,
+                                            errorBuilder: (_, __, ___) => Container(
+                                              width: MediaQuery.of(context).size.width * 0.64,
+                                              height: 140,
+                                              color: t.rail,
+                                              alignment: Alignment.center,
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(Icons.broken_image_outlined,
+                                                      color: t.muted),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    'Tap to expand full screen',
+                                                    style: TextStyle(
+                                                        color: t.muted, fontSize: 11),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          )
+                                        : Image.file(
+                                            File(msg.imagePath!),
+                                            fit: BoxFit.cover,
+                                            width: MediaQuery.of(context).size.width * 0.64,
+                                            errorBuilder: (_, __, ___) => Container(
+                                              width: MediaQuery.of(context).size.width * 0.64,
+                                              height: 140,
+                                              color: t.rail,
+                                              alignment: Alignment.center,
+                                              child: Icon(Icons.broken_image_outlined,
+                                                  color: t.muted),
+                                            ),
+                                          ),
                                   ),
                                 ),
-                                if (msg.isMe) ...[
-                                  const SizedBox(width: 3),
-                                  Icon(
-                                    msg.isRead
-                                        ? Icons.done_all_rounded
-                                        : Icons.done_rounded,
-                                    size: 13,
-                                    color: msg.isRead
-                                        ? const Color(0xFF5BC8FB)
-                                        : Colors.white.withValues(alpha: 0.62),
+                                Positioned(
+                                  right: 8,
+                                  bottom: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(5),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.65),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.fullscreen_rounded,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
                                   ),
-                                ],
+                                ),
                               ],
                             ),
+                          ),
+                        ),
+                      if (msg.text != null && msg.text!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          child: Text(
+                            msg.text!,
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 14,
+                              color: msg.isMe ? Colors.white : t.ink,
+                              height: 1.45,
+                            ),
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(6, 2, 4, 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              msg.timeLabel,
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 10.5,
+                                color: msg.isMe
+                                    ? Colors.white.withValues(alpha: 0.65)
+                                    : t.muted,
+                              ),
+                            ),
+                            if (msg.isMe) ...[
+                              const SizedBox(width: 3),
+                              Icon(
+                                msg.isRead
+                                    ? Icons.done_all_rounded
+                                    : Icons.done_rounded,
+                                size: 13,
+                                color: msg.isRead
+                                    ? const Color(0xFF5BC8FB)
+                                    : Colors.white.withValues(alpha: 0.65),
+                              ),
+                            ],
                           ],
                         ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
