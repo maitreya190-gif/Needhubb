@@ -14,6 +14,7 @@ import { isBlockedBetween } from '../friends/friends.service'
 import {
   badRequest, forbidden, notFound, unprocessable,
 } from '../../lib/http-error'
+import { suggestResponse } from '../../lib/lyzr'
 import {
   decomposeBody, createNeedBody, feedQuery, respondBody, respondDecisionBody, statusBody,
 } from './needs.schemas'
@@ -527,6 +528,44 @@ needsRouter.patch('/:id/responses/:respId', authenticate, async (req, res, next)
     })
 
     res.json(updated)
+  } catch (err) { next(err) }
+})
+
+// ─── POST /needs/:id/suggest-response — Lyzr AI intro suggestion ─────────────
+
+needsRouter.post('/:id/suggest-response', authenticate, async (req, res, next) => {
+  const userId = (req as AuthedRequest).userId
+  try {
+    const need = await prisma.need.findUnique({ where: { id: req.params.id } })
+    if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
+
+    // Fetch caller's profile to personalize the suggestion
+    const profile = await prisma.profile.findUnique({
+      where: { userId },
+      select: {
+        bio: true,
+        skills: { include: { skill: { select: { label: true } } } },
+        interests: { include: { interest: { select: { label: true } } } },
+      },
+    })
+
+    const budget = need.budgetMin != null
+      ? need.budgetMax != null
+        ? `₹${need.budgetMin}–₹${need.budgetMax}`
+        : `₹${need.budgetMin}+`
+      : null
+
+    const result = await suggestResponse({
+      needTitle: need.title,
+      needDescription: need.description,
+      category: need.needType as 'EARN' | 'CONNECT',
+      budget,
+      responderBio: profile?.bio ?? null,
+      responderSkills: profile?.skills.map((s) => s.skill.label) ?? [],
+      responderInterests: profile?.interests.map((i) => i.interest.label) ?? [],
+    })
+
+    res.json({ suggestion: result.suggestion, poweredBy: result.poweredBy })
   } catch (err) { next(err) }
 })
 

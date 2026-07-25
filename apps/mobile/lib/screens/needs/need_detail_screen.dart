@@ -961,6 +961,7 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
   String? _workSamplePath;
   bool _sent = false;
   bool _sending = false;
+  bool _suggesting = false;
 
   @override
   void initState() {
@@ -983,7 +984,29 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
   bool get _canSend =>
       _rateController.text.trim().isNotEmpty &&
       _noteController.text.trim().length >= 5 &&
-      !_sending;
+      !_sending &&
+      !_suggesting;
+
+  Future<void> _suggestIntro() async {
+    setState(() => _suggesting = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final res = await api.post('/needs/${widget.need.id}/suggest-response', {});
+      final suggestion = res['suggestion'] as String? ?? '';
+      if (suggestion.isNotEmpty && mounted) {
+        _noteController.text = suggestion;
+        setState(() {});
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not generate suggestion. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _suggesting = false);
+    }
+  }
 
   Future<void> _submit() async {
     if (!_canSend) return;
@@ -1102,6 +1125,7 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
               workSamplePath: _workSamplePath,
               canSend: _canSend,
               sending: _sending,
+              suggesting: _suggesting,
               isEditing: widget.existingOffer != null,
               onPickWorkSample: () async {
                 final file = await ImagePicker().pickImage(
@@ -1113,6 +1137,7 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
                 }
               },
               onSend: _submit,
+              onSuggest: _suggestIntro,
               onChanged: () => setState(() {}),
             ),
     );
@@ -1127,9 +1152,11 @@ class _OfferFormView extends StatelessWidget {
   final String? workSamplePath;
   final bool canSend;
   final bool sending;
+  final bool suggesting;
   final bool isEditing;
   final VoidCallback onPickWorkSample;
   final VoidCallback onSend;
+  final VoidCallback onSuggest;
   final VoidCallback onChanged;
 
   const _OfferFormView({
@@ -1140,9 +1167,11 @@ class _OfferFormView extends StatelessWidget {
     required this.workSamplePath,
     required this.canSend,
     required this.sending,
+    required this.suggesting,
     required this.isEditing,
     required this.onPickWorkSample,
     required this.onSend,
+    required this.onSuggest,
     required this.onChanged,
   });
 
@@ -1238,12 +1267,48 @@ class _OfferFormView extends StatelessWidget {
           const SizedBox(height: 14),
 
           // Note
-          Text('INTRO NOTE',
-              style: GoogleFonts.hankenGrotesk(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: t.muted2,
-                  letterSpacing: 0.7)),
+          Row(
+            children: [
+              Text('INTRO NOTE',
+                  style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: t.muted2,
+                      letterSpacing: 0.7)),
+              const Spacer(),
+              GestureDetector(
+                onTap: suggesting ? null : onSuggest,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: NeedHubTokens.forest.withValues(alpha: suggesting ? 0.05 : 0.10),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: NeedHubTokens.forest.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: suggesting
+                      ? SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: NeedHubTokens.forest,
+                          ),
+                        )
+                      : Text(
+                          '✦ Suggest intro',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: NeedHubTokens.forest,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
@@ -1443,6 +1508,28 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
   final _controller = TextEditingController();
   bool _sent = false;
   bool _sending = false;
+  bool _suggesting = false;
+
+  Future<void> _suggestIntro() async {
+    setState(() => _suggesting = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final res = await api.post('/needs/${widget.need.id}/suggest-response', {});
+      final suggestion = res['suggestion'] as String? ?? '';
+      if (suggestion.isNotEmpty && mounted) {
+        _controller.text = suggestion;
+        setState(() {});
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not generate suggestion. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _suggesting = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -1535,14 +1622,46 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'Send a short intro to ${widget.need.authorName}',
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 14,
-                    color: t.muted,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Send a short intro to ${widget.need.authorName}',
+                        style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _suggesting ? null : _suggestIntro,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: NeedHubTokens.forest.withValues(alpha: _suggesting ? 0.05 : 0.10),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: NeedHubTokens.forest.withValues(alpha: 0.3)),
+                        ),
+                        child: _suggesting
+                            ? SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: NeedHubTokens.forest,
+                                ),
+                              )
+                            : Text(
+                                '✦ Suggest intro',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: NeedHubTokens.forest,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
                     color: t.paper,
