@@ -17,15 +17,19 @@ import { achievementsRouter } from './modules/achievements/achievements.router'
 import { adminAuth } from './middleware/adminAuth'
 import { authenticate } from './middleware/authenticate'
 import { errorHandler } from './middleware/errorHandler'
+import { authLimiter, otpLimiter, writeLimiter, uploadLimiter } from './middleware/rateLimiter'
+import { config } from './config'
 
 export const app: Express = express()
 app.use(express.json())
 
-app.use((_req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*')
+app.use((req, res, next) => {
+  const origin = req.headers.origin ?? ''
+  const allowed = config.corsOrigin === '*' || config.corsOrigin.split(',').map(s => s.trim()).includes(origin)
+  if (allowed) res.setHeader('Access-Control-Allow-Origin', config.corsOrigin === '*' ? '*' : origin)
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type,x-admin-secret,Authorization')
-  if (_req.method === 'OPTIONS') { res.sendStatus(204); return }
+  if (req.method === 'OPTIONS') { res.sendStatus(204); return }
   next()
 })
 
@@ -35,22 +39,24 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
-app.use('/auth', authRouter)
+app.use('/auth', authLimiter, authRouter)
+// tighter limit on OTP resend specifically
+app.use('/auth/resend-otp', otpLimiter)
 
 // Needs router — self-contained authentication (per-route). Public GET, protected write.
-app.use('/needs', needsRouter)
+app.use('/needs', writeLimiter, needsRouter)
 
 // User-facing reports — every route requires auth.
-app.use('/reports', reportsRouter)
+app.use('/reports', writeLimiter, reportsRouter)
 
 // Certificates — individual authenticate calls per route inside the router.
-app.use('/certificates', certificatesRouter)
+app.use('/certificates', uploadLimiter, certificatesRouter)
 
 // Profiles — avatar upload + profile read/update.
 app.use('/profile', profilesRouter)
 
 // Messaging — DM threads + messages with optional image attachments.
-app.use('/chats', messagingRouter)
+app.use('/chats', writeLimiter, messagingRouter)
 
 // Friends + Blocks — requests, accept/decline, block/unblock.
 app.use('/friends', friendsRouter)

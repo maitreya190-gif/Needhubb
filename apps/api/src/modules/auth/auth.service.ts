@@ -76,8 +76,8 @@ export async function verifyEmail({ userId, code }: VerifyEmailBody) {
     return { token: signToken(user.id, user.email), user: publicUser(user) }
   }
 
-  // Dev bypass — never rejected, avoids demo-day SMTP failures blocking signup.
-  if (code === DEV_BYPASS_CODE) {
+  // Dev bypass — disabled in production to prevent OTP circumvention.
+  if (code === DEV_BYPASS_CODE && !config.isProd) {
     const updated = await markVerified(userId)
     return { token: signToken(updated.id, updated.email), user: publicUser(updated) }
   }

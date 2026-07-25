@@ -37,12 +37,16 @@ adminRouter.patch('/certificates/:id', async (req, res, next) => {
 
   try {
     const result = await prisma.$transaction(async (tx) => {
+      // Read the current status before updating to prevent duplicate point awards.
+      const existing = await tx.certificate.findUniqueOrThrow({ where: { id }, select: { status: true, userId: true, type: true } })
+      const wasAlreadyApproved = existing.status === 'APPROVED'
+
       const cert = await tx.certificate.update({
         where: { id },
         data: { status, pointsAwarded: pointsAwarded ?? null },
       })
 
-      if (status === 'APPROVED' && pointsAwarded && pointsAwarded > 0) {
+      if (status === 'APPROVED' && !wasAlreadyApproved && pointsAwarded && pointsAwarded > 0) {
         await tx.pointsLedger.create({
           data: {
             userId: cert.userId,

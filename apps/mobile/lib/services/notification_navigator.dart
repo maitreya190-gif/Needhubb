@@ -6,9 +6,7 @@ import '../screens/needs/need_detail_screen.dart';
 import '../screens/person/person_screen.dart';
 import '../screens/redeem/redeem_screen.dart';
 import '../theme/tokens.dart';
-import 'needs_api.dart';
 import 'notifications_api.dart';
-import 'profiles_api.dart';
 import 'social_providers.dart';
 
 class NotificationNavigator {

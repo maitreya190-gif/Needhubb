@@ -56,7 +56,7 @@ class NeedsApi {
 
   Future<Need> getById(String id) async {
     final res = await _api.get('/needs/$id');
-    return _needFromJson(res as Map<String, dynamic>);
+    return _needFromJson(res);
   }
 }
 
