@@ -118,8 +118,13 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
   String? _error;
 
   Future<void> _submit() async {
-    if (_answers.any((a) => a == null || a.isEmpty)) {
-      setState(() => _error = 'Answer every question first.');
+    // Jump to the first unanswered question instead of just showing an error
+    final firstMissing = _answers.indexWhere((a) => a == null || a.isEmpty);
+    if (firstMissing != -1) {
+      setState(() {
+        _step = firstMissing;
+        _error = 'Please answer question ${firstMissing + 1} first.';
+      });
       return;
     }
     setState(() {
@@ -142,12 +147,15 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
         MaterialPageRoute(builder: (_) => PersonalityResultScreen(profile: profile)),
       );
     } catch (e) {
+      debugPrint('[PersonalityTest] submit failed: $e');
       if (mounted) {
         setState(() {
           _error = 'Could not analyze your answers. $e';
-          _submitting = false;
         });
       }
+    } finally {
+      // Always release the submitting flag so the button can be tried again.
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -316,15 +324,23 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                   if (_step > 0) const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _submitting || _answers[_step] == null
+                      // On the last step, always allow the tap — _submit()
+                      // itself handles missing answers by jumping to the
+                      // first unanswered question. This means users are
+                      // never stuck if a state bug leaves the current answer
+                      // stale. On intermediate steps we still require an
+                      // answer to advance.
+                      onPressed: _submitting
                           ? null
-                          : () {
-                              if (isLast) {
-                                _submit();
-                              } else {
-                                setState(() => _step++);
-                              }
-                            },
+                          : (isLast || _answers[_step] != null)
+                              ? () {
+                                  if (isLast) {
+                                    _submit();
+                                  } else {
+                                    setState(() => _step++);
+                                  }
+                                }
+                              : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: NeedHubTokens.clay,
                         foregroundColor: Colors.white,
@@ -341,10 +357,20 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                               height: 20,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2, color: Colors.white))
-                          : Text(
-                              isLast ? 'See my personality' : 'Next',
-                              style: GoogleFonts.hankenGrotesk(
-                                  fontSize: 15, fontWeight: FontWeight.w800),
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  isLast ? 'Submit test' : 'Next',
+                                  style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800),
+                                ),
+                                if (isLast) ...[
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.check_rounded, size: 18),
+                                ],
+                              ],
                             ),
                     ),
                   ),
