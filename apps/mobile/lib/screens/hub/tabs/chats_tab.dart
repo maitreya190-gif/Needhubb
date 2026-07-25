@@ -9,6 +9,7 @@ import '../../../services/friends_api.dart';
 import '../../../services/messaging_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
+import '../../../widgets/nh_avatar.dart';
 import '../../../widgets/nh_skeleton.dart';
 import '../../../widgets/nh_empty_state.dart';
 import '../../person/person_screen.dart';
@@ -335,6 +336,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                                   name: chat.otherDisplayName,
                                   initials: _initialsFor(chat.otherDisplayName),
                                   avatarColor: NeedHubTokens.forest,
+                                  avatarUrl: chat.otherAvatarUrl,
                                   userId: chat.otherUserId,
                                   threadId: chat.threadId,
                                 ),
@@ -1009,30 +1011,25 @@ class _RealChatRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: NeedHubTokens.forest.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(14),
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                PersonScreen.route(
+                  name: chat.otherDisplayName,
+                  initials: _initials,
+                  avatarColor: NeedHubTokens.forest,
+                  avatarUrl: chat.otherAvatarUrl,
+                  userId: chat.otherUserId,
+                ),
               ),
-              alignment: Alignment.center,
-              child: chat.otherAvatarUrl != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: Image.network(chat.otherAvatarUrl!,
-                          width: 44, height: 44, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Text(_initials,
-                              style: GoogleFonts.bricolageGrotesque(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: NeedHubTokens.forest))),
-                    )
-                  : Text(_initials,
-                      style: GoogleFonts.bricolageGrotesque(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: NeedHubTokens.forest)),
+              child: NhAvatar(
+                avatarUrl: chat.otherAvatarUrl,
+                initials: _initials,
+                size: 44,
+                borderRadius: 14,
+                backgroundColor: NeedHubTokens.forest.withValues(alpha: 0.15),
+                textColor: NeedHubTokens.forest,
+                fontSize: 14,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(

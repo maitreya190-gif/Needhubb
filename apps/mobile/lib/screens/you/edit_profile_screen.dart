@@ -7,7 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
+import '../../services/profiles_api.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_button.dart';
 import '../../widgets/nh_text_field.dart';
 
@@ -63,6 +65,22 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _promptNeedController =
         TextEditingController(text: promptNeedNotifier.value);
     _gender = genderNotifier.value;
+
+    final currentInterests = myProfileNotifier.value?.interestLabels.isNotEmpty == true
+        ? myProfileNotifier.value!.interestLabels
+        : customInterestsNotifier.value;
+    if (currentInterests.isNotEmpty) {
+      _selectedInterests.clear();
+      _selectedInterests.addAll(currentInterests);
+    }
+
+    final currentSkills = myProfileNotifier.value?.skillLabels.isNotEmpty == true
+        ? myProfileNotifier.value!.skillLabels
+        : customSkillsNotifier.value;
+    if (currentSkills.isNotEmpty) {
+      _selectedSkills.clear();
+      _selectedSkills.addAll(currentSkills);
+    }
   }
 
   @override
@@ -109,39 +127,71 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> _save() async {
     setState(() => _saving = true);
+
+    // Update local profile state immediately so edits/interests reflect instantly on profile
+    customInterestsNotifier.value = _selectedInterests.toList();
+    customSkillsNotifier.value = _selectedSkills.toList();
+    bioNotifier.value = _bioController.text.trim();
+    if (_locationController.text.trim().isNotEmpty) {
+      locationNotifier.value = _locationController.text.trim();
+    }
+    if (_promptSkillController.text.trim().isNotEmpty) {
+      promptSkillNotifier.value = _promptSkillController.text.trim();
+    }
+    if (_promptCollabController.text.trim().isNotEmpty) {
+      promptCollabNotifier.value = _promptCollabController.text.trim();
+    }
+    if (_promptNeedController.text.trim().isNotEmpty) {
+      promptNeedNotifier.value = _promptNeedController.text.trim();
+    }
+    genderNotifier.value = _gender;
+    if (_avatarPath != null) {
+      avatarUrlNotifier.value = _avatarPath;
+    }
+
     try {
       final api = ref.read(apiClientProvider);
 
       // Upload avatar first if a new one was picked
       if (_avatarPath != null) {
-        final form = FormData.fromMap({
-          'file': await MultipartFile.fromFile(
-            _avatarPath!,
-            filename: _avatarPath!.split('/').last,
-          ),
-        });
-        final res = await api.postForm('/profile/me/avatar', form);
-        avatarUrlNotifier.value = res['avatarUrl'] as String? ?? avatarUrlNotifier.value;
+        try {
+          final form = FormData.fromMap({
+            'file': await MultipartFile.fromFile(
+              _avatarPath!,
+              filename: _avatarPath!.split('/').last,
+            ),
+          });
+          final res = await api.postForm('/profile/me/avatar', form);
+          avatarUrlNotifier.value = res['avatarUrl'] as String? ?? avatarUrlNotifier.value;
+        } catch (e) {
+          debugPrint('Avatar upload warning: $e');
+        }
       }
 
-      // Patch text fields
-      final body = <String, dynamic>{};
-      if (_bioController.text.trim().isNotEmpty) body['bio'] = _bioController.text.trim();
-      if (_locationController.text.trim().isNotEmpty) body['location'] = _locationController.text.trim();
-      if (_promptSkillController.text.trim().isNotEmpty) body['promptSkill'] = _promptSkillController.text.trim();
-      if (_promptCollabController.text.trim().isNotEmpty) body['promptCollab'] = _promptCollabController.text.trim();
-      if (_promptNeedController.text.trim().isNotEmpty) body['promptNeed'] = _promptNeedController.text.trim();
-      body['gender'] = _gender;
-
-      if (body.isNotEmpty) await api.patch('/profile/me', body);
-
-      // Update local notifiers so the profile page reflects changes immediately
-      if (_bioController.text.trim().isNotEmpty) bioNotifier.value = _bioController.text.trim();
-      if (_locationController.text.trim().isNotEmpty) locationNotifier.value = _locationController.text.trim();
-      if (_promptSkillController.text.trim().isNotEmpty) promptSkillNotifier.value = _promptSkillController.text.trim();
-      if (_promptCollabController.text.trim().isNotEmpty) promptCollabNotifier.value = _promptCollabController.text.trim();
-      if (_promptNeedController.text.trim().isNotEmpty) promptNeedNotifier.value = _promptNeedController.text.trim();
-      genderNotifier.value = _gender;
+      // Sync with backend API
+      try {
+        final profilesApi = ProfilesApi(api);
+        final updated = await profilesApi.update(
+          bio: _bioController.text.trim(),
+          gender: _gender,
+          location: _locationController.text.trim(),
+          promptSkill: _promptSkillController.text.trim(),
+          promptCollab: _promptCollabController.text.trim(),
+          promptNeed: _promptNeedController.text.trim(),
+          displayName: _nameController.text.trim().isNotEmpty ? _nameController.text.trim() : null,
+          interests: _selectedInterests.toList(),
+          skills: _selectedSkills.toList(),
+        );
+        myProfileNotifier.value = updated;
+        if (updated.interestLabels.isNotEmpty) {
+          customInterestsNotifier.value = updated.interestLabels;
+        }
+        if (updated.skillLabels.isNotEmpty) {
+          customSkillsNotifier.value = updated.skillLabels;
+        }
+      } catch (e) {
+        debugPrint('Backend profile update warning: $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -152,7 +202,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save failed: $e')),
+          SnackBar(content: Text('Save error: $e')),
         );
       }
     } finally {
@@ -195,30 +245,16 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 onTap: _pickAvatar,
                 child: Stack(
                   children: [
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        color: NeedHubTokens.forest,
-                        borderRadius: BorderRadius.circular(26),
+                    ValueListenableBuilder<String?>(
+                      valueListenable: avatarUrlNotifier,
+                      builder: (_, savedUrl, __) => NhAvatar(
+                        avatarUrl: _avatarPath ?? savedUrl,
+                        initials: _initials(_nameController.text),
+                        size: 90,
+                        borderRadius: 26,
+                        backgroundColor: NeedHubTokens.forest,
+                        fontSize: 32,
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      alignment: Alignment.center,
-                      child: _avatarPath != null
-                          ? Image.file(
-                              File(_avatarPath!),
-                              fit: BoxFit.cover,
-                              width: 90,
-                              height: 90,
-                            )
-                          : Text(
-                              _initials(_nameController.text),
-                              style: GoogleFonts.bricolageGrotesque(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
                     ),
                     Positioned(
                       bottom: 0,
@@ -257,7 +293,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             // Bio
             _MultilineField(
               label: 'BIO',
-              hint: 'A line about you…',
+              hint: 'Write a short bio about yourself (e.g. Passionate developer, coffee lover & avid reader…)',
               controller: _bioController,
               t: t,
               minLines: 3,
@@ -443,7 +479,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 8),
             _MultilineField(
               label: '',
-              hint: 'A skill you love teaching…',
+              hint: 'e.g. Public speaking — I can help you structure talks and overcome stage fear.',
               controller: _promptSkillController,
               t: t,
               minLines: 2,
@@ -462,7 +498,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 8),
             _MultilineField(
               label: '',
-              hint: 'The kind of person you love to work with…',
+              hint: 'e.g. A designer who loves clean UI and shipping fast.',
               controller: _promptCollabController,
               t: t,
               minLines: 2,
@@ -481,7 +517,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 8),
             _MultilineField(
               label: '',
-              hint: 'Something you\'d ask for right now…',
+              hint: 'e.g. Someone to help test my mobile app and give honest feedback.',
               controller: _promptNeedController,
               t: t,
               minLines: 2,

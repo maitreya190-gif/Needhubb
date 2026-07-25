@@ -48,7 +48,7 @@ export const feedQuery = z.object({
 
 export const respondBody = z.object({
   message: z.string().min(1).max(2000),
-  quotedPrice: z.number().min(0).nullable().optional(),
+  quotedPrice: z.coerce.number().min(0).nullable().optional(),
 })
 
 export const respondDecisionBody = z.object({

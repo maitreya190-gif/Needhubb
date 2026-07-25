@@ -6,6 +6,7 @@ import '../../models/user_state.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_report_sheet.dart';
 import '../history/history_screen.dart';
 
@@ -18,6 +19,7 @@ class PersonScreen extends ConsumerStatefulWidget {
   /// When provided, real profile data is fetched from GET /profile/:userId
   /// and merges over the mock lookup — the mock stays as a fallback so the
   /// UI is never empty while the network call is inflight.
+  final String? avatarUrl;
   final String? userId;
 
   const PersonScreen({
@@ -25,6 +27,7 @@ class PersonScreen extends ConsumerStatefulWidget {
     required this.name,
     required this.initials,
     required this.avatarColor,
+    this.avatarUrl,
     this.location,
     this.subtitle,
     this.userId,
@@ -34,6 +37,7 @@ class PersonScreen extends ConsumerStatefulWidget {
     required String name,
     required String initials,
     required Color avatarColor,
+    String? avatarUrl,
     String? location,
     String? subtitle,
     String? userId,
@@ -43,6 +47,7 @@ class PersonScreen extends ConsumerStatefulWidget {
         name: name,
         initials: initials,
         avatarColor: avatarColor,
+        avatarUrl: avatarUrl,
         location: location,
         subtitle: subtitle,
         userId: userId,
@@ -78,9 +83,12 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
       name: m.displayName,
       initials: _initialsOf(m.displayName),
       avatarColor: color,
+      avatarUrl: m.avatarUrl,
       location: m.locationText ?? 'Nearby',
       distanceKm: 0,
       interests: m.interestLabels,
+      skills: m.skillLabels,
+      myInterests: customInterestsNotifier.value,
       promptQ1: 'What I bring',
       promptA1: m.promptSkill ?? '—',
       promptQ2: "What I'm looking for",
@@ -190,22 +198,13 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                     // Avatar + name
                     Row(
                       children: [
-                        Container(
-                          width: 70,
-                          height: 70,
-                          decoration: BoxDecoration(
-                            color: avatarColor,
-                            borderRadius: BorderRadius.circular(22),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            initials,
-                            style: GoogleFonts.bricolageGrotesque(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
-                          ),
+                        NhAvatar(
+                          avatarUrl: person?.avatarUrl ?? widget.avatarUrl ?? mockPersonLookup[name]?.avatarUrl,
+                          initials: initials,
+                          size: 70,
+                          borderRadius: 22,
+                          backgroundColor: avatarColor,
+                          fontSize: 26,
                         ),
                         const SizedBox(width: 15),
                         Expanded(
@@ -436,6 +435,129 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
 
+                  // ── Past Work & Ratings ────────────────────────────────────
+                  Row(
+                    children: [
+                      Text(
+                        'PAST WORK & RATINGS',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: t.muted2,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Ratings only',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: NeedHubTokens.clay,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () {
+                      final myId = myProfileNotifier.value?.id;
+                      final isOwn = widget.userId != null && widget.userId == myId;
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => HistoryScreen(
+                            isOwnProfile: isOwn,
+                            personName: name,
+                            userId: widget.userId,
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: t.card,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: t.rail, width: 1),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: NeedHubTokens.ochre.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.star_rounded,
+                                  color: NeedHubTokens.ochre,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Past Work History',
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: t.ink,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '5 completed tasks • 4.8 ★ average',
+                                      style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 12, color: t.muted),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(Icons.chevron_right_rounded,
+                                  size: 20, color: t.muted2),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: t.chip,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.lock_outline_rounded,
+                                    size: 13, color: t.muted2),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Written feedback comments are private to profile owner',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 11.5,
+                                      color: t.muted2,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
                   // Certificates placeholder
                   Text(
                     'CERTIFICATES',
@@ -494,6 +616,34 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                   else
                     Text(
                       'No interests listed yet',
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13, color: t.muted2),
+                    ),
+                  const SizedBox(height: 20),
+
+                  // Skills
+                  Text(
+                    'SKILLS',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: t.muted2,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (person != null && person.skills.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: person.skills
+                          .map((s) => _MiniChip(
+                              label: s, color: NeedHubTokens.ochre, t: t))
+                          .toList(),
+                    )
+                  else
+                    Text(
+                      'No skills listed yet',
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 13, color: t.muted2),
                     ),
