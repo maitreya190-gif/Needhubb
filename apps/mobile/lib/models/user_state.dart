@@ -219,20 +219,37 @@ Future<void> hydrateSocialState(FriendsApi friendsApi) async {
   ]);
 }
 
+// Feed filter badge items for active chip bar
+class FilterBadgeItem {
+  final String id;
+  final String label;
+  final String type;
+
+  const FilterBadgeItem({
+    required this.id,
+    required this.label,
+    required this.type,
+  });
+}
+
 // Feed filters
 class FeedFilter {
   final double maxDistanceKm;
   final int? minBudget;
   final int? maxBudget;
   final Set<String> genders; // empty = any
-  final Set<String> interests; // empty = any (connect surface only)
+  final Set<String> interests; // empty = any
+  final Set<String> skills; // empty = any
+  final String sortBy; // 'newest' | 'nearest' | 'highest_points'
 
   const FeedFilter({
-    this.maxDistanceKm = 25,
+    this.maxDistanceKm = 50,
     this.minBudget,
     this.maxBudget,
     this.genders = const {},
     this.interests = const {},
+    this.skills = const {},
+    this.sortBy = 'newest',
   });
 
   FeedFilter copyWith({
@@ -241,6 +258,8 @@ class FeedFilter {
     int? maxBudget,
     Set<String>? genders,
     Set<String>? interests,
+    Set<String>? skills,
+    String? sortBy,
     bool clearBudget = false,
   }) {
     return FeedFilter(
@@ -249,25 +268,96 @@ class FeedFilter {
       maxBudget: clearBudget ? null : (maxBudget ?? this.maxBudget),
       genders: genders ?? this.genders,
       interests: interests ?? this.interests,
+      skills: skills ?? this.skills,
+      sortBy: sortBy ?? this.sortBy,
     );
   }
 
-  bool get isDefault =>
-      maxDistanceKm >= 25 &&
-      minBudget == null &&
-      maxBudget == null &&
-      genders.isEmpty &&
-      interests.isEmpty;
-
-  int get filterCount {
-    int n = 0;
-    if (maxDistanceKm < 25) n++;
-    if (minBudget != null) n++;
-    if (maxBudget != null) n++;
-    if (genders.isNotEmpty) n++;
-    if (interests.isNotEmpty) n++;
-    return n;
+  List<FilterBadgeItem> get activeBadges {
+    final list = <FilterBadgeItem>[];
+    if (maxDistanceKm < 50) {
+      list.add(FilterBadgeItem(
+        id: 'distance',
+        label: 'Within ${maxDistanceKm.toInt()} km',
+        type: 'distance',
+      ));
+    }
+    if (minBudget != null || maxBudget != null) {
+      final minStr = minBudget != null ? '₹$minBudget' : '₹0';
+      final maxStr = maxBudget != null ? '₹$maxBudget' : '∞';
+      list.add(FilterBadgeItem(
+        id: 'budget',
+        label: 'Budget $minStr - $maxStr',
+        type: 'budget',
+      ));
+    }
+    for (final g in genders) {
+      list.add(FilterBadgeItem(
+        id: 'gender:$g',
+        label: 'Gender: $g',
+        type: 'gender',
+      ));
+    }
+    for (final i in interests) {
+      list.add(FilterBadgeItem(
+        id: 'interest:$i',
+        label: 'Interest: $i',
+        type: 'interest',
+      ));
+    }
+    for (final s in skills) {
+      list.add(FilterBadgeItem(
+        id: 'skill:$s',
+        label: 'Skill: $s',
+        type: 'skill',
+      ));
+    }
+    if (sortBy == 'nearest') {
+      list.add(const FilterBadgeItem(
+        id: 'sort',
+        label: 'Sort: Nearest',
+        type: 'sort',
+      ));
+    } else if (sortBy == 'highest_points') {
+      list.add(const FilterBadgeItem(
+        id: 'sort',
+        label: 'Sort: Highest Points',
+        type: 'sort',
+      ));
+    }
+    return list;
   }
+
+  FeedFilter removeBadge(FilterBadgeItem badge) {
+    if (badge.type == 'distance') {
+      return copyWith(maxDistanceKm: 50);
+    }
+    if (badge.type == 'budget') {
+      return copyWith(clearBudget: true);
+    }
+    if (badge.type == 'gender') {
+      final g = badge.id.substring(7);
+      final next = {...genders}..remove(g);
+      return copyWith(genders: next);
+    }
+    if (badge.type == 'interest') {
+      final i = badge.id.substring(9);
+      final next = {...interests}..remove(i);
+      return copyWith(interests: next);
+    }
+    if (badge.type == 'skill') {
+      final s = badge.id.substring(6);
+      final next = {...skills}..remove(s);
+      return copyWith(skills: next);
+    }
+    if (badge.type == 'sort') {
+      return copyWith(sortBy: 'newest');
+    }
+    return this;
+  }
+
+  bool get isDefault => activeBadges.isEmpty;
+  int get filterCount => activeBadges.length;
 }
 
 final earnFilterNotifier = ValueNotifier<FeedFilter>(const FeedFilter());
