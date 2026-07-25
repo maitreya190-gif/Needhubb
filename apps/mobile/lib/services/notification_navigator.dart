@@ -10,6 +10,7 @@ import '../screens/redeem/redeem_screen.dart';
 import '../theme/tokens.dart';
 import 'notifications_api.dart';
 import 'social_providers.dart';
+import 'profiles_api.dart';
 
 class NotificationNavigator {
   static Future<void> handleTap({
@@ -247,7 +248,7 @@ class NotificationNavigator {
 
       // If it's a review or points on our own profile and refId wasn't a User/Need
       if (context.mounted) {
-        final myId = ref.read(currentUserProvider)?.id;
+        final myId = myProfileNotifier.value?.id;
         if (myId != null) {
           Navigator.of(context).push(PersonScreen.route(
             name: 'My Profile', initials: 'ME', avatarColor: NeedHubTokens.forest, userId: myId,
