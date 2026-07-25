@@ -15,6 +15,9 @@ COPY . .
 RUN pnpm --filter @needhub/api exec prisma generate
 RUN pnpm --filter @needhub/api build
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 ENV NODE_ENV=production
 EXPOSE 3000
-ENTRYPOINT ["node", "apps/api/dist/index.js"]
+ENTRYPOINT ["/entrypoint.sh"]
