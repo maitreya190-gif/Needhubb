@@ -49,11 +49,17 @@ export const feedQuery = z.object({
 export const respondBody = z.object({
   message: z.string().min(1).max(2000),
   quotedPrice: z.coerce.number().min(0).nullable().optional(),
+  removeWorkSample: z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((v) => v === true || v === 'true' || v === '1'),
 })
 
 export const respondDecisionBody = z.object({
   status: z.enum(['ACCEPTED', 'DECLINED']),
 })
+
+export const editResponseBody = respondBody
 
 export const statusBody = z.object({
   status,
@@ -64,4 +70,5 @@ export type CreateNeedBody = z.infer<typeof createNeedBody>
 export type FeedQuery = z.infer<typeof feedQuery>
 export type RespondBody = z.infer<typeof respondBody>
 export type RespondDecisionBody = z.infer<typeof respondDecisionBody>
+export type EditResponseBody = z.infer<typeof editResponseBody>
 export type StatusBody = z.infer<typeof statusBody>

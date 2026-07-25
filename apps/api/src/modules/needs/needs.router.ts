@@ -1,6 +1,6 @@
 import { Router, type IRouter } from 'express'
 import multer from 'multer'
-import type { NeedType, EarnCategory, ConnectCategory, ReportTargetType } from '@prisma/client'
+import { Prisma, type NeedType, type EarnCategory, type ConnectCategory, type ReportTargetType } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { checkText } from '../../lib/moderation'
 import { decomposeNeed } from '../../lib/llm'
@@ -16,11 +16,12 @@ import {
 } from '../../lib/http-error'
 import { suggestResponse } from '../../lib/lyzr'
 import {
-  decomposeBody, createNeedBody, feedQuery, respondBody, respondDecisionBody, statusBody,
+  decomposeBody, createNeedBody, feedQuery, respondBody, editResponseBody, respondDecisionBody, statusBody,
 } from './needs.schemas'
 import { uploadFile, storageKey } from '../../lib/storage'
 
 export const needsRouter: IRouter = Router()
+const RESPONSE_EDIT_WINDOW_MS = 10 * 60 * 1000
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -220,6 +221,7 @@ needsRouter.get('/', async (req, res, next) => {
           },
         },
         subNeeds: { select: { id: true, title: true, budgetMin: true, budgetMax: true } },
+        _count: { select: { responses: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: q.take ?? 60,
@@ -297,6 +299,7 @@ needsRouter.get('/', async (req, res, next) => {
 
     const list = ranked.map((r) => ({
       ...r.need,
+      offerCount: r.need._count.responses,
       _score: Math.round(r.score * 100) / 100,
       _semantic: r.semantic != null ? Math.round(r.semantic * 100) / 100 : null,
       _distanceKm: r.distanceKm != null ? Math.round(r.distanceKm * 10) / 10 : null,
@@ -372,10 +375,11 @@ needsRouter.get('/:id', async (req, res, next) => {
           },
         },
         subNeeds: true,
+        _count: { select: { responses: true } },
       },
     })
     if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
-    res.json(need)
+    res.json({ ...need, offerCount: need._count.responses })
   } catch (err) { next(err) }
 })
 
@@ -442,6 +446,35 @@ needsRouter.post('/:id/responses', authenticate, upload.single('workSample'), as
       workSampleUrl = await uploadFile(key, req.file.buffer, req.file.mimetype)
     }
 
+    const existing = await prisma.interestResponse.findFirst({
+      where: { needId: need.id, responderId: userId },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (existing && existing.status !== 'PENDING') {
+      return next(badRequest('This response can no longer be edited', 'RESPONSE_FINALIZED'))
+    }
+    if (existing && !isResponseEditable(existing.createdAt)) {
+      return next(badRequest('Responses can only be edited within 10 minutes', 'RESPONSE_EDIT_WINDOW_EXPIRED'))
+    }
+
+    if (existing) {
+      await createResponseRevisionBestEffort({
+        responseId: existing.id,
+        message: existing.message,
+        quotedPrice: existing.quotedPrice,
+        workSampleUrl: existing.workSampleUrl,
+      })
+      const response = await prisma.interestResponse.update({
+        where: { id: existing.id },
+        data: {
+          message: parsed.data.message,
+          quotedPrice: parsed.data.quotedPrice ?? null,
+          workSampleUrl: workSampleUrl ?? (parsed.data.removeWorkSample ? null : existing.workSampleUrl),
+        },
+      })
+      return res.json({ response, softFlagged: verdict.softFlag })
+    }
+
     const response = await prisma.$transaction(async (tx) => {
       const created = await tx.interestResponse.create({
         data: {
@@ -473,19 +506,78 @@ needsRouter.get('/:id/responses', authenticate, async (req, res, next) => {
   try {
     const need = await prisma.need.findUnique({ where: { id: req.params.id } })
     if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
-    const responses = await prisma.interestResponse.findMany({
-      where: { needId: need.id },
-      include: {
-        responder: {
-          select: {
-            id: true, displayName: true,
-            profile: { select: { avatarUrl: true, pointsTotal: true } },
+    let responses
+    try {
+      responses = await prisma.interestResponse.findMany({
+        where: { needId: need.id },
+        include: {
+          responder: {
+            select: {
+              id: true, displayName: true,
+              profile: { select: { avatarUrl: true, pointsTotal: true } },
+            },
+          },
+          revisions: { orderBy: { createdAt: 'desc' } },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+    } catch (err) {
+      if (!isMissingResponseRevisionTable(err)) throw err
+      responses = await prisma.interestResponse.findMany({
+        where: { needId: need.id },
+        include: {
+          responder: {
+            select: {
+              id: true, displayName: true,
+              profile: { select: { avatarUrl: true, pointsTotal: true } },
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+        orderBy: { createdAt: 'desc' },
+      })
+    }
     res.json({ responses })
+  } catch (err) { next(err) }
+})
+
+// ─── PATCH /needs/:id/responses/:respId/edit — responder edits own offer ─────
+
+needsRouter.patch('/:id/responses/:respId/edit', authenticate, upload.single('workSample'), async (req, res, next) => {
+  const parsed = editResponseBody.safeParse(req.body)
+  if (!parsed.success) return next(badRequest('Invalid response payload', 'INVALID_BODY'))
+  const userId = (req as AuthedRequest).userId
+
+  try {
+    const response = await prisma.interestResponse.findUnique({ where: { id: req.params.respId } })
+    if (!response || response.needId !== req.params.id) return next(notFound('Response not found', 'RESPONSE_NOT_FOUND'))
+    if (response.responderId !== userId) return next(forbidden('Only the responder can edit this offer', 'NOT_RESPONDER'))
+    if (response.status !== 'PENDING') return next(badRequest('This offer can no longer be edited', 'RESPONSE_FINALIZED'))
+    if (!isResponseEditable(response.createdAt)) {
+      return next(badRequest('Responses can only be edited within 10 minutes', 'RESPONSE_EDIT_WINDOW_EXPIRED'))
+    }
+
+    const verdict = await checkText(parsed.data.message)
+    if (verdict.hardBlocked) return next(unprocessable('Content violates community rules', 'MODERATION_HARD_BLOCK'))
+
+    let workSampleUrl = response.workSampleUrl
+    if (req.file) {
+      const key = storageKey(`work-samples/${response.needId}`, req.file.originalname)
+      workSampleUrl = await uploadFile(key, req.file.buffer, req.file.mimetype)
+    } else if (parsed.data.removeWorkSample) {
+      workSampleUrl = null
+    }
+
+    await createResponseRevisionBestEffort({
+      responseId: response.id,
+      message: response.message,
+      quotedPrice: response.quotedPrice,
+      workSampleUrl: response.workSampleUrl,
+    })
+    const updated = await prisma.interestResponse.update({
+      where: { id: response.id },
+      data: { message: parsed.data.message, quotedPrice: parsed.data.quotedPrice ?? null, workSampleUrl },
+    })
+    res.json({ response: updated, softFlagged: verdict.softFlag })
   } catch (err) { next(err) }
 })
 
@@ -612,6 +704,34 @@ async function autoReport(args: {
       },
     })
   })
+}
+
+function isMissingResponseRevisionTable(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError &&
+    (err.code === 'P2021' || err.code === 'P2022')
+}
+
+function isResponseEditable(createdAt: Date): boolean {
+  return Date.now() - createdAt.getTime() <= RESPONSE_EDIT_WINDOW_MS
+}
+
+async function createResponseRevisionBestEffort(
+  data: {
+    responseId: string
+    message: string
+    quotedPrice: number | null
+    workSampleUrl: string | null
+  },
+) {
+  try {
+    await prisma.responseRevision.create({ data })
+  } catch (err) {
+    if (isMissingResponseRevisionTable(err)) {
+      console.warn('[responses] ResponseRevision table missing; skipping response history until migration is applied')
+      return
+    }
+    console.warn('[responses] Skipping response history after failed revision save:', err instanceof Error ? err.message : err)
+  }
 }
 
 function tryGetUserId(req: unknown): string | null {

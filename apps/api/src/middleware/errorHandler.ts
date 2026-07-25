@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
+import { Prisma } from '@prisma/client'
 import { HttpError } from '../lib/http-error'
 
 export function errorHandler(
@@ -9,6 +10,10 @@ export function errorHandler(
 ) {
   if (err instanceof HttpError) {
     res.status(err.status).json({ error: err.message, code: err.code })
+    return
+  }
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+    res.status(409).json({ error: 'This record already exists', code: 'DUPLICATE_RECORD' })
     return
   }
   if (err instanceof Error) {

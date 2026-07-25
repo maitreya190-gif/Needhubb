@@ -68,9 +68,8 @@ class _FeedTabState extends ConsumerState<FeedTab> {
   Widget build(BuildContext context) {
     final t = context.tokens;
     final feedNeeds = feedNeedsNotifier.value;
-    final rankerLabel = feedRankerNotifier.value == 'embeddings'
-        ? 'AI-ranked'
-        : 'Ranked';
+    final rankerLabel =
+        feedRankerNotifier.value == 'embeddings' ? 'AI-ranked' : 'Ranked';
 
     return Scaffold(
       backgroundColor: t.paper,
@@ -89,7 +88,8 @@ class _FeedTabState extends ConsumerState<FeedTab> {
                   if (Navigator.canPop(context))
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(Icons.arrow_back_rounded, color: t.ink, size: 22),
+                      icon: Icon(Icons.arrow_back_rounded,
+                          color: t.ink, size: 22),
                       padding: EdgeInsets.zero,
                       visualDensity: VisualDensity.compact,
                     ),
@@ -164,8 +164,8 @@ class _FeedTabState extends ConsumerState<FeedTab> {
                               child: Container(
                                 constraints: const BoxConstraints(
                                     minWidth: 16, minHeight: 16),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 4),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 4),
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   color: NeedHubTokens.clay,
@@ -366,7 +366,8 @@ class _ConnectFeedState extends State<_ConnectFeed> {
       if (filter.interests.isNotEmpty) {
         final hasOverlap = p.interests.any(
           (i) => filter.interests.any(
-            (fi) => i.toLowerCase().contains(fi.toLowerCase()) ||
+            (fi) =>
+                i.toLowerCase().contains(fi.toLowerCase()) ||
                 fi.toLowerCase().contains(i.toLowerCase()),
           ),
         );
@@ -375,7 +376,8 @@ class _ConnectFeedState extends State<_ConnectFeed> {
       if (filter.skills.isNotEmpty) {
         final hasSkill = p.skills.any(
           (s) => filter.skills.any(
-            (fs) => s.toLowerCase().contains(fs.toLowerCase()) ||
+            (fs) =>
+                s.toLowerCase().contains(fs.toLowerCase()) ||
                 fs.toLowerCase().contains(s.toLowerCase()),
           ),
         );
@@ -426,7 +428,9 @@ class _ConnectFeedState extends State<_ConnectFeed> {
           SizedBox(height: activeCount > 0 ? 20 : 60),
           NhEmptyState(
             icon: Icons.people_outline_rounded,
-            title: activeCount > 0 ? 'No matches for these filters' : 'No one nearby yet',
+            title: activeCount > 0
+                ? 'No matches for these filters'
+                : 'No one nearby yet',
             subtitle: activeCount > 0
                 ? 'Tap "Edit filters" or "Clear all" above to change your search'
                 : 'Try expanding the radius or check back soon',
@@ -444,16 +448,20 @@ class _ConnectFeedState extends State<_ConnectFeed> {
           children: [
             Text(
               'Near you, ranked by shared interests',
-              style: GoogleFonts.hankenGrotesk(fontSize: 13, fontWeight: FontWeight.w700, color: t.ink),
+              style: GoogleFonts.hankenGrotesk(
+                  fontSize: 13, fontWeight: FontWeight.w700, color: t.ink),
             ),
             const SizedBox(width: 8),
-            Expanded(child: Container(height: 1, color: const Color(0xFF211E17).withValues(alpha: 0.10))),
+            Expanded(
+                child: Container(
+                    height: 1,
+                    color: const Color(0xFF211E17).withValues(alpha: 0.10))),
             const SizedBox(width: 8),
             GestureDetector(
-              onTap: () =>
-                  NhFilterSheet.open(context, surface: 'connect'),
+              onTap: () => NhFilterSheet.open(context, surface: 'connect'),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
                 decoration: BoxDecoration(
                   color: activeCount > 0
                       ? NeedHubTokens.clay.withValues(alpha: 0.10)
@@ -467,15 +475,16 @@ class _ConnectFeedState extends State<_ConnectFeed> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.tune_rounded, size: 14,
+                    Icon(Icons.tune_rounded,
+                        size: 14,
                         color: activeCount > 0 ? NeedHubTokens.clay : t.ink),
                     const SizedBox(width: 6),
-                    Text(
-                      activeCount > 0 ? 'Filter ($activeCount)' : 'Filter',
-                      style: GoogleFonts.hankenGrotesk(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: activeCount > 0 ? NeedHubTokens.clay : t.ink)),
+                    Text(activeCount > 0 ? 'Filter ($activeCount)' : 'Filter',
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color:
+                                activeCount > 0 ? NeedHubTokens.clay : t.ink)),
                   ],
                 ),
               ),
@@ -484,29 +493,34 @@ class _ConnectFeedState extends State<_ConnectFeed> {
         ),
         const SizedBox(height: 12),
         _ActiveFilterRibbon(filter: filter, surface: 'connect', t: t),
-
         ...filteredPeople.asMap().entries.map((e) {
           final i = e.key;
           final person = e.value;
           return Padding(
-            padding: EdgeInsets.only(bottom: i < filteredPeople.length - 1 ? 14 : 0),
+            padding:
+                EdgeInsets.only(bottom: i < filteredPeople.length - 1 ? 14 : 0),
             child: _PersonCard(
               person: person,
               t: t,
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => ConnectDetailScreen(person: person)),
+                MaterialPageRoute(
+                    builder: (_) => ConnectDetailScreen(person: person)),
               ),
             ),
           );
         }),
-
         if (needs.isNotEmpty) ...[
           const SizedBox(height: 24),
           Row(
             children: [
-              Text('Free needs near you', style: GoogleFonts.hankenGrotesk(fontSize: 13, fontWeight: FontWeight.w700, color: t.ink)),
+              Text('Free needs near you',
+                  style: GoogleFonts.hankenGrotesk(
+                      fontSize: 13, fontWeight: FontWeight.w700, color: t.ink)),
               const SizedBox(width: 8),
-              Expanded(child: Container(height: 1, color: const Color(0xFF211E17).withValues(alpha: 0.10))),
+              Expanded(
+                  child: Container(
+                      height: 1,
+                      color: const Color(0xFF211E17).withValues(alpha: 0.10))),
             ],
           ),
           const SizedBox(height: 12),
@@ -519,7 +533,8 @@ class _ConnectFeedState extends State<_ConnectFeed> {
                 need: need,
                 t: t,
                 onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
+                  MaterialPageRoute(
+                      builder: (_) => NeedDetailScreen(need: need)),
                 ),
               ),
             );
@@ -722,7 +737,9 @@ class _Chip extends StatelessWidget {
         style: GoogleFonts.hankenGrotesk(
           fontSize: 12.5,
           fontWeight: shared ? FontWeight.w700 : FontWeight.w600,
-          color: shared ? Colors.white : const Color(0xFF211E17).withValues(alpha: 0.5),
+          color: shared
+              ? Colors.white
+              : const Color(0xFF211E17).withValues(alpha: 0.5),
         ),
       ),
     );
@@ -793,7 +810,8 @@ class _EarnFeedState extends State<_EarnFeed> {
       if (filter.interests.isNotEmpty) {
         final hasTag = n.tags.any(
           (tag) => filter.interests.any(
-            (fi) => tag.toLowerCase().contains(fi.toLowerCase()) ||
+            (fi) =>
+                tag.toLowerCase().contains(fi.toLowerCase()) ||
                 fi.toLowerCase().contains(tag.toLowerCase()),
           ),
         );
@@ -816,7 +834,8 @@ class _EarnFeedState extends State<_EarnFeed> {
     }
 
     if (filter.sortBy == 'nearest') {
-      needs.sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
+      needs
+          .sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
     } else if (filter.sortBy == 'highest_points') {
       needs.sort((a, b) => (b.budgetMin ?? 0).compareTo(a.budgetMin ?? 0));
     }
@@ -844,7 +863,9 @@ class _EarnFeedState extends State<_EarnFeed> {
           SizedBox(height: activeCount > 0 ? 20 : 60),
           NhEmptyState(
             icon: Icons.search_off_rounded,
-            title: activeCount > 0 ? 'No needs match these filters' : 'Nothing nearby yet',
+            title: activeCount > 0
+                ? 'No needs match these filters'
+                : 'Nothing nearby yet',
             subtitle: activeCount > 0
                 ? 'Tap "Edit filters" or "Clear all" above to change your search'
                 : 'Try expanding the radius or check back soon',
@@ -862,16 +883,17 @@ class _EarnFeedState extends State<_EarnFeed> {
           children: [
             Text(
               '${needs.length} needs near you',
-              style: GoogleFonts.hankenGrotesk(fontSize: 13, fontWeight: FontWeight.w700, color: t.ink),
+              style: GoogleFonts.hankenGrotesk(
+                  fontSize: 13, fontWeight: FontWeight.w700, color: t.ink),
             ),
             const SizedBox(width: 10),
             Expanded(child: Container(height: 1, color: t.rail)),
             const SizedBox(width: 10),
             GestureDetector(
-              onTap: () =>
-                  NhFilterSheet.open(context, surface: 'earn'),
+              onTap: () => NhFilterSheet.open(context, surface: 'earn'),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
                 decoration: BoxDecoration(
                   color: activeCount > 0
                       ? NeedHubTokens.clay.withValues(alpha: 0.10)
@@ -885,15 +907,16 @@ class _EarnFeedState extends State<_EarnFeed> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.tune_rounded, size: 14,
+                    Icon(Icons.tune_rounded,
+                        size: 14,
                         color: activeCount > 0 ? NeedHubTokens.clay : t.ink),
                     const SizedBox(width: 6),
-                    Text(
-                      activeCount > 0 ? 'Filter ($activeCount)' : 'Filter',
-                      style: GoogleFonts.hankenGrotesk(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w700,
-                          color: activeCount > 0 ? NeedHubTokens.clay : t.ink)),
+                    Text(activeCount > 0 ? 'Filter ($activeCount)' : 'Filter',
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color:
+                                activeCount > 0 ? NeedHubTokens.clay : t.ink)),
                   ],
                 ),
               ),
@@ -902,7 +925,6 @@ class _EarnFeedState extends State<_EarnFeed> {
         ),
         const SizedBox(height: 12),
         _ActiveFilterRibbon(filter: filter, surface: 'earn', t: t),
-
         ...needs.asMap().entries.map((e) {
           final i = e.key;
           final need = e.value;
@@ -1080,7 +1102,8 @@ class _EarnCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         border: Border(
                           top: BorderSide(
-                            color: const Color(0xFF211E17).withValues(alpha: 0.14),
+                            color:
+                                const Color(0xFF211E17).withValues(alpha: 0.14),
                             width: 1,
                             style: BorderStyle.solid,
                           ),
@@ -1135,7 +1158,6 @@ class _EarnCard extends StatelessWidget {
                               ),
                             );
                           }),
-
                           const SizedBox(width: 8),
                           Expanded(
                             child: Row(
@@ -1166,12 +1188,22 @@ class _EarnCard extends StatelessWidget {
                             valueListenable: offersNotifier,
                             builder: (_, __, ___) {
                               final count = need.totalOfferCount;
-                              return Text(
-                                '$count ${count == 1 ? 'offer' : 'offers'}',
-                                style: GoogleFonts.hankenGrotesk(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: cat,
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cat.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$count ${count == 1 ? 'offer' : 'offers'}',
+                                  style: GoogleFonts.hankenGrotesk(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: cat,
+                                  ),
                                 ),
                               );
                             },
@@ -1212,7 +1244,8 @@ class _ChitChatFeedInline extends ConsumerStatefulWidget {
   const _ChitChatFeedInline({required this.t});
 
   @override
-  ConsumerState<_ChitChatFeedInline> createState() => _ChitChatFeedInlineState();
+  ConsumerState<_ChitChatFeedInline> createState() =>
+      _ChitChatFeedInlineState();
 }
 
 class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
@@ -1291,10 +1324,13 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
           const SizedBox(height: 22),
           NhSkeleton(width: 180, height: 13, radius: 5),
           const SizedBox(height: 12),
-          ...List.generate(3, (_) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: NhSkeleton(width: double.infinity, height: 80, radius: 16),
-          )),
+          ...List.generate(
+              3,
+              (_) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: NhSkeleton(
+                        width: double.infinity, height: 80, radius: 16),
+                  )),
         ],
       );
     }
@@ -1358,10 +1394,8 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
             ),
           ),
           const SizedBox(height: 12),
-
           _SelfChitChatTile(t: t),
           const SizedBox(height: 10),
-
           SizedBox(
             height: 68,
             child: ListView(
@@ -1371,7 +1405,8 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
                   (p) => _ChitChatRealCuboidalTile(person: p, t: t),
                 ),
                 if (chitchatRosterNotifier.value.isEmpty)
-                  ..._people.map((p) => _ChitChatPersonCuboidalTile(person: p, t: t)),
+                  ..._people
+                      .map((p) => _ChitChatPersonCuboidalTile(person: p, t: t)),
               ],
             ),
           ),
@@ -1499,7 +1534,13 @@ class _ChitChatPersonCuboidalTile extends StatelessWidget {
 }
 
 class _ChitChatProfileSheet extends StatefulWidget {
-  final ({String initials, String name, String area, String interest, Color color}) person;
+  final ({
+    String initials,
+    String name,
+    String area,
+    String interest,
+    Color color
+  }) person;
   final NeedHubTokens t;
 
   const _ChitChatProfileSheet({required this.person, required this.t});
@@ -1529,14 +1570,17 @@ class _ChitChatProfileSheetState extends State<_ChitChatProfileSheet> {
         children: [
           Center(
             child: Container(
-              width: 36, height: 4,
-              decoration: BoxDecoration(color: t.rail, borderRadius: BorderRadius.circular(2)),
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: t.rail, borderRadius: BorderRadius.circular(2)),
             ),
           ),
           const SizedBox(height: 24),
 
           Container(
-            width: 72, height: 72,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
               color: p.color.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
@@ -1573,18 +1617,23 @@ class _ChitChatProfileSheetState extends State<_ChitChatProfileSheet> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                  color: NeedHubTokens.clay, borderRadius: BorderRadius.circular(14)),
+                  color: NeedHubTokens.clay,
+                  borderRadius: BorderRadius.circular(14)),
               alignment: Alignment.center,
               child: Text('Start a Chat',
                   style: GoogleFonts.hankenGrotesk(
-                      fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white)),
             ),
           ),
           const SizedBox(height: 10),
 
           // Add Friend — optional, to connect outside ChitChat
           GestureDetector(
-            onTap: _friendRequested ? null : () => setState(() => _friendRequested = true),
+            onTap: _friendRequested
+                ? null
+                : () => setState(() => _friendRequested = true),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               width: double.infinity,
@@ -1593,9 +1642,8 @@ class _ChitChatProfileSheetState extends State<_ChitChatProfileSheet> {
                 color: _friendRequested ? t.chip : Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: _friendRequested
-                      ? t.rail
-                      : t.ink.withValues(alpha: 0.2),
+                  color:
+                      _friendRequested ? t.rail : t.ink.withValues(alpha: 0.2),
                   width: 1.5,
                 ),
               ),
@@ -1616,8 +1664,8 @@ class _ChitChatProfileSheetState extends State<_ChitChatProfileSheet> {
               Navigator.of(context).pop();
               NhReportSheet.open(context, targetName: p.name);
             },
-            icon: Icon(Icons.flag_outlined,
-                size: 16, color: Colors.red.shade400),
+            icon:
+                Icon(Icons.flag_outlined, size: 16, color: Colors.red.shade400),
             label: Text(
               'Report',
               style: GoogleFonts.hankenGrotesk(
@@ -1658,7 +1706,9 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
     super.dispose();
   }
 
-  void _bump() { if (mounted) setState(() {}); }
+  void _bump() {
+    if (mounted) setState(() {});
+  }
 
   Future<void> _markAllRead() async {
     final api = ref.read(notificationsApiProvider);
@@ -1683,17 +1733,28 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
 
   IconData _iconFor(String type) {
     switch (type) {
-      case 'FRIEND_REQUEST_RECEIVED': return Icons.person_add_alt_rounded;
-      case 'FRIEND_REQUEST_ACCEPTED': return Icons.handshake_outlined;
-      case 'NEED_RESPONSE_RECEIVED': return Icons.currency_rupee_rounded;
-      case 'MESSAGE_RECEIVED': return Icons.chat_bubble_outline_rounded;
-      case 'REVIEW_RECEIVED': return Icons.star_outline_rounded;
-      case 'POINTS_AWARDED': return Icons.stars_rounded;
-      case 'CERT_APPROVED': return Icons.verified_rounded;
-      case 'CERT_REJECTED': return Icons.cancel_outlined;
-      case 'REDEMPTION_READY': return Icons.card_giftcard_rounded;
-      case 'REPORT_ACTIONED': return Icons.warning_amber_rounded;
-      default: return Icons.notifications_none_rounded;
+      case 'FRIEND_REQUEST_RECEIVED':
+        return Icons.person_add_alt_rounded;
+      case 'FRIEND_REQUEST_ACCEPTED':
+        return Icons.handshake_outlined;
+      case 'NEED_RESPONSE_RECEIVED':
+        return Icons.currency_rupee_rounded;
+      case 'MESSAGE_RECEIVED':
+        return Icons.chat_bubble_outline_rounded;
+      case 'REVIEW_RECEIVED':
+        return Icons.star_outline_rounded;
+      case 'POINTS_AWARDED':
+        return Icons.stars_rounded;
+      case 'CERT_APPROVED':
+        return Icons.verified_rounded;
+      case 'CERT_REJECTED':
+        return Icons.cancel_outlined;
+      case 'REDEMPTION_READY':
+        return Icons.card_giftcard_rounded;
+      case 'REPORT_ACTIONED':
+        return Icons.warning_amber_rounded;
+      default:
+        return Icons.notifications_none_rounded;
     }
   }
 
@@ -1738,7 +1799,8 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
         children: [
           Center(
             child: Container(
-              width: 36, height: 4,
+              width: 36,
+              height: 4,
               decoration: BoxDecoration(
                   color: t.rail, borderRadius: BorderRadius.circular(2)),
             ),
@@ -1748,9 +1810,7 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
             children: [
               Text('Notifications',
                   style: GoogleFonts.bricolageGrotesque(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: t.ink)),
+                      fontSize: 20, fontWeight: FontWeight.w800, color: t.ink)),
               const Spacer(),
               if (unreadCountNotifier.value > 0)
                 TextButton(
@@ -1810,7 +1870,8 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               alignment: Alignment.center,
-                              child: Icon(_iconFor(n.type), color: color, size: 18),
+                              child: Icon(_iconFor(n.type),
+                                  color: color, size: 18),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -1915,10 +1976,13 @@ class _SelfChitChatTile extends StatelessWidget {
                 children: [
                   Text('You (visible for 24h)',
                       style: GoogleFonts.hankenGrotesk(
-                          fontSize: 14, fontWeight: FontWeight.w700, color: t.ink)),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: t.ink)),
                   const SizedBox(height: 3),
                   Text('Nearby people will see you first',
-                      style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12, color: t.muted)),
                 ],
               ),
             ),
@@ -2091,14 +2155,11 @@ class _RankerBadge extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: isAi
-                ? NeedHubTokens.forest.withValues(alpha: 0.12)
-                : t.chip,
+            color: isAi ? NeedHubTokens.forest.withValues(alpha: 0.12) : t.chip,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isAi
-                  ? NeedHubTokens.forest.withValues(alpha: 0.35)
-                  : t.rail,
+              color:
+                  isAi ? NeedHubTokens.forest.withValues(alpha: 0.35) : t.rail,
               width: 1,
             ),
           ),
@@ -2138,7 +2199,6 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
     final realChats = chatsListNotifier.value;
     final hasReal = realChats.isNotEmpty;
 
-
     final mockFriends = <({String name, String initials, Color color, String message})>[];
 
     return Column(
@@ -2167,7 +2227,6 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 10),
-
         if (hasReal)
           ...realChats.map((c) {
             final initials = _initialsFor(c.otherDisplayName);
@@ -2210,7 +2269,9 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(13),
                                 child: Image.network(c.otherAvatarUrl!,
-                                    width: 44, height: 44, fit: BoxFit.cover,
+                                    width: 44,
+                                    height: 44,
+                                    fit: BoxFit.cover,
                                     errorBuilder: (_, __, ___) => Text(initials,
                                         style: GoogleFonts.bricolageGrotesque(
                                             fontSize: 15,
@@ -2340,7 +2401,6 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
               ),
             );
           }),
-
         const SizedBox(height: 14),
       ],
     );

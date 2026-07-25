@@ -86,4 +86,13 @@ class ApiClient {
     );
     return res.data ?? {};
   }
+
+  Future<Map<String, dynamic>> patchForm(String path, FormData form) async {
+    final res = await _dio.patch<Map<String, dynamic>>(
+      path,
+      data: form,
+      options: Options(contentType: 'multipart/form-data'),
+    );
+    return res.data ?? {};
+  }
 }

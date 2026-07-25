@@ -11,6 +11,9 @@ class NeedOffer {
   final String note;
   final String amount;
   final Color color;
+  final String? responseId;
+  final String? workSampleUrl;
+  final DateTime? createdAt;
 
   const NeedOffer({
     required this.name,
@@ -18,6 +21,9 @@ class NeedOffer {
     required this.note,
     required this.amount,
     required this.color,
+    this.responseId,
+    this.workSampleUrl,
+    this.createdAt,
   });
 }
 
@@ -43,7 +49,8 @@ final Map<String, List<NeedOffer>> mockOffers = {
     const NeedOffer(
       name: 'Priya Nair',
       initials: 'PN',
-      note: 'I am a senior frontend engineer and can teach Flutter state management.',
+      note:
+          'I am a senior frontend engineer and can teach Flutter state management.',
       amount: '₹800',
       color: Color(0xFFC88719),
     ),
@@ -59,7 +66,8 @@ final Map<String, List<NeedOffer>> mockOffers = {
     const NeedOffer(
       name: 'Sneha Rao',
       initials: 'SR',
-      note: 'Would love to study system design and practice mock interviews together!',
+      note:
+          'Would love to study system design and practice mock interviews together!',
       amount: 'Free',
       color: Color(0xFF2E6B4E),
     ),
@@ -83,6 +91,7 @@ class Need {
   final String? posterGender;
   final String? posterAvatarUrl;
   final bool posterFaceVerified;
+  final int offerCount;
 
   const Need({
     required this.id,
@@ -101,6 +110,7 @@ class Need {
     this.posterGender,
     this.posterAvatarUrl,
     this.posterFaceVerified = false,
+    this.offerCount = 0,
   });
 
   String get timeAgo {
@@ -117,7 +127,10 @@ class Need {
   }
 
   int get totalOfferCount {
-    return (mockOffers[id] ?? []).length;
+    // The API is authoritative once the feed has loaded; the local entry keeps
+    // a newly submitted offer visible before that count is refreshed.
+    final localCount = (mockOffers[id] ?? []).length;
+    return offerCount > localCount ? offerCount : localCount;
   }
 
   NeedOffer? get myOffer {
@@ -193,7 +206,8 @@ final List<Need> mockNeeds = [
   Need(
     id: 'earn_1',
     title: 'Need someone to drop off my laptop charger in HSR Sector 2',
-    description: 'Left my Type-C charger at cafe, urgent drop off needed at HSR Sector 2 office.',
+    description:
+        'Left my Type-C charger at cafe, urgent drop off needed at HSR Sector 2 office.',
     category: 'earn',
     authorName: 'Vikram Seth',
     authorInitials: 'VS',
@@ -207,7 +221,8 @@ final List<Need> mockNeeds = [
   Need(
     id: 'earn_2',
     title: 'Looking for a tutor for Flutter state management & Riverpod',
-    description: 'Need 2 hours of 1-on-1 practical hands-on guidance on Riverpod state management and architecture.',
+    description:
+        'Need 2 hours of 1-on-1 practical hands-on guidance on Riverpod state management and architecture.',
     category: 'earn',
     authorName: 'Ananya Sharma',
     authorInitials: 'AS',
@@ -221,7 +236,8 @@ final List<Need> mockNeeds = [
   Need(
     id: 'connect_1',
     title: 'Study buddy for System Design & Leetcode prep',
-    description: 'Preparing for tech interviews. Looking for someone to solve graph & DP problems with every evening.',
+    description:
+        'Preparing for tech interviews. Looking for someone to solve graph & DP problems with every evening.',
     category: 'connect',
     authorName: 'Rahul Patel',
     authorInitials: 'RP',
@@ -232,8 +248,10 @@ final List<Need> mockNeeds = [
   ),
   Need(
     id: 'my_posted_1',
-    title: 'Looking for Flutter developer to collaborate on social open-source project',
-    description: 'Building a community app. Looking for interested Flutter developers to brainstorm & build features.',
+    title:
+        'Looking for Flutter developer to collaborate on social open-source project',
+    description:
+        'Building a community app. Looking for interested Flutter developers to brainstorm & build features.',
     category: 'connect',
     authorName: 'You',
     authorInitials: 'ME',

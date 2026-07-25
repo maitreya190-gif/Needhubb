@@ -7,8 +7,9 @@ import 'api_client.dart';
 class FeedResult {
   final List<Need> needs;
   final String ranker; // 'embeddings' | 'heuristic'
-  final String sort;   // 'smart' | 'newest' | 'distance'
-  const FeedResult({required this.needs, required this.ranker, required this.sort});
+  final String sort; // 'smart' | 'newest' | 'distance'
+  const FeedResult(
+      {required this.needs, required this.ranker, required this.sort});
 }
 
 class NeedsApi {
@@ -18,7 +19,7 @@ class NeedsApi {
   /// Fetch the ranked feed. Backend uses the caller's profile (interests + lat/lng)
   /// to score each need semantically. Query params override profile fields.
   Future<FeedResult> feed({
-    String? type,           // 'EARN' | 'CONNECT'
+    String? type, // 'EARN' | 'CONNECT'
     double? distanceKm,
     double? lat,
     double? lng,
@@ -31,21 +32,23 @@ class NeedsApi {
     int skip = 0,
   }) async {
     final res = await _api.get('/needs?${_qs({
-      if (type != null) 'type': type,
-      if (distanceKm != null) 'distanceKm': distanceKm,
-      if (lat != null) 'lat': lat,
-      if (lng != null) 'lng': lng,
-      if (minBudget != null) 'minBudget': minBudget,
-      if (maxBudget != null) 'maxBudget': maxBudget,
-      if (interests != null && interests.isNotEmpty)
-        'interests': interests.join(','),
-      if (genders != null && genders.isNotEmpty) 'genders': genders.join(','),
-      'sort': sort,
-      'take': take,
-      'skip': skip,
-    })}');
+          if (type != null) 'type': type,
+          if (distanceKm != null) 'distanceKm': distanceKm,
+          if (lat != null) 'lat': lat,
+          if (lng != null) 'lng': lng,
+          if (minBudget != null) 'minBudget': minBudget,
+          if (maxBudget != null) 'maxBudget': maxBudget,
+          if (interests != null && interests.isNotEmpty)
+            'interests': interests.join(','),
+          if (genders != null && genders.isNotEmpty)
+            'genders': genders.join(','),
+          'sort': sort,
+          'take': take,
+          'skip': skip,
+        })}');
 
-    final list = ((res['needs'] as List?) ?? const []).cast<Map<String, dynamic>>();
+    final list =
+        ((res['needs'] as List?) ?? const []).cast<Map<String, dynamic>>();
     final needs = list.map(_needFromJson).toList();
     return FeedResult(
       needs: needs,
@@ -61,7 +64,9 @@ class NeedsApi {
 }
 
 String _qs(Map<String, dynamic> params) {
-  return params.entries.map((e) => '${e.key}=${Uri.encodeComponent('${e.value}')}').join('&');
+  return params.entries
+      .map((e) => '${e.key}=${Uri.encodeComponent('${e.value}')}')
+      .join('&');
 }
 
 Need _needFromJson(Map<String, dynamic> j) {
@@ -71,9 +76,8 @@ Need _needFromJson(Map<String, dynamic> j) {
   final category = needType == 'earn' ? 'earn' : 'connect';
   final name = poster['displayName'] as String? ?? 'Someone';
   final initials = _initials(name);
-  final distance = j['_distanceKm'] is num
-      ? (j['_distanceKm'] as num).toDouble()
-      : null;
+  final distance =
+      j['_distanceKm'] is num ? (j['_distanceKm'] as num).toDouble() : null;
   final createdIso = j['createdAt'] as String?;
   final createdAt = createdIso != null
       ? (DateTime.tryParse(createdIso) ?? DateTime.now())
@@ -97,6 +101,7 @@ Need _needFromJson(Map<String, dynamic> j) {
     tags: _tagsFor(j),
     posterAvatarUrl: posterProfile['avatarUrl'] as String?,
     posterFaceVerified: posterFaceVerified,
+    offerCount: (j['offerCount'] as num?)?.toInt() ?? 0,
   );
 }
 

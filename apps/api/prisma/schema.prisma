@@ -215,6 +215,20 @@ model InterestResponse {
   need      Need           @relation(fields: [needId], references: [id], onDelete: Cascade)
   responder User           @relation(fields: [responderId], references: [id], onDelete: Cascade)
   thread    MessageThread?
+  revisions ResponseRevision[]
+
+  @@unique([needId, responderId])
+}
+
+model ResponseRevision {
+  id             String   @id @default(cuid())
+  responseId     String
+  message        String
+  quotedPrice    Float?
+  workSampleUrl  String?
+  createdAt      DateTime @default(now())
+
+  response InterestResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
 }
 
 model MessageThread {
