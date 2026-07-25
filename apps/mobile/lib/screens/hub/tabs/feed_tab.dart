@@ -1088,23 +1088,54 @@ class _EarnCard extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 24,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: t.rail2,
-                              borderRadius: BorderRadius.circular(7),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              need.authorInitials,
-                              style: GoogleFonts.hankenGrotesk(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: t.muted4,
+                          Builder(builder: (_) {
+                            final url = need.posterAvatarUrl;
+                            if (url != null && url.isNotEmpty) {
+                              return ClipOval(
+                                child: Image.network(
+                                  url,
+                                  width: 24,
+                                  height: 24,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      color: t.rail2,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      need.authorInitials,
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w700,
+                                        color: t.muted4,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                            return Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: t.rail2,
+                                shape: BoxShape.circle,
                               ),
-                            ),
-                          ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                need.authorInitials,
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: t.muted4,
+                                ),
+                              ),
+                            );
+                          }),
+
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(

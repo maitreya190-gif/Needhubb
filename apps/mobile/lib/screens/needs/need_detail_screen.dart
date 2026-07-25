@@ -88,6 +88,8 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
         _realOffers = rows.map((j) {
           final responder =
               (j['responder'] as Map<String, dynamic>?) ?? const {};
+          final responderProfile =
+              (responder['profile'] as Map<String, dynamic>?) ?? const {};
           final name = responder['displayName'] as String? ?? 'Someone';
           final initials = _initialsOf(name);
           final price = (j['quotedPrice'] as num?)?.toInt();
@@ -100,7 +102,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
             responseId: j['id'] as String?,
             responderId: responder['id'] as String?,
             status: j['status'] as String? ?? 'PENDING',
-            avatarUrl: responder['avatarUrl'] as String?,
+            avatarUrl: responderProfile['avatarUrl'] as String?,
           );
         }).toList();
       });
@@ -437,25 +439,33 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                       ),
                                       child: Row(
                                         children: [
-                                          Container(
-                                            width: 34,
-                                            height: 34,
-                                            decoration: BoxDecoration(
-                                              color: t.rail2,
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                            ),
-                                            alignment: Alignment.center,
-                                            child: Text(
-                                              need.authorInitials,
-                                              style:
-                                                  GoogleFonts.hankenGrotesk(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
-                                                color: t.muted4,
-                                              ),
-                                            ),
-                                          ),
+                                          Builder(builder: (_) {
+                                            final url = need.posterAvatarUrl;
+                                            if (url != null && url.isNotEmpty) {
+                                              return ClipRRect(
+                                                borderRadius: BorderRadius.circular(20),
+                                                child: Image.network(
+                                                  url,
+                                                  width: 34,
+                                                  height: 34,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      _InitialsAvatar(
+                                                    initials: need.authorInitials,
+                                                    tint: t.rail2,
+                                                    textColor: t.muted4,
+                                                    size: 34,
+                                                  ),
+                                                ),
+                                              );
+                                            }
+                                            return _InitialsAvatar(
+                                              initials: need.authorInitials,
+                                              tint: t.rail2,
+                                              textColor: t.muted4,
+                                              size: 34,
+                                            );
+                                          }),
                                           const SizedBox(width: 9),
                                           Column(
                                             crossAxisAlignment:
@@ -1831,11 +1841,13 @@ class _OfferSortChip extends StatelessWidget {
 class _InitialsAvatar extends StatelessWidget {
   final String initials;
   final Color tint;
+  final Color textColor;
   final double size;
 
   const _InitialsAvatar({
     required this.initials,
     required this.tint,
+    this.textColor = Colors.white,
     this.size = 40,
   });
 
@@ -1854,7 +1866,7 @@ class _InitialsAvatar extends StatelessWidget {
         style: GoogleFonts.hankenGrotesk(
           fontSize: size * 0.35,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: textColor,
         ),
       ),
     );

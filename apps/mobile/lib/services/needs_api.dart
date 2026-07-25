@@ -64,10 +64,9 @@ String _qs(Map<String, dynamic> params) {
   return params.entries.map((e) => '${e.key}=${Uri.encodeComponent('${e.value}')}').join('&');
 }
 
-/// Backend Need JSON → Flutter Need. Handles both the ranker-decorated fields
-/// (`_score`, `_semantic`, `_distanceKm`) and the vanilla shape.
 Need _needFromJson(Map<String, dynamic> j) {
   final poster = j['poster'] as Map<String, dynamic>? ?? const {};
+  final posterProfile = poster['profile'] as Map<String, dynamic>? ?? const {};
   final needType = (j['needType'] as String? ?? 'CONNECT').toLowerCase();
   final category = needType == 'earn' ? 'earn' : 'connect';
   final name = poster['displayName'] as String? ?? 'Someone';
@@ -94,6 +93,7 @@ Need _needFromJson(Map<String, dynamic> j) {
     budgetMin: (j['budgetMin'] as num?)?.toInt(),
     budgetMax: (j['budgetMax'] as num?)?.toInt(),
     tags: _tagsFor(j),
+    posterAvatarUrl: posterProfile['avatarUrl'] as String?,
   );
 }
 

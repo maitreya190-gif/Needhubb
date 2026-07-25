@@ -81,6 +81,7 @@ class Need {
   final int? budgetMax;
   final List<String> tags;
   final String? posterGender;
+  final String? posterAvatarUrl;
 
   const Need({
     required this.id,
@@ -97,6 +98,7 @@ class Need {
     this.budgetMax,
     this.tags = const [],
     this.posterGender,
+    this.posterAvatarUrl,
   });
 
   String get timeAgo {
