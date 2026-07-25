@@ -94,6 +94,7 @@ enum ReportStatus {
 model User {
   id                String            @id @default(cuid())
   email             String            @unique
+  username          String?           @unique
   emailVerifiedAt   DateTime?
   phone             String?           @unique
   phoneVerifiedAt   DateTime?

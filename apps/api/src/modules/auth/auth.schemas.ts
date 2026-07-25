@@ -4,6 +4,7 @@ export const signupBody = z.object({
   email: z.string().email(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
   displayName: z.string().min(2).max(50),
+  username: z.string().min(1).max(30).regex(/^[a-z0-9_]+$/, 'Username must be lowercase letters, numbers, or underscores').optional(),
 })
 
 export const loginBody = z.object({

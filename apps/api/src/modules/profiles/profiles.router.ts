@@ -112,12 +112,7 @@ profilesRouter.get('/search', authenticate, async (req, res, next) => {
       where: {
         AND: [
           { id: { not: me } },
-          {
-            OR: [
-              { displayName: { contains: raw, mode: 'insensitive' } },
-              { email: { contains: raw, mode: 'insensitive' } },
-            ],
-          },
+          { username: { contains: raw, mode: 'insensitive' } },
         ],
       },
       select: {

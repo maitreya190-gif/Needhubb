@@ -15,11 +15,13 @@ class AuthService {
     required String email,
     required String password,
     required String displayName,
+    String? username,
   }) async {
     final data = await _client.post('/auth/signup', {
       'email': email,
       'password': password,
       'displayName': displayName,
+      if (username != null && username.isNotEmpty) 'username': username,
     });
     return SignupResponse.fromJson(data);
   }

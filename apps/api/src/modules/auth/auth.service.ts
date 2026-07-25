@@ -43,9 +43,14 @@ async function issueOtp(userId: string, email: string): Promise<void> {
   await sendOtp(email, code)
 }
 
-export async function signup({ email, password, displayName }: SignupBody) {
+export async function signup({ email, password, displayName, username }: SignupBody) {
   const existing = await prisma.user.findUnique({ where: { email } })
   if (existing) throw conflict('Email already registered', 'EMAIL_TAKEN')
+
+  if (username) {
+    const taken = await prisma.user.findUnique({ where: { username } })
+    if (taken) throw conflict('Username already taken', 'USERNAME_TAKEN')
+  }
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
   const user = await prisma.user.create({
@@ -53,6 +58,7 @@ export async function signup({ email, password, displayName }: SignupBody) {
       email,
       passwordHash,
       displayName,
+      username: username ?? null,
       emailVerifiedAt: null,
       profile: { create: {} },
     },
