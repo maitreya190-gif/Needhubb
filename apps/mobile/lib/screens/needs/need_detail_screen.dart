@@ -55,7 +55,9 @@ class NeedDetailScreen extends ConsumerStatefulWidget {
 class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   Need get need => widget.need;
   List<_OfferData> _realOffers = const [];
-  bool _isPoster = false;
+
+  bool get _isPoster =>
+      need.authorName == 'You' || need.authorInitials == 'ME';
 
   @override
   void initState() {
@@ -67,11 +69,10 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   Future<void> _hydrateOffers() async {
     try {
       final api = ref.read(apiClientProvider);
-      // GET /needs/:id/responses — poster-only; a 403 tells us we're not the poster.
-      final rows = await api.getList('/needs/${need.id}/responses');
+      final res = await api.get('/needs/${need.id}/responses');
+      final rows = ((res['responses'] as List?) ?? const []).cast<Map<String, dynamic>>();
       if (!mounted) return;
       setState(() {
-        _isPoster = true;
         _realOffers = rows.map((j) {
           final responder =
               (j['responder'] as Map<String, dynamic>?) ?? const {};
@@ -90,7 +91,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
           );
         }).toList();
       });
-    } catch (_) {/* not the poster */}
+    } catch (_) {}
   }
 
   Future<void> _acceptOffer(String responseId) async {
