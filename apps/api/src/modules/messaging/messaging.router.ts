@@ -111,6 +111,20 @@ messagingRouter.get('/:threadId/messages', authenticate, async (req, res, next) 
       data: { readAt: new Date() },
     })
 
+    // Also mark the coalesced chat notification as read so next message
+    // from this sender starts a fresh notification.
+    const otherUserId = thread.userAId === userId ? thread.userBId : thread.userAId
+    await prisma.notification.updateMany({
+      where: {
+        userId,
+        type: 'MESSAGE_RECEIVED',
+        refType: 'USER',
+        refId: otherUserId,
+        readAt: null,
+      },
+      data: { readAt: new Date() },
+    })
+
     res.json(since ? messages : messages.reverse())
   } catch (err) { next(err) }
 })
