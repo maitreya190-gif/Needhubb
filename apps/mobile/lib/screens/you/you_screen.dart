@@ -172,7 +172,7 @@ class YouScreen extends ConsumerWidget {
                                 ),
                               ),
                               FutureBuilder<({double avg, int count, List<Map<String, dynamic>> reviews})>(
-                                future: ref.read(reviewsApiProvider).byMe(),
+                                future: ref.read(reviewsApiProvider).forUser(ref.read(authProvider).userId ?? ''),
                                 builder: (context, snapshot) {
                                   final data = snapshot.data;
                                   if (data == null || data.count == 0) {
@@ -180,19 +180,36 @@ class YouScreen extends ConsumerWidget {
                                   }
                                   return Padding(
                                     padding: const EdgeInsets.only(top: 4),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.star_rounded, size: 15, color: Color(0xFFEAB308)),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${data.avg.toStringAsFixed(1)} ★ (${data.count} ${data.count == 1 ? 'rating' : 'ratings'})',
-                                          style: GoogleFonts.hankenGrotesk(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: t.onDark,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          backgroundColor: Colors.transparent,
+                                          builder: (_) => _UserReviewsSheet(
+                                            avg: data.avg,
+                                            count: data.count,
+                                            reviews: data.reviews,
                                           ),
-                                        ),
-                                      ],
+                                        );
+                                      },
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.star_rounded, size: 15, color: Color(0xFFEAB308)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${data.avg.toStringAsFixed(1)} ★ (${data.count} ${data.count == 1 ? 'rating' : 'ratings'})',
+                                            style: GoogleFonts.hankenGrotesk(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: t.onDark,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(Icons.chevron_right_rounded, size: 16, color: t.onDarkMuted),
+                                        ],
+                                      ),
                                     ),
                                   );
                                 },
@@ -2176,6 +2193,222 @@ class _PostedNeedCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _UserReviewsSheet extends StatelessWidget {
+  final double avg;
+  final int count;
+  final List<Map<String, dynamic>> reviews;
+
+  const _UserReviewsSheet({
+    required this.avg,
+    required this.count,
+    required this.reviews,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        20,
+        24,
+        MediaQuery.of(context).padding.bottom + 24,
+      ),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: t.rail,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Text(
+                'Ratings & Reviews',
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: t.ink,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAB308).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.star_rounded,
+                        size: 16, color: Color(0xFFEAB308)),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${avg.toStringAsFixed(1)} ($count)',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: t.ink,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: reviews.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final rev = reviews[index];
+                final reviewer =
+                    rev['reviewer'] as Map<String, dynamic>? ?? {};
+                final reviewerProfile =
+                    reviewer['profile'] as Map<String, dynamic>?;
+                final reviewerName =
+                    reviewer['displayName'] as String? ?? 'User';
+                final rating = (rev['rating'] as num?)?.toInt() ?? 5;
+                final comment = rev['comment'] as String?;
+                final need = rev['need'] as Map<String, dynamic>?;
+                final needTitle = need?['title'] as String?;
+
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: t.paper,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: t.rail, width: 1),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          ClipOval(
+                            child: reviewerProfile?['avatarUrl'] != null
+                                ? Image.network(
+                                    reviewerProfile!['avatarUrl'] as String,
+                                    width: 32,
+                                    height: 32,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 32,
+                                      height: 32,
+                                      color: t.rail2,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        reviewerName.isNotEmpty
+                                            ? reviewerName[0]
+                                            : '?',
+                                        style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 12,
+                                          color: t.muted4,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    width: 32,
+                                    height: 32,
+                                    color: t.rail2,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      reviewerName.isNotEmpty
+                                          ? reviewerName[0]
+                                          : '?',
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 12,
+                                        color: t.muted4,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  reviewerName,
+                                  style: GoogleFonts.hankenGrotesk(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: t.ink,
+                                  ),
+                                ),
+                                if (needTitle != null &&
+                                    needTitle.isNotEmpty)
+                                  Text(
+                                    'For: $needTitle',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 11.5,
+                                      color: t.muted,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            children: List.generate(
+                              5,
+                              (i) => Icon(
+                                i < rating
+                                    ? Icons.star_rounded
+                                    : Icons.star_outline_rounded,
+                                size: 14,
+                                color: i < rating
+                                    ? const Color(0xFFEAB308)
+                                    : t.muted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (comment != null && comment.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          comment,
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12.5,
+                            color: t.ink,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
