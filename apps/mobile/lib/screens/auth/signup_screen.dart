@@ -139,10 +139,46 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         timeLimit: const Duration(seconds: 10),
       );
       if (!mounted) return;
+
+      final bool? isExact = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            'Location Precision',
+            style: GoogleFonts.bricolageGrotesque(fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            'Do you want to share your exact location or an approximate 2km radius locality?',
+            style: GoogleFonts.hankenGrotesk(fontSize: 15),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('2km Radius',
+                  style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: NeedHubTokens.clay),
+              child: Text('Exact Location',
+                  style: GoogleFonts.hankenGrotesk(
+                      fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (isExact == null) return; // user cancelled
+
+      final lat = pos.latitude.toStringAsFixed(3);
+      final lon = pos.longitude.toStringAsFixed(3);
+      final label = isExact
+          ? 'Exact: Lat $lat, Lon $lon'
+          : 'Approx (2km): Lat $lat, Lon $lon';
+
+      if (!mounted) return;
       setState(() {
-        _locationController.text =
-            'Lat ${pos!.latitude.toStringAsFixed(3)}, '
-            'Lon ${pos.longitude.toStringAsFixed(3)}';
+        _locationController.text = label;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

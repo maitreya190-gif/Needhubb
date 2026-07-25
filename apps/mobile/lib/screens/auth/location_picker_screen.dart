@@ -40,12 +40,19 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     super.dispose();
   }
 
+  bool _exactLocation = true;
+
   void _confirm() {
+    final lat = _center.latitude.toStringAsFixed(3);
+    final lon = _center.longitude.toStringAsFixed(3);
+    final label = _exactLocation
+        ? 'Exact: Lat $lat, Lon $lon'
+        : 'Approx (2km): Lat $lat, Lon $lon';
+
     final result = LocationPickResult(
       lat: _center.latitude,
       lng: _center.longitude,
-      label:
-          'Lat ${_center.latitude.toStringAsFixed(3)}, Lon ${_center.longitude.toStringAsFixed(3)}',
+      label: label,
     );
     Navigator.of(context).pop(result);
   }
@@ -125,7 +132,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             right: 16,
             bottom: 24,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               decoration: BoxDecoration(
                 color: t.paper,
                 borderRadius: BorderRadius.circular(14),
@@ -137,41 +144,92 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   ),
                 ],
               ),
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.location_on_outlined,
-                      color: NeedHubTokens.clay, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Lat ${_center.latitude.toStringAsFixed(4)},  '
-                      'Lon ${_center.longitude.toStringAsFixed(4)}',
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: t.ink,
+                  Row(
+                    children: [
+                      Icon(Icons.location_on_outlined,
+                          color: NeedHubTokens.clay, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Lat ${_center.latitude.toStringAsFixed(4)},  '
+                          'Lon ${_center.longitude.toStringAsFixed(4)}',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: t.ink,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: _confirm,
-                    style: TextButton.styleFrom(
-                      backgroundColor: NeedHubTokens.clay,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'Use this',
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment<bool>(
+                              value: true,
+                              label: Text('Exact'),
+                              icon: Icon(Icons.my_location, size: 16),
+                            ),
+                            ButtonSegment<bool>(
+                              value: false,
+                              label: Text('2km Radius'),
+                              icon: Icon(Icons.blur_circular, size: 16),
+                            ),
+                          ],
+                          selected: {_exactLocation},
+                          onSelectionChanged: (Set<bool> newSelection) {
+                            setState(() {
+                              _exactLocation = newSelection.first;
+                            });
+                          },
+                          style: ButtonStyle(
+                            backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                              if (states.contains(WidgetState.selected)) {
+                                return NeedHubTokens.clay.withValues(alpha: 0.15);
+                              }
+                              return Colors.transparent;
+                            }),
+                            foregroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+                              if (states.contains(WidgetState.selected)) {
+                                return NeedHubTokens.clay;
+                              }
+                              return t.muted;
+                            }),
+                            textStyle: WidgetStateProperty.all(
+                              GoogleFonts.hankenGrotesk(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      TextButton(
+                        onPressed: _confirm,
+                        style: TextButton.styleFrom(
+                          backgroundColor: NeedHubTokens.clay,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text(
+                          'Confirm',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
