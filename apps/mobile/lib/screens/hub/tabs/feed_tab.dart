@@ -392,10 +392,6 @@ class _ConnectFeedState extends State<_ConnectFeed> {
       filteredPeople.sort((a, b) => b.points.compareTo(a.points));
     }
 
-    if (filteredPeople.isEmpty) {
-      filteredPeople = mockPeople;
-    }
-
     var needs = widget.needs.where((n) {
       if (n.distanceKm != null && n.distanceKm! > filter.maxDistanceKm) {
         return false;

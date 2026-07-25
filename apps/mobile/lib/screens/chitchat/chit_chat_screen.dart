@@ -79,37 +79,6 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
     }
   }
 
-  static const _people = [
-    (
-      initials: 'AK',
-      name: 'Aarav Kumar',
-      area: 'Koramangala · 0.4 km',
-      interest: 'on Flutter',
-      color: NeedHubTokens.forest,
-    ),
-    (
-      initials: 'MK',
-      name: 'Meera Kulkarni',
-      area: 'HSR Layout · 1.1 km',
-      interest: 'on Startups',
-      color: NeedHubTokens.clay,
-    ),
-    (
-      initials: 'RV',
-      name: 'Rohan Verma',
-      area: 'Indiranagar · 1.8 km',
-      interest: 'on Coffee',
-      color: NeedHubTokens.ochre,
-    ),
-    (
-      initials: 'PN',
-      name: 'Priya Nair',
-      area: 'Whitefield · 2.3 km',
-      interest: 'on DSA',
-      color: NeedHubTokens.forest,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
@@ -195,16 +164,22 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
 
             SizedBox(
               height: 68,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  ...chitchatRosterNotifier.value.map(
-                    (p) => _RealPersonCuboidalTile(person: p, t: t),
-                  ),
-                  if (chitchatRosterNotifier.value.isEmpty)
-                    ..._people.map((p) => _PersonCuboidalTile(person: p, t: t)),
-                ],
-              ),
+              child: chitchatRosterNotifier.value.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No one else is up for a chat right now',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13,
+                          color: t.muted,
+                        ),
+                      ),
+                    )
+                  : ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: chitchatRosterNotifier.value
+                          .map((p) => _RealPersonCuboidalTile(person: p, t: t))
+                          .toList(),
+                    ),
             ),
 
             const SizedBox(height: 20),
@@ -233,226 +208,6 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PersonCuboidalTile extends StatelessWidget {
-  final ({
-    String initials,
-    String name,
-    String area,
-    String interest,
-    Color color,
-  }) person;
-  final NeedHubTokens t;
-
-  const _PersonCuboidalTile({required this.person, required this.t});
-
-  @override
-  Widget build(BuildContext context) {
-    final p = person;
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: GestureDetector(
-        onTap: () => showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (_) => _PersonProfileSheet(person: p, t: t),
-        ),
-        child: Container(
-          width: 195,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: t.card,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: t.rail, width: 1),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: p.color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  p.initials,
-                  style: GoogleFonts.bricolageGrotesque(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: p.color,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      p.name,
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: t.ink,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      p.area,
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 11,
-                        color: t.muted,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chat_bubble_outline_rounded,
-                  size: 16, color: NeedHubTokens.clay),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PersonProfileSheet extends StatefulWidget {
-  final ({String initials, String name, String area, String interest, Color color}) person;
-  final NeedHubTokens t;
-
-  const _PersonProfileSheet({required this.person, required this.t});
-
-  @override
-  State<_PersonProfileSheet> createState() => _PersonProfileSheetState();
-}
-
-class _PersonProfileSheetState extends State<_PersonProfileSheet> {
-  bool _friendRequested = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = widget.t;
-    final p = widget.person;
-
-    return Container(
-      margin: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 60),
-      decoration: BoxDecoration(
-        color: t.card,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.fromLTRB(24, 16, 24, MediaQuery.of(context).padding.bottom + 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Center(
-            child: Container(
-              width: 36, height: 4,
-              decoration: BoxDecoration(color: t.rail, borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          Container(
-            width: 72, height: 72,
-            decoration: BoxDecoration(
-              color: p.color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            alignment: Alignment.center,
-            child: Text(p.initials,
-                style: GoogleFonts.bricolageGrotesque(
-                    fontSize: 28, fontWeight: FontWeight.w700, color: p.color)),
-          ),
-          const SizedBox(height: 12),
-
-          Text(p.name,
-              style: GoogleFonts.bricolageGrotesque(
-                  fontSize: 22, fontWeight: FontWeight.w800, color: t.ink)),
-          const SizedBox(height: 4),
-          Text(p.area,
-              style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted)),
-          const SizedBox(height: 28),
-
-          GestureDetector(
-            onTap: () {
-              final nav = Navigator.of(context);
-              nav.pop();
-              nav.push(MaterialPageRoute(
-                builder: (_) => ConversationScreen(
-                  name: p.name,
-                  initials: p.initials,
-                  avatarColor: p.color,
-                ),
-              ));
-            },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                  color: NeedHubTokens.clay, borderRadius: BorderRadius.circular(14)),
-              alignment: Alignment.center,
-              child: Text('Start a Chat',
-                  style: GoogleFonts.hankenGrotesk(
-                      fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          GestureDetector(
-            onTap: _friendRequested ? null : () => setState(() => _friendRequested = true),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              decoration: BoxDecoration(
-                color: _friendRequested ? t.chip : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: _friendRequested ? t.rail : t.ink.withValues(alpha: 0.2),
-                  width: 1.5,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                _friendRequested ? 'Friend Request Sent' : 'Add Friend',
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: _friendRequested ? t.muted : t.ink,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              NhReportSheet.open(context, targetName: p.name);
-            },
-            icon: Icon(Icons.flag_outlined,
-                size: 16, color: Colors.red.shade400),
-            label: Text(
-              'Report',
-              style: GoogleFonts.hankenGrotesk(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.red.shade400,
-              ),
             ),
           ),
         ],
