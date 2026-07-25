@@ -194,7 +194,7 @@ model Need {
   parentNeedId    String?
   createdAt       DateTime         @default(now())
 
-  poster     User               @relation("PosterNeeds", fields: [posterId], references: [id])
+  poster     User               @relation("PosterNeeds", fields: [posterId], references: [id], onDelete: Cascade)
   parentNeed Need?              @relation("SubNeeds", fields: [parentNeedId], references: [id])
   subNeeds   Need[]             @relation("SubNeeds")
   responses  InterestResponse[]
@@ -211,8 +211,8 @@ model InterestResponse {
   status         InterestResponseStatus @default(PENDING)
   createdAt      DateTime               @default(now())
 
-  need      Need           @relation(fields: [needId], references: [id])
-  responder User           @relation(fields: [responderId], references: [id])
+  need      Need           @relation(fields: [needId], references: [id], onDelete: Cascade)
+  responder User           @relation(fields: [responderId], references: [id], onDelete: Cascade)
   thread    MessageThread?
 }
 
@@ -221,7 +221,7 @@ model MessageThread {
   responseId String   @unique
   createdAt  DateTime @default(now())
 
-  response InterestResponse @relation(fields: [responseId], references: [id])
+  response InterestResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
   messages Message[]
 }
 
@@ -232,8 +232,8 @@ model Message {
   body      String
   createdAt DateTime @default(now())
 
-  thread MessageThread @relation(fields: [threadId], references: [id])
-  sender User          @relation(fields: [senderId], references: [id])
+  thread MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
 }
 
 model Review {
@@ -245,9 +245,9 @@ model Review {
   comment    String?
   createdAt  DateTime @default(now())
 
-  need     Need @relation(fields: [needId], references: [id])
-  reviewer User @relation("ReviewsGiven", fields: [reviewerId], references: [id])
-  reviewee User @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  need     Need @relation(fields: [needId], references: [id], onDelete: Cascade)
+  reviewer User @relation("ReviewsGiven", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee User @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
 }
 
 model Certificate {
@@ -260,7 +260,7 @@ model Certificate {
   pointsAwarded Int?
   createdAt     DateTime        @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Achievement {
@@ -273,7 +273,7 @@ model Achievement {
   status      ReviewStatus        @default(PENDING_REVIEW)
   createdAt   DateTime            @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model PointsLedger {
@@ -284,7 +284,7 @@ model PointsLedger {
   refId     String?
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VisibilityBoost {
@@ -294,7 +294,7 @@ model VisibilityBoost {
   targetId   String
   expiresAt  DateTime
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Report {
@@ -306,7 +306,7 @@ model Report {
   status     ReportStatus     @default(OPEN)
   createdAt  DateTime         @default(now())
 
-  reporter User        @relation("ReporterReports", fields: [reporterId], references: [id])
+  reporter User        @relation("ReporterReports", fields: [reporterId], references: [id], onDelete: Cascade)
   meta     ReportMeta?
 }
 

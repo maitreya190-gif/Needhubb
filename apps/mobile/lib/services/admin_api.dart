@@ -173,16 +173,40 @@ class AdminCert {
       );
 }
 
+class AdminContextMessage {
+  final String id, body, senderId, senderName, createdAt;
+  final String? imageUrl;
+
+  AdminContextMessage({
+    required this.id,
+    required this.body,
+    required this.senderId,
+    required this.senderName,
+    required this.createdAt,
+    this.imageUrl,
+  });
+
+  factory AdminContextMessage.fromJson(Map<String, dynamic> j) {
+    final sender = j['sender'] as Map<String, dynamic>? ?? {};
+    return AdminContextMessage(
+      id: j['id'] ?? '',
+      body: j['body'] ?? '',
+      senderId: sender['id'] ?? '',
+      senderName: sender['username'] as String? ?? sender['displayName'] as String? ?? 'Unknown',
+      createdAt: j['createdAt'] ?? '',
+      imageUrl: j['imageUrl'] as String?,
+    );
+  }
+}
+
 class AdminReport {
   final String id, targetType, targetId, reason, status, createdAt;
   final String reporterName, reporterEmail;
-  /// Human-facing summary of the reported content (need title, message body,
-  /// or user name) plus author. Null when the target has been deleted.
   final String? targetTitle;
   final String? targetBody;
   final String? targetAuthorName;
-  /// Source of the report ('user', 'moderation_hard', 'moderation_soft').
   final String? source;
+  final List<AdminContextMessage> contextMessages;
 
   AdminReport({
     required this.id,
@@ -197,6 +221,7 @@ class AdminReport {
     this.targetBody,
     this.targetAuthorName,
     this.source,
+    this.contextMessages = const [],
   });
 
   factory AdminReport.fromJson(Map<String, dynamic> j) {
@@ -205,6 +230,8 @@ class AdminReport {
     String? title;
     String? body;
     String? author;
+    List<AdminContextMessage> contextMessages = [];
+
     if (target != null) {
       final kind = target['kind'] as String?;
       if (kind == 'NEED') {
@@ -219,8 +246,15 @@ class AdminReport {
         title = target['displayName'] as String?;
         body = target['email'] as String?;
       }
+      // Parse context messages for MESSAGE and USER-with-threadId reports
+      final rawCtx = target['contextMessages'] as List?;
+      if (rawCtx != null) {
+        contextMessages = rawCtx
+            .cast<Map<String, dynamic>>()
+            .map(AdminContextMessage.fromJson)
+            .toList();
+      }
     }
-    // Fall back to the auto-moderation "text" captured in ReportMeta.detail.
     if (body == null || body.isEmpty) {
       final detail = meta?['detail'] as Map<String, dynamic>?;
       final text = detail?['text'] as String?;
@@ -239,6 +273,7 @@ class AdminReport {
       targetBody: body,
       targetAuthorName: author,
       source: meta?['source'] as String?,
+      contextMessages: contextMessages,
     );
   }
 }

@@ -224,6 +224,129 @@ class _ReportTile extends StatelessWidget {
                   ],
                 ),
               ),
+            // Message history (for MESSAGE and USER-with-thread reports)
+            if (report.contextMessages.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Container(
+                decoration: BoxDecoration(
+                  color: t.paper,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                      color: t.rail, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                      child: Text('MESSAGE HISTORY',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: t.muted2,
+                              letterSpacing: 0.6)),
+                    ),
+                    const Divider(height: 1),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 260),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        itemCount: report.contextMessages.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 2),
+                        itemBuilder: (_, i) {
+                          final msg = report.contextMessages[i];
+                          final isReported = report.targetType == 'MESSAGE' &&
+                              msg.id == report.targetId;
+                          return Container(
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isReported
+                                  ? NeedHubTokens.clay.withValues(alpha: 0.10)
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                              border: isReported
+                                  ? Border.all(
+                                      color: NeedHubTokens.clay
+                                          .withValues(alpha: 0.35),
+                                      width: 1)
+                                  : null,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      msg.senderName,
+                                      style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: isReported
+                                              ? NeedHubTokens.clay
+                                              : t.ink),
+                                    ),
+                                    if (isReported) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 5, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: NeedHubTokens.clay
+                                              .withValues(alpha: 0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text('REPORTED',
+                                            style: GoogleFonts.hankenGrotesk(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w700,
+                                                color: NeedHubTokens.clay)),
+                                      ),
+                                    ],
+                                    const Spacer(),
+                                    Text(
+                                      msg.createdAt.length >= 16
+                                          ? msg.createdAt.substring(11, 16)
+                                          : '',
+                                      style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 10, color: t.muted),
+                                    ),
+                                  ],
+                                ),
+                                if (msg.body.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    msg.body,
+                                    style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 12.5,
+                                        color: t.ink,
+                                        height: 1.3),
+                                  ),
+                                ],
+                                if (msg.imageUrl != null) ...[
+                                  const SizedBox(height: 4),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Image.network(
+                                      msg.imageUrl!,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Text(
               report.source == 'user'

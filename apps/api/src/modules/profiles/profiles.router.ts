@@ -174,13 +174,18 @@ profilesRouter.delete('/me/avatar', authenticate, async (req, res, next) => {
 profilesRouter.get('/search', authenticate, async (req, res, next) => {
   try {
     const me = (req as AuthedRequest).userId!
-    const raw = ((req.query.q as string) ?? '').trim()
+    const raw = ((req.query.q as string) ?? '').trim().replace(/^@/, '')
     if (raw.length < 1) return res.json([])
     const users = await prisma.user.findMany({
       where: {
         AND: [
           { id: { not: me } },
-          { username: { contains: raw, mode: 'insensitive' } },
+          {
+            OR: [
+              { username: { contains: raw, mode: 'insensitive' } },
+              { displayName: { contains: raw, mode: 'insensitive' } },
+            ],
+          },
         ],
       },
       select: {

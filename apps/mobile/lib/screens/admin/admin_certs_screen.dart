@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/admin_api.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/nh_full_screen_image_viewer.dart';
 import 'admin_shared.dart';
 
 class AdminCertsScreen extends StatefulWidget {
@@ -175,12 +176,55 @@ class _CertTile extends StatelessWidget {
     required this.onReject,
   });
 
+  bool get _isImage {
+    final url = cert.fileUrl.toLowerCase();
+    return url.endsWith('.png') ||
+        url.endsWith('.jpg') ||
+        url.endsWith('.jpeg') ||
+        url.endsWith('.webp') ||
+        url.endsWith('.gif');
+  }
+
+  void _viewCert(BuildContext context) {
+    if (cert.fileUrl.isEmpty) return;
+    if (_isImage) {
+      NHFullScreenImageViewer.open(
+        context,
+        imageUrl: cert.fileUrl,
+        title: cert.type,
+        subtitle: cert.userName,
+      );
+    } else {
+      // Non-image (PDF etc.) — show a dialog with the URL
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: t.card,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Text('Certificate File',
+              style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 16, fontWeight: FontWeight.w700, color: t.ink)),
+          content: SelectableText(
+            cert.fileUrl,
+            style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Close',
+                  style: GoogleFonts.hankenGrotesk(color: t.muted2)),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Container(
-        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: t.card,
           borderRadius: BorderRadius.circular(16),
@@ -189,79 +233,157 @@ class _CertTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: NeedHubTokens.ochre.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.verified_outlined,
-                      color: NeedHubTokens.ochre, size: 22),
+            // Certificate image preview (tap to fullscreen)
+            if (cert.fileUrl.isNotEmpty)
+              GestureDetector(
+                onTap: () => _viewCert(context),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                  child: _isImage
+                      ? Image.network(
+                          cert.fileUrl,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (_, child, progress) => progress == null
+                              ? child
+                              : Container(
+                                  height: 180,
+                                  color: NeedHubTokens.ochre.withValues(alpha: 0.07),
+                                  child: const Center(
+                                      child: CircularProgressIndicator()),
+                                ),
+                          errorBuilder: (_, __, ___) => _docPlaceholder(),
+                        )
+                      : _docPlaceholder(),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        cert.type,
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: t.ink,
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: NeedHubTokens.ochre.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.verified_outlined,
+                            color: NeedHubTokens.ochre, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              cert.type,
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: t.ink,
+                              ),
+                            ),
+                            Text(
+                              cert.userName,
+                              style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12, color: t.muted),
+                            ),
+                          ],
                         ),
                       ),
-                      Text(
-                        cert.userName,
-                        style: GoogleFonts.hankenGrotesk(
-                            fontSize: 12, color: t.muted),
+                      // View button
+                      if (cert.fileUrl.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () => _viewCert(context),
+                          icon: Icon(
+                            _isImage
+                                ? Icons.zoom_in_rounded
+                                : Icons.open_in_new_rounded,
+                            size: 16,
+                            color: NeedHubTokens.forest,
+                          ),
+                          label: Text(
+                            'View',
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: NeedHubTokens.forest,
+                            ),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: onReject,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: NeedHubTokens.clay,
+                            side: BorderSide(
+                                color:
+                                    NeedHubTokens.clay.withValues(alpha: 0.4)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: Text('Reject',
+                              style: GoogleFonts.hankenGrotesk(
+                                  fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: onApprove,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: NeedHubTokens.forest,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: Text('Approve',
+                              style: GoogleFonts.hankenGrotesk(
+                                  fontWeight: FontWeight.w700)),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onReject,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: NeedHubTokens.clay,
-                      side: BorderSide(
-                          color: NeedHubTokens.clay.withValues(alpha: 0.4)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: Text('Reject',
-                        style: GoogleFonts.hankenGrotesk(
-                            fontWeight: FontWeight.w600)),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: onApprove,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: NeedHubTokens.forest,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                    ),
-                    child: Text('Approve',
-                        style: GoogleFonts.hankenGrotesk(
-                            fontWeight: FontWeight.w700)),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _docPlaceholder() {
+    return Container(
+      height: 120,
+      width: double.infinity,
+      color: NeedHubTokens.ochre.withValues(alpha: 0.07),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.picture_as_pdf_rounded,
+              color: NeedHubTokens.ochre, size: 36),
+          const SizedBox(height: 6),
+          Text('Document attached — tap View to open',
+              style: GoogleFonts.hankenGrotesk(
+                  fontSize: 12, color: NeedHubTokens.ochre)),
+        ],
       ),
     );
   }

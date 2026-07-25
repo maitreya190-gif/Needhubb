@@ -1,7 +1,30 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import '../models/user_state.dart';
+import '../services/messaging_api.dart';
+import '../services/needs_api.dart';
+import '../services/notifications_api.dart';
+import '../services/profiles_api.dart';
+import '../services/reviews_api.dart';
+import '../services/uploads_api.dart';
+
+/// Resets every global ValueNotifier to its empty/initial value.
+/// Call this on logout so account A's data never bleeds into account B.
+void clearAllUserState() {
+  chatsListNotifier.value = [];
+  notificationsListNotifier.value = const [];
+  unreadCountNotifier.value = 0;
+  feedNeedsNotifier.value = [];
+  feedRankerNotifier.value = 'heuristic';
+  myProfileNotifier.value = null;
+  pendingReviewsNotifier.value = const [];
+  myCertificatesNotifier.value = const [];
+  myAchievementsNotifier.value = const [];
+  friendRequestsInboxNotifier.value = const [];
+  friendRequestNotifier.value = 0;
+  chitChatAvailableNotifier.value = false;
+  chitchatRosterNotifier.value = const [];
+}
 
 class AuthState {
   final String? token;
@@ -71,7 +94,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? displayName,
     String? email,
   }) async {
-    resetAllUserNotifiersOnLogout();
+    clearAllUserState();
     await _storage.write(key: _tokenKey, value: token);
     await _storage.write(key: _userIdKey, value: userId);
     if (displayName != null) {
@@ -92,7 +115,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Clear all auth data and return to the logged-out state.
   Future<void> logout() async {
     await _storage.deleteAll();
-    resetAllUserNotifiersOnLogout();
+    clearAllUserState();
     state = const AuthState();
   }
 }

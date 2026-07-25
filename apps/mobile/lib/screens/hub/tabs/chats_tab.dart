@@ -232,7 +232,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                         NhChatRowSkeleton(),
                       ],
                     )
-                  : allChats.isEmpty && _pendingRequests.isEmpty
+                  : realChats.isEmpty && allChats.isEmpty && _pendingRequests.isEmpty && friendRequestsInboxNotifier.value.isEmpty
                       ? const Center(
                           child: NhEmptyState(
                             icon: Icons.chat_bubble_outline_rounded,
