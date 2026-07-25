@@ -248,7 +248,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       setState(() => _sending = true);
       try {
         await _sendToApi(text: text);
-        if (mounted) setState(() { _messages.last = _messages.last.copyWith(isRead: true); });
       } catch (e) {
         if (mounted) {
           setState(() => _messages.removeLast());
@@ -259,7 +258,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       }
     } else {
       Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) setState(() { _isTyping = false; _messages.last = _messages.last.copyWith(isRead: true); });
+        if (mounted) setState(() => _isTyping = false);
         _scrollToBottom();
       });
     }
@@ -293,7 +292,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       setState(() => _sending = true);
       try {
         await _sendToApi(imagePath: path);
-        if (mounted) setState(() { _messages.last = _messages.last.copyWith(isRead: true); });
       } catch (e) {
         if (mounted) {
           setState(() => _messages.removeLast());
@@ -400,27 +398,31 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.name,
-                    style: GoogleFonts.bricolageGrotesque(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: t.ink,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.name,
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: t.ink,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Text(
-                    'Online',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: NeedHubTokens.forest,
+                    Text(
+                      'Online',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: NeedHubTokens.forest,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
