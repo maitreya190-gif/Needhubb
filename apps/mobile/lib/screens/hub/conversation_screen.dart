@@ -447,6 +447,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 builder: (_) => _ChatMenuSheet(
                   personName: widget.name,
                   personUserId: widget.userId,
+                  threadId: _resolvedThreadId,
                   isFriend: _isFriend,
                   isBlocked: _isBlocked,
                   onToggleFriend: () {
@@ -1251,6 +1252,7 @@ class _TypingIndicatorState extends State<_TypingIndicator>
 class _ChatMenuSheet extends StatelessWidget {
   final String personName;
   final String? personUserId;
+  final String? threadId;
   final bool isFriend;
   final bool isBlocked;
   final VoidCallback onToggleFriend;
@@ -1261,6 +1263,7 @@ class _ChatMenuSheet extends StatelessWidget {
   const _ChatMenuSheet({
     required this.personName,
     this.personUserId,
+    this.threadId,
     required this.isFriend,
     required this.isBlocked,
     required this.onToggleFriend,
@@ -1276,6 +1279,7 @@ class _ChatMenuSheet extends StatelessWidget {
       targetName: personName,
       targetType: personUserId != null ? 'USER' : null,
       targetId: personUserId,
+      threadId: threadId,
       alsoBlock: alsoBlock,
     );
   }

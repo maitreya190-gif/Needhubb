@@ -14,6 +14,9 @@ class NhReportSheet extends ConsumerStatefulWidget {
   /// as submitted locally. New callers should always pass targetType + targetId.
   final String? targetType;
   final String? targetId;
+  // Optional thread ID — when reporting from a conversation, this allows
+  // the admin panel to display the last 20 messages as context.
+  final String? threadId;
   final bool alsoBlock;
 
   const NhReportSheet({
@@ -21,6 +24,7 @@ class NhReportSheet extends ConsumerStatefulWidget {
     required this.targetName,
     this.targetType,
     this.targetId,
+    this.threadId,
     this.alsoBlock = false,
   });
 
@@ -29,6 +33,7 @@ class NhReportSheet extends ConsumerStatefulWidget {
     required String targetName,
     String? targetType,
     String? targetId,
+    String? threadId,
     bool alsoBlock = false,
   }) {
     return showModalBottomSheet(
@@ -39,6 +44,7 @@ class NhReportSheet extends ConsumerStatefulWidget {
         targetName: targetName,
         targetType: targetType,
         targetId: targetId,
+        threadId: threadId,
         alsoBlock: alsoBlock,
       ),
     );
@@ -90,6 +96,7 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
           'targetType': widget.targetType,
           'targetId': widget.targetId,
           'reason': reason,
+          if (widget.threadId != null) 'threadId': widget.threadId,
         });
       }
 

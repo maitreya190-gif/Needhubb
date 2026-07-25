@@ -134,7 +134,21 @@ async function enrichReportsWithTargets(reports: any[]) {
           where: { id: r.targetId },
           select: { id: true, username: true, displayName: true, email: true },
         })
-        if (u) target = { kind: 'USER', ...u }
+        if (u) {
+          target = { kind: 'USER', ...u }
+          // If this report came from a conversation, fetch last 20 messages for context.
+          const threadId = (r.meta?.detail as any)?.threadId as string | undefined
+          if (threadId) {
+            const contextMessages = await prisma.dmMessage.findMany({
+              where: { threadId },
+              include: { sender: { select: { id: true, username: true, displayName: true } } },
+              orderBy: { createdAt: 'desc' },
+              take: 20,
+            })
+            target.contextMessages = contextMessages.reverse()
+            target.threadId = threadId
+          }
+        }
       } else if (r.targetType === 'NEED') {
         if (r.targetId.startsWith('pending:')) {
           const posterId = r.targetId.slice('pending:'.length)

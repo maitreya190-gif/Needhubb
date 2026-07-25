@@ -12,6 +12,7 @@ const reportBody = z.object({
   targetType: z.enum(['USER', 'NEED', 'MESSAGE']),
   targetId: z.string().min(1),
   reason: z.string().min(3).max(500),
+  threadId: z.string().optional(),
 })
 
 const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000
@@ -20,7 +21,7 @@ reportsRouter.post('/', async (req, res, next) => {
   const parsed = reportBody.safeParse(req.body)
   if (!parsed.success) return next(badRequest('Invalid report payload', 'INVALID_BODY'))
   const reporterId = (req as AuthedRequest).userId
-  const { targetType, targetId, reason } = parsed.data
+  const { targetType, targetId, reason, threadId } = parsed.data
 
   try {
     // No self-reports
@@ -59,7 +60,7 @@ reportsRouter.post('/', async (req, res, next) => {
         data: {
           reportId: report.id,
           source: 'user',
-          detail: { reason } as never,
+          detail: { reason, ...(threadId ? { threadId } : {}) } as never,
         },
       })
       return report

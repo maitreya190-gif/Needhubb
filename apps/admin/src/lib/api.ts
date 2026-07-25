@@ -97,6 +97,7 @@ export interface ReportTarget {
   // USER
   displayName?: string
   email?: string
+  threadId?: string
   // NEED
   title?: string
   description?: string
@@ -104,7 +105,7 @@ export interface ReportTarget {
   posterName?: string
   pending?: boolean
   blockedText?: string | null
-  // MESSAGE
+  // MESSAGE / USER-from-conversation
   body?: string
   senderName?: string
   contextMessages?: ContextMessage[]

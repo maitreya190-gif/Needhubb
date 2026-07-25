@@ -128,8 +128,7 @@ function ReportRow({
     ? 'badge badge-resolved'
     : 'badge badge-reviewed'
 
-  const hasContext = report.target?.kind === 'MESSAGE' &&
-    report.target.contextMessages && report.target.contextMessages.length > 0
+  const hasContext = !!(report.target?.contextMessages && report.target.contextMessages.length > 0)
 
   return (
     <>
@@ -217,7 +216,10 @@ function ReportRow({
       {showContext && hasContext && (
         <tr>
           <td colSpan={open ? 6 : 5} style={{ padding: '0 16px 16px' }}>
-            <ChatContextPanel messages={report.target!.contextMessages!} flaggedId={report.targetId} />
+            <ChatContextPanel
+            messages={report.target!.contextMessages!}
+            flaggedId={report.target!.kind === 'MESSAGE' ? report.targetId : undefined}
+          />
           </td>
         </tr>
       )}
@@ -225,7 +227,7 @@ function ReportRow({
   )
 }
 
-function ChatContextPanel({ messages, flaggedId }: { messages: ContextMessage[]; flaggedId: string }) {
+function ChatContextPanel({ messages, flaggedId }: { messages: ContextMessage[]; flaggedId?: string }) {
   return (
     <div style={{
       background: 'var(--paper)', border: '1.5px solid var(--rail)',
@@ -239,8 +241,8 @@ function ChatContextPanel({ messages, flaggedId }: { messages: ContextMessage[];
           key={m.id}
           style={{
             marginBottom: 8, padding: '8px 10px', borderRadius: 8,
-            background: m.id === flaggedId ? 'rgba(239,68,68,0.1)' : 'var(--card)',
-            border: m.id === flaggedId ? '1.5px solid rgba(239,68,68,0.4)' : '1px solid var(--rail)',
+            background: flaggedId && m.id === flaggedId ? 'rgba(239,68,68,0.1)' : 'var(--card)',
+            border: flaggedId && m.id === flaggedId ? '1.5px solid rgba(239,68,68,0.4)' : '1px solid var(--rail)',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
@@ -249,8 +251,8 @@ function ChatContextPanel({ messages, flaggedId }: { messages: ContextMessage[];
               {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
-          <span style={{ fontSize: 13, color: m.id === flaggedId ? '#dc2626' : 'var(--ink)' }}>{m.body}</span>
-          {m.id === flaggedId && (
+          <span style={{ fontSize: 13, color: flaggedId && m.id === flaggedId ? '#dc2626' : 'var(--ink)' }}>{m.body}</span>
+          {flaggedId && m.id === flaggedId && (
             <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#dc2626' }}>← FLAGGED</span>
           )}
         </div>
