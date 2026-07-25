@@ -9,12 +9,14 @@ import '../../../services/needs_api.dart';
 import '../../../services/notifications_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
+import '../../../widgets/nh_avatar.dart';
 import '../../../widgets/nh_skeleton.dart';
 import '../../../widgets/nh_empty_state.dart';
 import '../../../widgets/nh_report_sheet.dart';
 import '../../../widgets/nh_filter_sheet.dart';
 import '../../needs/need_detail_screen.dart';
 import '../../connect/connect_detail_screen.dart';
+import '../../person/person_screen.dart';
 import '../conversation_screen.dart';
 
 class FeedTab extends ConsumerStatefulWidget {
@@ -1857,6 +1859,7 @@ class _ChitChatRealTile extends ConsumerWidget {
               name: person.displayName,
               initials: _initials,
               avatarColor: NeedHubTokens.forest,
+              avatarUrl: person.avatarUrl,
               userId: person.userId,
             ),
           ),
@@ -1870,30 +1873,25 @@ class _ChitChatRealTile extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: NeedHubTokens.forest.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(13),
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  PersonScreen.route(
+                    name: person.displayName,
+                    initials: _initials,
+                    avatarColor: NeedHubTokens.forest,
+                    avatarUrl: person.avatarUrl,
+                    userId: person.userId,
+                  ),
                 ),
-                alignment: Alignment.center,
-                child: person.avatarUrl != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(13),
-                        child: Image.network(person.avatarUrl!,
-                            width: 46, height: 46, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Text(_initials,
-                                style: GoogleFonts.bricolageGrotesque(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: NeedHubTokens.forest))),
-                      )
-                    : Text(_initials,
-                        style: GoogleFonts.bricolageGrotesque(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: NeedHubTokens.forest)),
+                child: NhAvatar(
+                  avatarUrl: person.avatarUrl,
+                  initials: _initials,
+                  size: 46,
+                  borderRadius: 13,
+                  backgroundColor: NeedHubTokens.forest.withValues(alpha: 0.15),
+                  textColor: NeedHubTokens.forest,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

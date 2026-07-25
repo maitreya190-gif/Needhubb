@@ -37,20 +37,43 @@ class ProfileMe {
   });
 
   factory ProfileMe.fromJson(Map<String, dynamic> j) {
-    final profile = j['profile'] as Map<String, dynamic>? ?? const {};
-    final interests = ((profile['interests'] as List?) ?? const [])
-        .cast<Map<String, dynamic>>()
-        .map((pi) => (pi['interest'] as Map<String, dynamic>?)?['label'] as String?)
+    final profile = j['profile'] is Map<String, dynamic>
+        ? j['profile'] as Map<String, dynamic>
+        : j;
+
+    final interestsList = profile['interests'] as List? ?? j['interests'] as List? ?? [];
+    final interests = interestsList
+        .map((pi) {
+          if (pi is Map<String, dynamic>) {
+            if (pi['interest'] is Map<String, dynamic>) {
+              return (pi['interest'] as Map<String, dynamic>)['label'] as String?;
+            }
+            return pi['label'] as String?;
+          }
+          if (pi is String) return pi;
+          return null;
+        })
         .whereType<String>()
         .toList();
-    final skills = ((profile['skills'] as List?) ?? const [])
-        .cast<Map<String, dynamic>>()
-        .map((ps) => (ps['skill'] as Map<String, dynamic>?)?['label'] as String?)
+
+    final skillsList = profile['skills'] as List? ?? j['skills'] as List? ?? [];
+    final skills = skillsList
+        .map((ps) {
+          if (ps is Map<String, dynamic>) {
+            if (ps['skill'] is Map<String, dynamic>) {
+              return (ps['skill'] as Map<String, dynamic>)['label'] as String?;
+            }
+            return ps['label'] as String?;
+          }
+          if (ps is String) return ps;
+          return null;
+        })
         .whereType<String>()
         .toList();
+
     return ProfileMe(
-      id: j['id'] as String,
-      displayName: j['displayName'] as String? ?? '',
+      id: (j['id'] as String?) ?? (profile['id'] as String?) ?? '',
+      displayName: (j['displayName'] as String?) ?? (j['name'] as String?) ?? '',
       email: j['email'] as String?,
       bio: profile['bio'] as String?,
       gender: profile['gender'] as String?,
@@ -77,7 +100,7 @@ class ProfilesApi {
     return ProfileMe.fromJson(r);
   }
 
-  Future<void> update({
+  Future<ProfileMe> update({
     String? bio,
     String? gender,
     String? location,
@@ -85,8 +108,10 @@ class ProfilesApi {
     String? promptCollab,
     String? promptNeed,
     String? displayName,
+    List<String>? interests,
+    List<String>? skills,
   }) async {
-    await _api.patch('/profile/me', {
+    final r = await _api.patch('/profile/me', {
       if (bio != null) 'bio': bio,
       if (gender != null) 'gender': gender,
       if (location != null) 'location': location,
@@ -94,7 +119,10 @@ class ProfilesApi {
       if (promptCollab != null) 'promptCollab': promptCollab,
       if (promptNeed != null) 'promptNeed': promptNeed,
       if (displayName != null) 'displayName': displayName,
+      if (interests != null) 'interests': interests,
+      if (skills != null) 'skills': skills,
     });
+    return ProfileMe.fromJson(r);
   }
 
   Future<ProfileMe> getById(String userId) async {

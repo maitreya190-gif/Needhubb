@@ -12,6 +12,7 @@ import '../../services/messaging_api.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_full_screen_image_viewer.dart';
 import '../../widgets/nh_report_sheet.dart';
@@ -21,6 +22,7 @@ class ConversationScreen extends ConsumerStatefulWidget {
   final String name;
   final String initials;
   final Color avatarColor;
+  final String? avatarUrl;
   /// The other user's ID. When provided, messages are sent to the real API.
   final String? userId;
   /// Existing DM thread id. When null, will be resolved lazily from GET /chats.
@@ -31,6 +33,7 @@ class ConversationScreen extends ConsumerStatefulWidget {
     required this.name,
     required this.initials,
     required this.avatarColor,
+    this.avatarUrl,
     this.userId,
     this.threadId,
   });
@@ -363,27 +366,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     name: widget.name,
                     initials: widget.initials,
                     avatarColor: widget.avatarColor,
+                    avatarUrl: widget.avatarUrl,
                     subtitle: 'Active now',
+                    userId: widget.userId,
                   ),
                 ),
                 child: Stack(
                   children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: widget.avatarColor.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        widget.initials,
-                        style: GoogleFonts.bricolageGrotesque(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: widget.avatarColor,
-                        ),
-                      ),
+                    NhAvatar(
+                      avatarUrl: widget.avatarUrl,
+                      initials: widget.initials,
+                      size: 38,
+                      borderRadius: 12,
+                      backgroundColor: widget.avatarColor.withValues(alpha: 0.15),
+                      textColor: widget.avatarColor,
+                      fontSize: 13,
                     ),
                   Positioned(
                     bottom: 1,

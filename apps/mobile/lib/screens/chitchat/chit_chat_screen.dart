@@ -564,6 +564,7 @@ class _RealPersonTile extends ConsumerWidget {
           name: person.displayName,
           initials: _initials,
           avatarColor: NeedHubTokens.forest,
+          avatarUrl: person.avatarUrl,
           userId: person.userId,
         ),
       ),

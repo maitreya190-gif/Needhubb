@@ -10,6 +10,7 @@ import '../../services/api_client.dart';
 import '../../services/social_providers.dart';
 import '../../services/uploads_api.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/nh_avatar.dart';
 import '../chitchat/chit_chat_screen.dart';
 import '../history/history_screen.dart';
 import '../redeem/redeem_screen.dart';
@@ -103,21 +104,15 @@ class YouScreen extends ConsumerWidget {
                     // Avatar + name row
                     Row(
                       children: [
-                        Container(
-                          width: 70,
-                          height: 70,
-                          decoration: BoxDecoration(
-                            color: NeedHubTokens.forest,
-                            borderRadius: BorderRadius.circular(22),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            initials,
-                            style: GoogleFonts.bricolageGrotesque(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                            ),
+                        ValueListenableBuilder<String?>(
+                          valueListenable: avatarUrlNotifier,
+                          builder: (_, avatarUrl, __) => NhAvatar(
+                            avatarUrl: avatarUrl,
+                            initials: initials,
+                            size: 70,
+                            borderRadius: 22,
+                            backgroundColor: NeedHubTokens.forest,
+                            fontSize: 26,
                           ),
                         ),
                         const SizedBox(width: 15),

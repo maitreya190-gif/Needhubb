@@ -178,6 +178,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
         displayName: _nameController.text.trim(),
+        username: _usernameController.text.trim().toLowerCase(),
       );
       _savedUserId = response.userId;
       _goNext();
@@ -275,6 +276,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       }
 
       if (status == 409) {
+        final code = body is Map ? body['code'] : null;
+        if (code == 'USERNAME_TAKEN') return 'That username is already taken. Try another.';
         return 'That email is already registered. Try logging in instead.';
       }
 

@@ -38,6 +38,7 @@ const SKILLS = [
 
 interface DemoUser {
   email: string
+  username: string
   displayName: string
   bio: string
   gender: 'male' | 'female'
@@ -56,6 +57,7 @@ interface DemoUser {
 const DEMO_USERS: DemoUser[] = [
   {
     email: 'aarav.kumar@needhub.demo',
+    username: 'aarav',
     displayName: 'Aarav Kumar',
     bio: 'CS student. Loves Flutter and building side projects on weekends.',
     gender: 'male',
@@ -71,6 +73,7 @@ const DEMO_USERS: DemoUser[] = [
   },
   {
     email: 'meera.kulkarni@needhub.demo',
+    username: 'meera',
     displayName: 'Meera Kulkarni',
     bio: 'Product designer & aspiring founder. Also a chess enthusiast.',
     gender: 'female',
@@ -86,6 +89,7 @@ const DEMO_USERS: DemoUser[] = [
   },
   {
     email: 'rohan.verma@needhub.demo',
+    username: 'rohan',
     displayName: 'Rohan Verma',
     bio: 'Freelance photographer. Cafe-hopper. Currently learning ML.',
     gender: 'male',
@@ -100,6 +104,7 @@ const DEMO_USERS: DemoUser[] = [
   },
   {
     email: 'priya.nair@needhub.demo',
+    username: 'priya',
     displayName: 'Priya Nair',
     bio: 'Fitness coach and yoga instructor. Also into DSA.',
     gender: 'female',
@@ -115,6 +120,7 @@ const DEMO_USERS: DemoUser[] = [
   },
   {
     email: 'karthik.reddy@needhub.demo',
+    username: 'karthik',
     displayName: 'Karthik Reddy',
     bio: 'Backend dev. Guitar player on weekends.',
     gender: 'male',
@@ -129,6 +135,7 @@ const DEMO_USERS: DemoUser[] = [
   },
   {
     email: 'sneha.rao@needhub.demo',
+    username: 'sneha',
     displayName: 'Sneha Rao',
     bio: 'Content writer, foodie, avid reader.',
     gender: 'female',
@@ -243,12 +250,12 @@ const DEMO_NEEDS = [
 ]
 
 const TEST_USERS = [
-  { email: 'a@t.co', displayName: 'a' },
-  { email: 'b@t.co', displayName: 'b' },
-  { email: 'c@t.co', displayName: 'c' },
-  { email: 'd@t.co', displayName: 'd' },
-  { email: 'e@t.co', displayName: 'e' },
-  { email: 'f@t.co', displayName: 'f' },
+  { email: 'a@t.co', displayName: 'a', username: 'a' },
+  { email: 'b@t.co', displayName: 'b', username: 'b' },
+  { email: 'c@t.co', displayName: 'c', username: 'c' },
+  { email: 'd@t.co', displayName: 'd', username: 'd' },
+  { email: 'e@t.co', displayName: 'e', username: 'e' },
+  { email: 'f@t.co', displayName: 'f', username: 'f' },
 ]
 
 const REDEMPTION_ITEMS = [
@@ -296,10 +303,11 @@ async function main() {
   for (const u of DEMO_USERS) {
     const user = await prisma.user.upsert({
       where: { email: u.email },
-      update: { displayName: u.displayName, emailVerifiedAt: new Date() },
+      update: { displayName: u.displayName, username: u.username, emailVerifiedAt: new Date() },
       create: {
         email: u.email,
         displayName: u.displayName,
+        username: u.username,
         passwordHash,
         emailVerifiedAt: new Date(),
       },
@@ -358,10 +366,11 @@ async function main() {
   for (const t of TEST_USERS) {
     const user = await prisma.user.upsert({
       where: { email: t.email },
-      update: { displayName: t.displayName, emailVerifiedAt: new Date() },
+      update: { displayName: t.displayName, username: t.username, emailVerifiedAt: new Date() },
       create: {
         email: t.email,
         displayName: t.displayName,
+        username: t.username,
         passwordHash: testPasswordHash,
         emailVerifiedAt: new Date(),
       },
@@ -432,14 +441,11 @@ async function main() {
 
   // Pending request Rohan → Aarav (so Aarav has one in inbox).
   if (rohan && aarav) {
-    const existing = await prisma.friendRequest.findFirst({
-      where: { fromUserId: rohan, toUserId: aarav, status: 'PENDING' },
+    await prisma.friendRequest.upsert({
+      where: { fromUserId_toUserId: { fromUserId: rohan, toUserId: aarav } },
+      update: { status: 'PENDING' },
+      create: { fromUserId: rohan, toUserId: aarav, status: 'PENDING' },
     })
-    if (!existing) {
-      await prisma.friendRequest.create({
-        data: { fromUserId: rohan, toUserId: aarav, status: 'PENDING' },
-      })
-    }
   }
 
   // Block: Priya blocks a non-connected user (Sneha) — so admin can see one.
