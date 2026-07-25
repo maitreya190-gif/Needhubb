@@ -261,12 +261,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     try {
       final profilesApi = ref.read(profilesApiProvider);
       await profilesApi.update(
-        token: _savedToken!,
         interests: _selectedInterests.toList(),
         skills: _selectedSkills.toList(),
         bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
         gender: _gender,
-        locationText: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+        location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
         promptSkill: _promptSkillController.text.trim().isEmpty ? null : _promptSkillController.text.trim(),
         promptCollab: _promptCollabController.text.trim().isEmpty ? null : _promptCollabController.text.trim(),
         promptNeed: _promptNeedController.text.trim().isEmpty ? null : _promptNeedController.text.trim(),
