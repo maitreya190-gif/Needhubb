@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/person.dart';
 import '../../models/user_state.dart';
+import '../../services/friends_api.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
@@ -243,7 +244,109 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
+                    // Incoming friend request decision banner
+                    ValueListenableBuilder<List<FriendRequestDto>>(
+                      valueListenable: friendRequestsInboxNotifier,
+                      builder: (context, inbox, _) {
+                        FriendRequestDto? matchingReq;
+                        for (final r in inbox) {
+                          if ((widget.userId != null && (r.fromUserId == widget.userId || r.id == widget.userId)) ||
+                              r.fromDisplayName.toLowerCase() == name.toLowerCase()) {
+                            matchingReq = r;
+                            break;
+                          }
+                        }
+
+                        if (matchingReq != null) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: NeedHubTokens.forest.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: NeedHubTokens.forest, width: 1.5),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.person_add_rounded, color: NeedHubTokens.forest, size: 20),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        '$name sent you a friend request!',
+                                        style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton.icon(
+                                        onPressed: () async {
+                                          try {
+                                            final api = ref.read(friendsApiProvider);
+                                            await acceptFriendRequest(matchingReq!.id, api);
+                                            addFriend(name);
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(content: Text('Accepted friend request from $name!')),
+                                              );
+                                            }
+                                          } catch (_) {
+                                            addFriend(name);
+                                          }
+                                        },
+                                        icon: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+                                        label: const Text('Accept Request'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: NeedHubTokens.forest,
+                                          foregroundColor: Colors.white,
+                                          minimumSize: const Size.fromHeight(38),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () async {
+                                          try {
+                                            final api = ref.read(friendsApiProvider);
+                                            await declineFriendRequest(matchingReq!.id, api);
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Friend request declined.')),
+                                              );
+                                            }
+                                          } catch (_) {}
+                                        },
+                                        icon: const Icon(Icons.close_rounded, size: 16, color: Colors.white70),
+                                        label: const Text('Decline'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Colors.white70,
+                                          minimumSize: const Size.fromHeight(38),
+                                          side: const BorderSide(color: Colors.white30),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
 
                     // Friend + block status row
                     ValueListenableBuilder<Set<String>>(
