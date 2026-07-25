@@ -237,10 +237,10 @@ class FeedFilter {
   final double maxDistanceKm;
   final int? minBudget;
   final int? maxBudget;
-  final Set<String> genders; // empty = any
-  final Set<String> interests; // empty = any
-  final Set<String> skills; // empty = any
-  final String sortBy; // 'newest' | 'nearest' | 'highest_points'
+  final Set<String>? _genders;
+  final Set<String>? _interests;
+  final Set<String>? _skills;
+  final String? _sortBy;
 
   const FeedFilter({
     this.maxDistanceKm = 50,
@@ -250,10 +250,15 @@ class FeedFilter {
     Set<String>? interests,
     Set<String>? skills,
     String? sortBy,
-  })  : genders = genders ?? const <String>{},
-        interests = interests ?? const <String>{},
-        skills = skills ?? const <String>{},
-        sortBy = sortBy ?? 'newest';
+  })  : _genders = genders,
+        _interests = interests,
+        _skills = skills,
+        _sortBy = sortBy;
+
+  Set<String> get genders => _genders ?? const <String>{};
+  Set<String> get interests => _interests ?? const <String>{};
+  Set<String> get skills => _skills ?? const <String>{};
+  String get sortBy => _sortBy ?? 'newest';
 
   FeedFilter copyWith({
     double? maxDistanceKm,

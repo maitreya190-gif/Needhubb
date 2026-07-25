@@ -34,48 +34,7 @@ class _ChatPreview {
   });
 }
 
-final _mockChats = [
-  const _ChatPreview(
-    name: 'Priya Sharma',
-    initials: 'PS',
-    lastMessage: 'Hi! I can help with the calculus sessions.',
-    time: '2m',
-    unread: 2,
-    avatarColor: NeedHubTokens.forest,
-  ),
-  const _ChatPreview(
-    name: 'Rohan Mehta',
-    initials: 'RM',
-    lastMessage: 'Sounds good, can you share a portfolio?',
-    time: '1h',
-    unread: 0,
-    avatarColor: NeedHubTokens.ochre,
-  ),
-  const _ChatPreview(
-    name: 'Dev Pillai',
-    initials: 'DP',
-    lastMessage: "I'm available this Sunday.",
-    time: '3h',
-    unread: 1,
-    avatarColor: NeedHubTokens.clay,
-  ),
-  const _ChatPreview(
-    name: 'Sneha Rao',
-    initials: 'SR',
-    lastMessage: "We can start next week if you're free.",
-    time: '1d',
-    unread: 0,
-    avatarColor: NeedHubTokens.forest,
-  ),
-  const _ChatPreview(
-    name: 'Ananya Iyer',
-    initials: 'AI',
-    lastMessage: 'Library opens at 10am on Saturday.',
-    time: '2d',
-    unread: 0,
-    avatarColor: NeedHubTokens.clay,
-  ),
-];
+final _mockChats = <_ChatPreview>[];
 
 class ChatsTab extends ConsumerStatefulWidget {
   const ChatsTab({super.key});
@@ -409,32 +368,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                               child: ValueListenableBuilder<List<ChitchatPerson>>(
                                 valueListenable: chitchatRosterNotifier,
                                 builder: (context, roster, _) {
-                                  final mockPeople = const [
-                                    (
-                                      initials: 'F',
-                                      name: 'f',
-                                      area: 'Nearby',
-                                      color: NeedHubTokens.forest
-                                    ),
-                                    (
-                                      initials: 'AK',
-                                      name: 'Aarav Kumar',
-                                      area: 'CS student',
-                                      color: NeedHubTokens.clay
-                                    ),
-                                    (
-                                      initials: 'D',
-                                      name: 'd',
-                                      area: 'Nearby',
-                                      color: NeedHubTokens.ochre
-                                    ),
-                                    (
-                                      initials: 'PN',
-                                      name: 'Priya Nair',
-                                      area: 'Fitness coach',
-                                      color: NeedHubTokens.forest
-                                    ),
-                                  ];
+                                  const mockPeople = <({String initials, String name, String area, Color color})>[];
                                   return ListView(
                                     scrollDirection: Axis.horizontal,
                                     padding:
@@ -728,17 +662,7 @@ class _RealFriendRequestCard extends StatelessWidget {
 
 // ── Username search sheet ─────────────────────────────────────────────────────
 
-const _mockUsers = [
-  (name: 'Aarav Kumar', username: 'aaravk', initials: 'AK', color: NeedHubTokens.forest),
-  (name: 'Meera Kulkarni', username: 'meerak', initials: 'MK', color: NeedHubTokens.clay),
-  (name: 'Rohan Verma', username: 'rohanv', initials: 'RV', color: NeedHubTokens.ochre),
-  (name: 'Priya Nair', username: 'priyan', initials: 'PN', color: NeedHubTokens.forest),
-  (name: 'Karthik Reddy', username: 'karthikr', initials: 'KR', color: NeedHubTokens.clay),
-  (name: 'Sneha Rao', username: 'snehar', initials: 'SR', color: NeedHubTokens.ochre),
-  (name: 'Charan G', username: 'c', initials: 'C', color: NeedHubTokens.clay),
-  (name: 'Faisal K', username: 'f', initials: 'F', color: NeedHubTokens.forest),
-  (name: 'Dev Pillai', username: 'd', initials: 'D', color: NeedHubTokens.ochre),
-];
+const _mockUsers = <({String name, String username, String initials, Color color})>[];
 
 class _SearchUserSheet extends ConsumerStatefulWidget {
   const _SearchUserSheet();

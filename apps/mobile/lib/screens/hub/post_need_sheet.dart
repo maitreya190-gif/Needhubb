@@ -41,6 +41,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
 
   // Decomposed needs from the API — each item matches the /needs/decompose response shape.
   List<Map<String, dynamic>> _subNeeds = [];
+  Set<int> _selectedSubNeedIndexes = {};
 
   @override
   void dispose() {
@@ -69,6 +70,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
         _decomposed = true;
         _decomposing = false;
         _subNeeds = needs;
+        _selectedSubNeedIndexes = Set.from(List.generate(needs.length, (i) => i));
       });
     } on DioException catch (e) {
       final code = e.response?.data?['code'] as String?;
@@ -85,6 +87,36 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
     }
   }
 
+  void _toggleSubNeed(int index) {
+    setState(() {
+      if (_selectedSubNeedIndexes.contains(index)) {
+        _selectedSubNeedIndexes.remove(index);
+      } else {
+        _selectedSubNeedIndexes.add(index);
+      }
+    });
+  }
+
+  void _selectAllSubNeeds() {
+    setState(() {
+      _selectedSubNeedIndexes = Set.from(List.generate(_subNeeds.length, (i) => i));
+    });
+  }
+
+  void _selectNoneSubNeeds() {
+    setState(() {
+      _selectedSubNeedIndexes.clear();
+    });
+  }
+
+  void _useOriginalNeed() {
+    setState(() {
+      _decomposed = false;
+      _subNeeds.clear();
+      _selectedSubNeedIndexes.clear();
+    });
+  }
+
   Future<void> _post() async {
     if (!_canPost) return;
     setState(() { _posting = true; _error = null; });
@@ -94,10 +126,11 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
 
       // Build the needs list to post.
       List<Map<String, dynamic>> needsPayload;
-      if (_decomposed && _subNeeds.isNotEmpty) {
-        needsPayload = _subNeeds;
+      if (_decomposed && _selectedSubNeedIndexes.isNotEmpty) {
+        final sortedIdx = _selectedSubNeedIndexes.toList()..sort();
+        needsPayload = sortedIdx.map((i) => _subNeeds[i]).toList();
       } else {
-        // Single need — infer type from budget fields.
+        // Single original customer need
         final budgetMin = double.tryParse(_budgetMinController.text.trim());
         final budgetMax = double.tryParse(_budgetMaxController.text.trim());
         final isEarn = budgetMin != null || _category == 'earn';
@@ -143,9 +176,9 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              _decomposed
-                  ? 'Posted ${_subNeeds.length} needs!'
-                  : 'Need posted!',
+              (_decomposed && _selectedSubNeedIndexes.isNotEmpty)
+                  ? 'Posted ${needsPayload.length} selected needs!'
+                  : 'Posted original need!',
             ),
             backgroundColor: NeedHubTokens.forest,
           ),
@@ -233,9 +266,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
                       fontSize: 13, color: Colors.orange.shade800),
                 ),
               ),
-            ],
-
-            _NeedForm(
+            ],            _NeedForm(
               t: t,
               category: _category,
               titleController: _titleController,
@@ -247,15 +278,21 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
               decomposed: _decomposed,
               posting: _posting,
               subNeeds: _subNeeds,
+              selectedSubNeedIndexes: _selectedSubNeedIndexes,
               canPost: _canPost,
               onCategoryChanged: (v) => setState(() {
                 _category = v;
                 _decomposed = false;
                 _subNeeds = [];
+                _selectedSubNeedIndexes.clear();
                 _error = null;
               }),
               onChanged: () => setState(() {}),
               onDecompose: _decompose,
+              onToggleSubNeed: _toggleSubNeed,
+              onSelectAllSubNeeds: _selectAllSubNeeds,
+              onSelectNoneSubNeeds: _selectNoneSubNeeds,
+              onUseOriginalNeed: _useOriginalNeed,
               onPost: _post,
             ),
           ],
@@ -279,10 +316,15 @@ class _NeedForm extends StatelessWidget {
   final bool decomposed;
   final bool posting;
   final List<Map<String, dynamic>> subNeeds;
+  final Set<int> selectedSubNeedIndexes;
   final bool canPost;
   final ValueChanged<String> onCategoryChanged;
   final VoidCallback onChanged;
   final VoidCallback onDecompose;
+  final ValueChanged<int> onToggleSubNeed;
+  final VoidCallback onSelectAllSubNeeds;
+  final VoidCallback onSelectNoneSubNeeds;
+  final VoidCallback onUseOriginalNeed;
   final VoidCallback onPost;
 
   const _NeedForm({
@@ -297,15 +339,29 @@ class _NeedForm extends StatelessWidget {
     required this.decomposed,
     required this.posting,
     required this.subNeeds,
+    required this.selectedSubNeedIndexes,
     required this.canPost,
     required this.onCategoryChanged,
     required this.onChanged,
     required this.onDecompose,
+    required this.onToggleSubNeed,
+    required this.onSelectAllSubNeeds,
+    required this.onSelectNoneSubNeeds,
+    required this.onUseOriginalNeed,
     required this.onPost,
   });
 
   @override
   Widget build(BuildContext context) {
+    String postButtonText() {
+      if (!decomposed) return 'Post need';
+      if (selectedSubNeedIndexes.isEmpty) return 'Post original need';
+      if (selectedSubNeedIndexes.length == subNeeds.length) {
+        return 'Post all needs (${subNeeds.length})';
+      }
+      return 'Post selected needs (${selectedSubNeedIndexes.length} of ${subNeeds.length})';
+    }
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,24 +393,27 @@ class _NeedForm extends StatelessWidget {
         _Field(
           controller: titleController,
           label: 'TITLE',
-          hint: 'What do you need?',
+          hint: category == 'earn'
+              ? 'e.g., Need calculus tutor for 2 weeks'
+              : 'e.g., Looking for hackathon teammate',
           onChanged: (_) => onChanged(),
           t: t,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
 
         _Field(
           controller: descController,
           label: 'DETAILS',
-          hint: 'Describe your need in a bit more detail…',
-          onChanged: (_) => onChanged(),
+          hint: 'Describe what you need in detail...',
           minLines: 3,
           maxLines: 5,
+          onChanged: (_) => onChanged(),
           t: t,
         ),
 
+        // Budget fields (only shown for Earn category)
         if (category == 'earn') ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -363,7 +422,7 @@ class _NeedForm extends StatelessWidget {
                   label: 'MIN BUDGET (₹)',
                   hint: '500',
                   keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => onChanged(),
                   t: t,
                 ),
               ),
@@ -374,7 +433,7 @@ class _NeedForm extends StatelessWidget {
                   label: 'MAX BUDGET (₹)',
                   hint: '2000',
                   keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (_) => onChanged(),
                   t: t,
                 ),
               ),
@@ -382,49 +441,51 @@ class _NeedForm extends StatelessWidget {
           ),
         ],
 
+        const SizedBox(height: 14),
+
         // AI decompose button
         if (!decomposed) ...[
-          const SizedBox(height: 14),
-          GestureDetector(
+          InkWell(
             onTap: canDecompose && !decomposing ? onDecompose : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: canDecompose
                     ? NeedHubTokens.clay.withValues(alpha: 0.10)
-                    : t.paper,
+                    : t.card,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: canDecompose
-                      ? NeedHubTokens.clay.withValues(alpha: 0.40)
+                      ? NeedHubTokens.clay.withValues(alpha: 0.35)
                       : t.rail,
                   width: 1.5,
                 ),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (decomposing)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: NeedHubTokens.clay),
-                    )
-                  else
-                    Icon(Icons.auto_awesome_rounded,
-                        size: 16,
-                        color: canDecompose ? NeedHubTokens.clay : t.muted),
-                  const SizedBox(width: 8),
+                  decomposing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: NeedHubTokens.clay,
+                          ),
+                        )
+                      : Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 18,
+                          color: canDecompose ? NeedHubTokens.clay : t.muted,
+                        ),
+                  const SizedBox(width: 10),
                   Text(
                     decomposing
-                        ? 'Analysing with AI…'
+                        ? 'Decomposing with AI...'
                         : 'Decompose with AI',
                     style: GoogleFonts.hankenGrotesk(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
                       color: canDecompose ? NeedHubTokens.clay : t.muted,
                     ),
                   ),
@@ -433,7 +494,7 @@ class _NeedForm extends StatelessWidget {
             ),
           ),
           if (!canDecompose) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               'Add at least 20 characters of detail to decompose',
               style: GoogleFonts.hankenGrotesk(fontSize: 11, color: t.muted),
@@ -462,7 +523,7 @@ class _NeedForm extends StatelessWidget {
                         size: 15, color: NeedHubTokens.clay),
                     const SizedBox(width: 6),
                     Text(
-                      'AI decomposed into ${subNeeds.length} needs',
+                      'AI decomposed into ${subNeeds.length} recommendations',
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -471,8 +532,58 @@ class _NeedForm extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: onSelectAllSubNeeds,
+                      child: Text(
+                        'Select All',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: NeedHubTokens.forest,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: onSelectNoneSubNeeds,
+                      child: Text(
+                        'Select None',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: t.muted,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: onUseOriginalNeed,
+                      child: Text(
+                        'Use Original Need',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: NeedHubTokens.clay,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 12),
-                ...subNeeds.map((sn) => _ApiSubNeedCard(sn: sn, t: t)),
+                ...List.generate(subNeeds.length, (index) {
+                  final sn = subNeeds[index];
+                  final isSelected = selectedSubNeedIndexes.contains(index);
+                  return _ApiSubNeedCard(
+                    sn: sn,
+                    t: t,
+                    isSelected: isSelected,
+                    onTap: () => onToggleSubNeed(index),
+                  );
+                }),
               ],
             ),
           ),
@@ -502,7 +613,7 @@ class _NeedForm extends StatelessWidget {
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white),
                   )
-                : Text(decomposed ? 'Post all needs' : 'Post need'),
+                : Text(postButtonText()),
           ),
         ),
       ],
@@ -515,8 +626,15 @@ class _NeedForm extends StatelessWidget {
 class _ApiSubNeedCard extends StatelessWidget {
   final Map<String, dynamic> sn;
   final NeedHubTokens t;
+  final bool isSelected;
+  final VoidCallback onTap;
 
-  const _ApiSubNeedCard({required this.sn, required this.t});
+  const _ApiSubNeedCard({
+    required this.sn,
+    required this.t,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -526,48 +644,63 @@ class _ApiSubNeedCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: t.card,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: t.rail, width: 1),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                label,
-                style: GoogleFonts.hankenGrotesk(
-                    fontSize: 11, fontWeight: FontWeight.w700, color: color),
-              ),
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSelected ? NeedHubTokens.clay.withValues(alpha: 0.08) : t.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? NeedHubTokens.clay : t.rail,
+              width: isSelected ? 1.8 : 1,
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    sn['title'] as String? ?? '',
-                    style: GoogleFonts.hankenGrotesk(
-                        fontSize: 13, fontWeight: FontWeight.w600, color: t.ink),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    sn['description'] as String? ?? '',
-                    style: GoogleFonts.hankenGrotesk(
-                        fontSize: 12, color: t.muted, height: 1.4),
-                  ),
-                ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                isSelected
+                    ? Icons.check_box_rounded
+                    : Icons.check_box_outline_blank_rounded,
+                size: 20,
+                color: isSelected ? NeedHubTokens.clay : t.muted,
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  label,
+                  style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11, fontWeight: FontWeight.w700, color: color),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      sn['title'] as String? ?? '',
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13, fontWeight: FontWeight.w600, color: t.ink),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      sn['description'] as String? ?? '',
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12, color: t.muted, height: 1.4),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

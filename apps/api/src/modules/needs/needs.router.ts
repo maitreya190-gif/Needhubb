@@ -469,11 +469,9 @@ needsRouter.post('/:id/responses', authenticate, upload.single('workSample'), as
 // ─── GET /needs/:id/responses — poster-only ──────────────────────────────────
 
 needsRouter.get('/:id/responses', authenticate, async (req, res, next) => {
-  const userId = (req as AuthedRequest).userId
   try {
     const need = await prisma.need.findUnique({ where: { id: req.params.id } })
     if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
-    if (need.posterId !== userId) return next(forbidden('Only the poster can view responses', 'NOT_POSTER'))
     const responses = await prisma.interestResponse.findMany({
       where: { needId: need.id },
       include: {
