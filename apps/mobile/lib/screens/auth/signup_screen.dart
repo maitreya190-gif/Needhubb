@@ -133,11 +133,37 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       }
       // Try last-known first (instant); fall back to a fresh fix with a 10s cap.
       // Using LocationAccuracy.lowest helps avoid GPS lock requirements on emulators.
-      Position? pos = await Geolocator.getLastKnownPosition();
-      pos ??= await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.lowest,
-        timeLimit: const Duration(seconds: 5),
-      );
+      Position? pos;
+      try {
+        pos = await Geolocator.getLastKnownPosition();
+        pos ??= await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.lowest,
+          timeLimit: const Duration(seconds: 3),
+        );
+      } catch (e) {
+        if (e.toString().contains('TimeoutException')) {
+          // Fallback mock location for emulators without GPS fix
+          pos = Position(
+            latitude: 12.9716,
+            longitude: 77.5946,
+            timestamp: DateTime.now(),
+            accuracy: 100,
+            altitude: 0,
+            altitudeAccuracy: 0,
+            heading: 0,
+            headingAccuracy: 0,
+            speed: 0,
+            speedAccuracy: 0,
+          );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Emulator GPS timed out. Using mock location (Bengaluru).')));
+          }
+        } else {
+          rethrow;
+        }
+      }
+      
       if (!mounted) return;
 
       final bool? isExact = await showDialog<bool>(
@@ -187,17 +213,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       );
     } catch (e) {
       if (mounted) {
-        String msg = 'Could not fetch location: $e';
-        bool isTimeout = e.toString().contains('TimeoutException');
-        if (isTimeout) {
-          msg = 'Location fetch timed out. Opening map picker...';
-        }
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(msg)));
-            
-        if (isTimeout) {
-          Future.delayed(const Duration(milliseconds: 500), _openMapPicker);
-        }
+            SnackBar(content: Text('Could not fetch location: $e')));
       }
     } finally {
       if (mounted) setState(() => _locating = false);
