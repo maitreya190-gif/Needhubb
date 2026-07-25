@@ -1,3 +1,4 @@
+# BUILD_MARKER_ZEBRA_2026
 FROM node:22-alpine
 WORKDIR /app
 RUN apk add --no-cache openssl
