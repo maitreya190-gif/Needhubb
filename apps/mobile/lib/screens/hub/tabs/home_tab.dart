@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/need.dart';
+import '../../../models/user_state.dart';
+import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
 import '../../needs/need_detail_screen.dart';
 
@@ -227,6 +229,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
               ),
             ),
             const SizedBox(height: 14),
+            if (_selectedCategory == 'chitchat') _HomeChitChatControlCard(t: t),
 
             // Feed
             Expanded(
@@ -705,6 +708,100 @@ class _FilterSheetState extends State<_FilterSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HomeChitChatControlCard extends ConsumerStatefulWidget {
+  final NeedHubTokens t;
+  const _HomeChitChatControlCard({required this.t});
+
+  @override
+  ConsumerState<_HomeChitChatControlCard> createState() =>
+      _HomeChitChatControlCardState();
+}
+
+class _HomeChitChatControlCardState
+    extends ConsumerState<_HomeChitChatControlCard> {
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    chitChatAvailableNotifier.addListener(_bump);
+  }
+
+  @override
+  void dispose() {
+    chitChatAvailableNotifier.removeListener(_bump);
+    super.dispose();
+  }
+
+  void _bump() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final available = chitChatAvailableNotifier.value;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: GestureDetector(
+        onTap: _busy
+            ? null
+            : () async {
+                setState(() => _busy = true);
+                final api = ref.read(chitchatApiProvider);
+                try {
+                  if (available) {
+                    await api.clearAvailability();
+                    chitChatAvailableNotifier.value = false;
+                  } else {
+                    await api.setAvailability(4);
+                    chitChatAvailableNotifier.value = true;
+                  }
+                  chitchatRosterNotifier.value = await api.availablePeople();
+                } catch (_) {}
+                if (mounted) setState(() => _busy = false);
+              },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: available ? NeedHubTokens.clay : t.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: available ? NeedHubTokens.clay : t.rail,
+              width: 1.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                available
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: available ? Colors.white : t.muted,
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  available
+                      ? "You're available for a chat right now"
+                      : 'Mark yourself available',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: available ? Colors.white : t.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -37,6 +37,7 @@ class Need {
   final int? budgetMin;
   final int? budgetMax;
   final List<String> tags;
+  final String? posterGender;
 
   const Need({
     required this.id,
@@ -51,6 +52,7 @@ class Need {
     this.budgetMin,
     this.budgetMax,
     this.tags = const [],
+    this.posterGender,
   });
 
   String get timeAgo {
@@ -95,6 +97,7 @@ final List<Need> mockNeeds = [
     distanceKm: 0.8,
     createdAt: DateTime.now().subtract(const Duration(minutes: 12)),
     tags: ['tutoring', 'maths', 'calculus'],
+    posterGender: 'Female',
   ),
   Need(
     id: '2',
@@ -109,6 +112,7 @@ final List<Need> mockNeeds = [
     budgetMin: 500,
     budgetMax: 1500,
     tags: ['design', 'logo', 'freelance'],
+    posterGender: 'Male',
   ),
   Need(
     id: '3',
@@ -121,6 +125,7 @@ final List<Need> mockNeeds = [
     distanceKm: 2.1,
     createdAt: DateTime.now().subtract(const Duration(hours: 3)),
     tags: ['study', 'GATE', 'CS'],
+    posterGender: 'Female',
   ),
   Need(
     id: '4',
@@ -134,6 +139,7 @@ final List<Need> mockNeeds = [
     createdAt: DateTime.now().subtract(const Duration(hours: 5)),
     budgetMin: 300,
     tags: ['moving', 'help', 'physical'],
+    posterGender: 'Male',
   ),
   Need(
     id: '5',
@@ -148,6 +154,7 @@ final List<Need> mockNeeds = [
     budgetMin: 8000,
     budgetMax: 15000,
     tags: ['dev', 'React', 'startup'],
+    posterGender: 'Female',
   ),
   Need(
     id: '6',
@@ -162,6 +169,7 @@ final List<Need> mockNeeds = [
     budgetMin: 1000,
     budgetMax: 2000,
     tags: ['photography', 'event', 'gig'],
+    posterGender: 'Male',
   ),
   Need(
     id: '7',
@@ -174,6 +182,7 @@ final List<Need> mockNeeds = [
     distanceKm: 5.3,
     createdAt: DateTime.now().subtract(const Duration(days: 1)),
     tags: ['skill-swap', 'guitar', 'cooking'],
+    posterGender: 'Female',
   ),
   Need(
     id: '8',

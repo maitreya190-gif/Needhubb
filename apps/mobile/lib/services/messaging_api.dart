@@ -24,6 +24,39 @@ class ChatSummary {
     required this.unreadCount,
   });
 
+DateTime _parseDateTime(dynamic value) {
+  if (value is! String || value.trim().isEmpty) return DateTime.now();
+  final raw = value.trim();
+  final str = raw.endsWith('Z') || raw.contains('+') || (raw.length > 10 && raw.substring(10).contains('-'))
+      ? raw
+      : '${raw}Z';
+  final parsed = DateTime.tryParse(str) ?? DateTime.tryParse(raw);
+  return parsed?.toLocal() ?? DateTime.now();
+}
+
+class ChatSummary {
+  final String threadId;
+  final String otherUserId;
+  final String otherDisplayName;
+  final String? otherAvatarUrl;
+  final String? lastMessageBody;
+  final String? lastMessageImageUrl;
+  final String? lastMessageSenderId;
+  final DateTime updatedAt;
+  final int unreadCount;
+
+  const ChatSummary({
+    required this.threadId,
+    required this.otherUserId,
+    required this.otherDisplayName,
+    this.otherAvatarUrl,
+    this.lastMessageBody,
+    this.lastMessageImageUrl,
+    this.lastMessageSenderId,
+    required this.updatedAt,
+    required this.unreadCount,
+  });
+
   factory ChatSummary.fromJson(Map<String, dynamic> j) {
     final other = j['otherUser'] as Map<String, dynamic>? ?? const {};
     final profile = other['profile'] as Map<String, dynamic>?;
@@ -36,14 +69,14 @@ class ChatSummary {
       lastMessageBody: last?['body'] as String?,
       lastMessageImageUrl: last?['imageUrl'] as String?,
       lastMessageSenderId: last?['senderId'] as String?,
-      updatedAt:
-          DateTime.tryParse(j['updatedAt'] as String? ?? '') ?? DateTime.now(),
+      updatedAt: _parseDateTime(j['updatedAt']),
       unreadCount: (j['unreadCount'] as int?) ?? 0,
     );
   }
 
   String get timeLabel {
-    final diff = DateTime.now().difference(updatedAt);
+    final localTime = updatedAt.toLocal();
+    final diff = DateTime.now().difference(localTime);
     if (diff.inMinutes < 1) return 'now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m';
     if (diff.inHours < 24) return '${diff.inHours}h';
@@ -79,11 +112,8 @@ class DmMessage {
       senderName: sender['displayName'] as String? ?? '',
       body: j['body'] as String? ?? '',
       imageUrl: j['imageUrl'] as String?,
-      createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ??
-          DateTime.now(),
-      readAt: j['readAt'] != null
-          ? DateTime.tryParse(j['readAt'] as String)
-          : null,
+      createdAt: _parseDateTime(j['createdAt']),
+      readAt: j['readAt'] != null ? _parseDateTime(j['readAt']) : null,
     );
   }
 }

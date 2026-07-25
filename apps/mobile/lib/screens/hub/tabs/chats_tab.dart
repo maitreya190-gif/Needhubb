@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../models/friend_request.dart';
 import '../../../models/user_state.dart';
 import '../../../services/api_client.dart';
+import '../../../services/chitchat_api.dart';
 import '../../../services/friends_api.dart';
 import '../../../services/messaging_api.dart';
 import '../../../services/social_providers.dart';
@@ -218,6 +219,12 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
               ),
             ),
 
+            // ChitChat availability banner
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+              child: _ChitChatChatsBanner(t: t),
+            ),
+
             // List
             Expanded(
               child: _loading
@@ -375,6 +382,84 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                       ],
                     );
                   }),
+
+                  // "UP FOR A CHAT RIGHT NOW" section (shows when marked available)
+                  ValueListenableBuilder<bool>(
+                    valueListenable: chitChatAvailableNotifier,
+                    builder: (context, available, _) {
+                      if (!available) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Text(
+                                'UP FOR A CHAT RIGHT NOW',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.7,
+                                  color: t.muted2,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 68,
+                              child: ValueListenableBuilder<List<ChitchatPerson>>(
+                                valueListenable: chitchatRosterNotifier,
+                                builder: (context, roster, _) {
+                                  final mockPeople = const [
+                                    (
+                                      initials: 'F',
+                                      name: 'f',
+                                      area: 'Nearby',
+                                      color: NeedHubTokens.forest
+                                    ),
+                                    (
+                                      initials: 'AK',
+                                      name: 'Aarav Kumar',
+                                      area: 'CS student',
+                                      color: NeedHubTokens.clay
+                                    ),
+                                    (
+                                      initials: 'D',
+                                      name: 'd',
+                                      area: 'Nearby',
+                                      color: NeedHubTokens.ochre
+                                    ),
+                                    (
+                                      initials: 'PN',
+                                      name: 'Priya Nair',
+                                      area: 'Fitness coach',
+                                      color: NeedHubTokens.forest
+                                    ),
+                                  ];
+                                  return ListView(
+                                    scrollDirection: Axis.horizontal,
+                                    padding:
+                                        const EdgeInsets.symmetric(horizontal: 20),
+                                    children: [
+                                      ...roster.map(
+                                        (p) => _ChatsTabPersonCuboidalTile(
+                                            person: p, t: t),
+                                      ),
+                                      if (roster.isEmpty)
+                                        ...mockPeople.map((p) =>
+                                            _ChatsTabMockPersonCuboidalTile(
+                                                person: p, t: t)),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -652,6 +737,9 @@ const _mockUsers = [
   (name: 'Priya Nair', username: 'priyan', initials: 'PN', color: NeedHubTokens.forest),
   (name: 'Karthik Reddy', username: 'karthikr', initials: 'KR', color: NeedHubTokens.clay),
   (name: 'Sneha Rao', username: 'snehar', initials: 'SR', color: NeedHubTokens.ochre),
+  (name: 'Charan G', username: 'c', initials: 'C', color: NeedHubTokens.clay),
+  (name: 'Faisal K', username: 'f', initials: 'F', color: NeedHubTokens.forest),
+  (name: 'Dev Pillai', username: 'd', initials: 'D', color: NeedHubTokens.ochre),
 ];
 
 class _SearchUserSheet extends ConsumerStatefulWidget {
@@ -664,16 +752,21 @@ class _SearchUserSheet extends ConsumerStatefulWidget {
 class _RemoteUser {
   final String id;
   final String name;
-  final String? username;
+  final String username;
   final String? avatarUrl;
-  _RemoteUser({required this.id, required this.name, this.username, this.avatarUrl});
+  _RemoteUser({
+    required this.id,
+    required this.name,
+    required this.username,
+    this.avatarUrl,
+  });
 }
 
 class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
   final _controller = TextEditingController();
   final Set<String> _sentRequests = {};
   String _query = '';
-  List<_RemoteUser> _remoteResults = const [];
+  List<_RemoteUser> _combinedResults = const [];
   bool _searching = false;
   Timer? _debounce;
 
@@ -685,30 +778,63 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
   }
 
   void _onQueryChanged(String v) {
+    final q = v.trim().toLowerCase();
     setState(() => _query = v);
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () async {
-      if (v.trim().isEmpty) {
-        setState(() => _remoteResults = const []);
-        return;
-      }
-      setState(() => _searching = true);
+
+    if (q.isEmpty) {
+      setState(() {
+        _searching = false;
+        _combinedResults = const [];
+      });
+      return;
+    }
+
+    final localMatches = _mockUsers.where((u) {
+      return u.name.toLowerCase().contains(q) ||
+          u.username.toLowerCase().contains(q);
+    }).map((u) {
+      return _RemoteUser(
+        id: 'mock_${u.username}',
+        name: u.name,
+        username: u.username,
+        avatarUrl: null,
+      );
+    }).toList();
+
+    setState(() {
+      _combinedResults = localMatches;
+      _searching = true;
+    });
+
+    _debounce = Timer(const Duration(milliseconds: 250), () async {
       try {
         final api = ref.read(apiClientProvider);
-        final rows = await api.getList('/profile/search', query: {'q': v.trim()});
-        setState(() {
-          _remoteResults = rows.map((j) {
-            final profile = j['profile'] as Map<String, dynamic>?;
-            return _RemoteUser(
-              id: j['id'] as String,
-              name: j['displayName'] as String? ?? '',
-              username: j['username'] as String?,
-              avatarUrl: profile?['avatarUrl'] as String?,
-            );
-          }).toList();
-        });
+        final rows =
+            await api.getList('/profile/search', query: {'q': q});
+        final remoteMatches = rows.map((j) {
+          final profile = j['profile'] as Map<String, dynamic>?;
+          final name = j['displayName'] as String? ?? '';
+          final username = j['username'] as String? ??
+              name.toLowerCase().replaceAll(' ', '');
+          return _RemoteUser(
+            id: j['id'] as String,
+            name: name,
+            username: username,
+            avatarUrl: profile?['avatarUrl'] as String?,
+          );
+        }).toList();
+
+        if (mounted) {
+          final existingIds = remoteMatches.map((r) => r.id).toSet();
+          final combined = [
+            ...remoteMatches,
+            ...localMatches.where((l) => !existingIds.contains(l.id)),
+          ];
+          setState(() => _combinedResults = combined);
+        }
       } catch (_) {
-        setState(() => _remoteResults = const []);
+        if (mounted) setState(() => _combinedResults = localMatches);
       } finally {
         if (mounted) setState(() => _searching = false);
       }
@@ -722,8 +848,10 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
       u.id,
     };
     try {
-      final api = ref.read(friendsApiProvider);
-      await api.sendRequest(u.id);
+      if (!u.id.startsWith('mock_')) {
+        final api = ref.read(friendsApiProvider);
+        await api.sendRequest(u.id);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Friend request sent to ${u.name}')),
@@ -731,8 +859,8 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
       }
     } catch (e) {
       setState(() => _sentRequests.remove(u.id));
-      outgoingRequestUserIdsNotifier.value = {...outgoingRequestUserIdsNotifier.value}
-        ..remove(u.id);
+      outgoingRequestUserIdsNotifier.value =
+          {...outgoingRequestUserIdsNotifier.value}..remove(u.id);
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Failed: $e')));
@@ -743,19 +871,10 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final results = _query.isEmpty
-        ? <({String name, String username, String initials, Color color})>[]
-        : _mockUsers
-            .where((u) =>
-                u.username.contains(_query.toLowerCase()) ||
-                u.name.toLowerCase().contains(_query.toLowerCase()))
-            .toList();
-
     final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Padding(
-      // Slide the sheet up by the keyboard height so it's never obscured.
       padding: EdgeInsets.only(bottom: keyboardHeight),
       child: Container(
         margin: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 60),
@@ -766,7 +885,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle + header (fixed, never scrolls)
+            // Handle + header
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Column(
@@ -833,21 +952,21 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
               ),
             ),
 
-            // Results — scrollable, shrinks when keyboard is open
+            // Results
             if (_query.trim().isEmpty)
               Padding(
                 padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPad + 20),
                 child: Text(
-                  'Type a name to search',
+                  'Type a username or name to search',
                   style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
                 ),
               )
-            else if (_searching)
+            else if (_searching && _combinedResults.isEmpty)
               Padding(
                 padding: EdgeInsets.fromLTRB(20, 12, 20, bottomPad + 20),
                 child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
               )
-            else if (_remoteResults.isEmpty)
+            else if (_combinedResults.isEmpty)
               Padding(
                 padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPad + 20),
                 child: Text(
@@ -860,9 +979,9 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                 child: ListView.builder(
                   shrinkWrap: true,
                   padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPad + 20),
-                  itemCount: _remoteResults.length,
+                  itemCount: _combinedResults.length,
                   itemBuilder: (_, i) {
-                    final u = _remoteResults[i];
+                    final u = _combinedResults[i];
                     final sent = _sentRequests.contains(u.id) ||
                         outgoingRequestUserIdsNotifier.value.contains(u.id);
                     final alreadyFriend =
@@ -921,18 +1040,18 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '@${u.username ?? u.name}',
+                                    u.name,
                                     style: GoogleFonts.hankenGrotesk(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w700,
                                         color: t.ink),
                                   ),
-                                  if (u.username != null)
-                                    Text(
-                                      u.name,
-                                      style: GoogleFonts.hankenGrotesk(
-                                          fontSize: 12, color: t.muted),
-                                    ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '@${u.username}',
+                                    style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 12, color: t.muted),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1213,6 +1332,325 @@ class _ChatRow extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChitChatChatsBanner extends ConsumerStatefulWidget {
+  final NeedHubTokens t;
+
+  const _ChitChatChatsBanner({required this.t});
+
+  @override
+  ConsumerState<_ChitChatChatsBanner> createState() => _ChitChatChatsBannerState();
+}
+
+class _ChitChatChatsBannerState extends ConsumerState<_ChitChatChatsBanner> {
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    chitChatAvailableNotifier.addListener(_bump);
+  }
+
+  @override
+  void dispose() {
+    chitChatAvailableNotifier.removeListener(_bump);
+    super.dispose();
+  }
+
+  void _bump() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _toggleAvailability(bool currentlyAvailable) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final api = ref.read(chitchatApiProvider);
+    try {
+      if (currentlyAvailable) {
+        await api.clearAvailability();
+        chitChatAvailableNotifier.value = false;
+        chitchatAvailableUntilNotifier.value = null;
+      } else {
+        final status = await api.setAvailability(4);
+        chitChatAvailableNotifier.value = true;
+        chitchatAvailableUntilNotifier.value = status.availableUntil;
+      }
+      chitchatRosterNotifier.value = await api.availablePeople();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final available = chitChatAvailableNotifier.value;
+
+    return GestureDetector(
+      onTap: _busy ? null : () => _toggleAvailability(available),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        decoration: BoxDecoration(
+          color: available ? NeedHubTokens.clay : t.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: available ? NeedHubTokens.clay : t.rail,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              available
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: available ? Colors.white : NeedHubTokens.clay,
+              size: 18,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                available
+                    ? "You're available for Chit-chat (24h)"
+                    : 'Mark yourself available for Chit-chat',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: available ? Colors.white : t.ink,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: available ? Colors.white : t.muted2,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatsTabMockPersonCuboidalTile extends StatelessWidget {
+  final ({
+    String initials,
+    String name,
+    String area,
+    Color color,
+  }) person;
+  final NeedHubTokens t;
+
+  const _ChatsTabMockPersonCuboidalTile(
+      {required this.person, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = person;
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ConversationScreen(
+                name: p.name,
+                initials: p.initials,
+                avatarColor: p.color,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          width: 195,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: t.rail, width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: p.color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  p.initials,
+                  style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: p.color,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      p.name,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: t.ink,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      p.area,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11,
+                        color: t.muted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chat_bubble_outline_rounded,
+                  size: 16, color: NeedHubTokens.clay),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatsTabPersonCuboidalTile extends ConsumerWidget {
+  final ChitchatPerson person;
+  final NeedHubTokens t;
+
+  const _ChatsTabPersonCuboidalTile({required this.person, required this.t});
+
+  String get _initials {
+    final parts = person.displayName.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts[0].isEmpty) return '?';
+    if (parts.length == 1) {
+      return parts[0].substring(0, parts[0].length.clamp(1, 2)).toUpperCase();
+    }
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ConversationScreen(
+                name: person.displayName,
+                initials: _initials,
+                avatarColor: NeedHubTokens.forest,
+                avatarUrl: person.avatarUrl,
+                userId: person.userId,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          width: 195,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: t.rail, width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: NeedHubTokens.forest.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                alignment: Alignment.center,
+                child: person.avatarUrl != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(11),
+                        child: Image.network(
+                          person.avatarUrl!,
+                          width: 38,
+                          height: 38,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Text(
+                            _initials,
+                            style: GoogleFonts.bricolageGrotesque(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: NeedHubTokens.forest,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Text(
+                        _initials,
+                        style: GoogleFonts.bricolageGrotesque(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: NeedHubTokens.forest,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      person.displayName,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: t.ink,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      person.distanceLabel.isNotEmpty
+                          ? person.distanceLabel
+                          : 'Nearby',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11,
+                        color: t.muted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chat_bubble_outline_rounded,
+                  size: 16, color: NeedHubTokens.clay),
+            ],
+          ),
         ),
       ),
     );

@@ -21,15 +21,44 @@ class ChitchatPerson {
     this.distanceKm,
   });
 
+DateTime? _parseDate(dynamic v) {
+  if (v is! String || v.trim().isEmpty) return null;
+  final raw = v.trim();
+  final str = raw.endsWith('Z') || raw.contains('+') || (raw.length > 10 && raw.substring(10).contains('-'))
+      ? raw
+      : '${raw}Z';
+  final parsed = DateTime.tryParse(str) ?? DateTime.tryParse(raw);
+  return parsed?.toLocal();
+}
+
+class ChitchatPerson {
+  final String userId;
+  final String displayName;
+  final String? avatarUrl;
+  final String? bio;
+  final DateTime? availableUntil;
+  final double? lat;
+  final double? lng;
+  final double? distanceKm;
+
+  const ChitchatPerson({
+    required this.userId,
+    required this.displayName,
+    this.avatarUrl,
+    this.bio,
+    this.availableUntil,
+    this.lat,
+    this.lng,
+    this.distanceKm,
+  });
+
   factory ChitchatPerson.fromJson(Map<String, dynamic> j) {
-    DateTime? parseDate(dynamic v) =>
-        v is String ? DateTime.tryParse(v) : null;
     return ChitchatPerson(
       userId: j['userId'] as String,
       displayName: j['displayName'] as String? ?? '',
       avatarUrl: j['avatarUrl'] as String?,
       bio: j['bio'] as String?,
-      availableUntil: parseDate(j['availableUntil']),
+      availableUntil: _parseDate(j['availableUntil']),
       lat: (j['lat'] as num?)?.toDouble(),
       lng: (j['lng'] as num?)?.toDouble(),
       distanceKm: (j['distanceKm'] as num?)?.toDouble(),
@@ -49,10 +78,9 @@ class ChitchatStatus {
   const ChitchatStatus({required this.available, this.availableUntil});
 
   factory ChitchatStatus.fromJson(Map<String, dynamic> j) {
-    final u = j['availableUntil'];
     return ChitchatStatus(
       available: j['available'] as bool? ?? false,
-      availableUntil: u is String ? DateTime.tryParse(u) : null,
+      availableUntil: _parseDate(j['availableUntil']),
     );
   }
 }
@@ -65,8 +93,7 @@ class ChitchatApi {
     final r = await _api.post('/chitchat/availability', {'hours': hours});
     return ChitchatStatus(
       available: true,
-      availableUntil:
-          r['availableUntil'] is String ? DateTime.tryParse(r['availableUntil']) : null,
+      availableUntil: _parseDate(r['availableUntil']),
     );
   }
 
