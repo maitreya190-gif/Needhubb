@@ -129,8 +129,8 @@ friendsRouter.post('/requests/:id/accept', async (req, res, next) => {
         type: 'FRIEND_REQUEST_ACCEPTED',
         title: 'Friend request accepted',
         body: `${meUser?.displayName ?? 'Someone'} accepted your friend request`,
-        refType: 'FRIEND_REQUEST',
-        refId: id,
+        refType: 'USER',
+        refId: me,
       })
 
       return request
