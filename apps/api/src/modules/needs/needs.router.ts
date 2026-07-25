@@ -1,4 +1,5 @@
 import { Router, type IRouter } from 'express'
+import { z } from 'zod'
 import multer from 'multer'
 import { Prisma, type NeedType, type EarnCategory, type ConnectCategory, type ReportTargetType } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
@@ -416,6 +417,59 @@ needsRouter.patch('/:id/status', authenticate, async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// ─── PATCH /needs/:id — edit need (poster only) ──────────────────────────────
+
+const editNeedSchema = z.object({
+  title: z.string().min(3).max(120).optional(),
+  description: z.string().min(5).max(3000).optional(),
+  category: z.string().optional(),
+  budgetMin: z.number().int().min(0).nullable().optional(),
+  budgetMax: z.number().int().min(0).nullable().optional(),
+  locationText: z.string().optional(),
+})
+
+needsRouter.patch('/:id', authenticate, async (req, res, next) => {
+  const parsed = editNeedSchema.safeParse(req.body)
+  if (!parsed.success) return next(badRequest('Invalid edit payload', 'INVALID_BODY'))
+  const userId = (req as AuthedRequest).userId
+  try {
+    const need = await prisma.need.findUnique({ where: { id: req.params.id } })
+    if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
+    if (need.posterId !== userId) return next(forbidden('Only the poster can edit this need', 'NOT_POSTER'))
+    if (need.status === 'FULFILLED') return next(forbidden('Cannot edit a frozen/fulfilled need', 'NEED_FROZEN'))
+
+    const updated = await prisma.need.update({
+      where: { id: need.id },
+      data: {
+        ...(parsed.data.title !== undefined && { title: parsed.data.title }),
+        ...(parsed.data.description !== undefined && { description: parsed.data.description }),
+        ...(parsed.data.category !== undefined && { category: parsed.data.category }),
+        ...(parsed.data.budgetMin !== undefined && { budgetMin: parsed.data.budgetMin }),
+        ...(parsed.data.budgetMax !== undefined && { budgetMax: parsed.data.budgetMax }),
+        ...(parsed.data.locationText !== undefined && { locationText: parsed.data.locationText }),
+      },
+    })
+    res.json(updated)
+  } catch (err) { next(err) }
+})
+
+// ─── DELETE /needs/:id — delete need (poster only) ────────────────────────────
+
+needsRouter.delete('/:id', authenticate, async (req, res, next) => {
+  const userId = (req as AuthedRequest).userId
+  try {
+    const need = await prisma.need.findUnique({ where: { id: req.params.id } })
+    if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
+    if (need.posterId !== userId) return next(forbidden('Only the poster can delete this need', 'NOT_POSTER'))
+
+    await prisma.$transaction([
+      prisma.interestResponse.deleteMany({ where: { needId: need.id } }),
+      prisma.need.delete({ where: { id: need.id } }),
+    ])
+    res.json({ success: true, message: 'Need deleted' })
+  } catch (err) { next(err) }
+})
+
 // ─── POST /needs/:id/responses — offer / interest ────────────────────────────
 
 needsRouter.post('/:id/responses', authenticate, upload.single('workSample'), async (req, res, next) => {
@@ -581,6 +635,21 @@ needsRouter.patch('/:id/responses/:respId/edit', authenticate, upload.single('wo
       data: { message: parsed.data.message, quotedPrice: parsed.data.quotedPrice ?? null, workSampleUrl },
     })
     res.json({ response: updated, softFlagged: verdict.softFlag })
+  } catch (err) { next(err) }
+})
+
+// ─── DELETE /needs/:id/responses/:respId — delete / withdraw offer (responder only) ──
+
+needsRouter.delete('/:id/responses/:respId', authenticate, async (req, res, next) => {
+  const userId = (req as AuthedRequest).userId
+  try {
+    const response = await prisma.interestResponse.findUnique({ where: { id: req.params.respId } })
+    if (!response || response.needId !== req.params.id) return next(notFound('Response not found', 'RESPONSE_NOT_FOUND'))
+    if (response.responderId !== userId) return next(forbidden('Only the responder can delete this offer', 'NOT_RESPONDER'))
+    if (response.status === 'ACCEPTED') return next(forbidden('Accepted offers cannot be withdrawn', 'OFFER_ACCEPTED'))
+
+    await prisma.interestResponse.delete({ where: { id: response.id } })
+    res.json({ success: true, message: 'Offer withdrawn' })
   } catch (err) { next(err) }
 })
 

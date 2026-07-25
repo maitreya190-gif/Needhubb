@@ -61,6 +61,34 @@ class NeedsApi {
     final res = await _api.get('/needs/$id');
     return _needFromJson(res);
   }
+
+  Future<Need> updateNeed(
+    String id, {
+    String? title,
+    String? description,
+    String? category,
+    int? budgetMin,
+    int? budgetMax,
+    String? locationText,
+  }) async {
+    final res = await _api.patch('/needs/$id', {
+      if (title != null) 'title': title,
+      if (description != null) 'description': description,
+      if (category != null) 'category': category,
+      if (budgetMin != null) 'budgetMin': budgetMin,
+      if (budgetMax != null) 'budgetMax': budgetMax,
+      if (locationText != null) 'locationText': locationText,
+    });
+    return _needFromJson(res);
+  }
+
+  Future<void> deleteNeed(String id) async {
+    await _api.delete('/needs/$id');
+  }
+
+  Future<void> withdrawResponse(String needId, String responseId) async {
+    await _api.delete('/needs/$needId/responses/$responseId');
+  }
 }
 
 String _qs(Map<String, dynamic> params) {

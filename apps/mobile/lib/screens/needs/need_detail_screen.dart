@@ -279,10 +279,12 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
-  static String _offerKey(_OfferData offer) {
+  String _offerKey(_OfferData offer) {
+    final currentUserId = ref.read(authProvider).userId;
+    if (offer.responderId != null && offer.responderId == currentUserId) return 'me';
+    if (offer.name == 'You' || offer.initials == 'ME') return 'me';
     if (offer.responderId != null) return 'responder:${offer.responderId}';
     if (offer.responseId != null) return 'response:${offer.responseId}';
-    if (offer.name == 'You' || offer.initials == 'ME') return 'local:me';
     return 'local:${offer.name}:${offer.note}';
   }
 
@@ -376,29 +378,95 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                   size: 20, color: t.ink),
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () => NhReportSheet.open(
-                              context,
-                              targetName: need.title,
-                              targetType: 'NEED',
-                              targetId: need.id,
-                            ),
-                            child: Row(
+                          if (_isPoster) ...[
+                            Row(
                               children: [
-                                Icon(Icons.flag_outlined,
-                                    size: 15, color: t.muted),
-                                const SizedBox(width: 5),
-                                Text(
-                                  'Report',
-                                  style: GoogleFonts.hankenGrotesk(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: t.muted,
-                                  ),
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, size: 20),
+                                  color: t.ink,
+                                  tooltip: 'Edit Need',
+                                  onPressed: _isNeedFrozen
+                                      ? null
+                                      : () {
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (_) => _EditNeedSheet(
+                                              need: need,
+                                              onUpdated: () => setState(() {}),
+                                            ),
+                                          );
+                                        },
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                                  color: Colors.red,
+                                  tooltip: 'Delete Need',
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Delete Need'),
+                                        content: const Text(
+                                            'Are you sure you want to delete this need? This action cannot be undone.'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(ctx),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () async {
+                                              Navigator.pop(ctx);
+                                              try {
+                                                await ref.read(needsApiProvider).deleteNeed(need.id);
+                                                if (!mounted) return;
+                                                Navigator.of(context).pop();
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(content: Text('Need deleted successfully.')),
+                                                );
+                                              } catch (e) {
+                                                if (mounted) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text('Failed to delete need: $e')),
+                                                  );
+                                                }
+                                              }
+                                            },
+                                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
-                          ),
+                          ] else ...[
+                            GestureDetector(
+                              onTap: () => NhReportSheet.open(
+                                context,
+                                targetName: need.title,
+                                targetType: 'NEED',
+                                targetId: need.id,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.flag_outlined,
+                                      size: 15, color: t.muted),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Report',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: t.muted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1783,6 +1851,54 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
     }
   }
 
+  Future<void> _withdrawOffer() async {
+    final responseId = widget.existingOffer?.responseId;
+    if (responseId == null) {
+      mockOffers[widget.need.id]?.removeWhere((o) => o.name == 'You' || o.initials == 'ME');
+      offersNotifier.value++;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Application withdrawn.')),
+      );
+      return;
+    }
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Withdraw Application'),
+        content: const Text('Are you sure you want to withdraw your application?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Withdraw', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await ref.read(needsApiProvider).withdrawResponse(widget.need.id, responseId);
+      mockOffers[widget.need.id]?.removeWhere((o) => o.name == 'You' || o.initials == 'ME');
+      offersNotifier.value++;
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Application withdrawn successfully.')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to withdraw application: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
@@ -1834,6 +1950,7 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
               onSend: _submit,
               onSuggest: _suggestIntro,
               onChanged: () => setState(() {}),
+              onWithdraw: widget.existingOffer != null ? _withdrawOffer : null,
             ),
     );
   }
@@ -1855,6 +1972,7 @@ class _OfferFormView extends StatelessWidget {
   final VoidCallback onSend;
   final VoidCallback onSuggest;
   final VoidCallback onChanged;
+  final VoidCallback? onWithdraw;
 
   const _OfferFormView({
     required this.need,
@@ -1872,6 +1990,7 @@ class _OfferFormView extends StatelessWidget {
     required this.onSend,
     required this.onSuggest,
     required this.onChanged,
+    this.onWithdraw,
   });
 
   @override
@@ -1933,7 +2052,34 @@ class _OfferFormView extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
+
+          // Subtle 10-Minute Info Notice
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAB308).withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFEAB308).withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.timer_outlined, size: 14, color: Color(0xFFB45309)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Applications can be edited or withdrawn within 10 minutes of submitting.',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFB45309),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
 
           // Rate
           Text('YOUR RATE (₹/hr)',
@@ -1981,35 +2127,27 @@ class _OfferFormView extends StatelessWidget {
               const Spacer(),
               GestureDetector(
                 onTap: suggesting ? null : onSuggest,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: NeedHubTokens.forest
-                        .withValues(alpha: suggesting ? 0.05 : 0.10),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: NeedHubTokens.forest.withValues(alpha: 0.3),
+                child: Row(
+                  children: [
+                    if (suggesting)
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      const Icon(Icons.auto_awesome_rounded,
+                          size: 14, color: NeedHubTokens.clay),
+                    const SizedBox(width: 4),
+                    Text(
+                      'AI Suggest',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: NeedHubTokens.clay,
+                      ),
                     ),
-                  ),
-                  child: suggesting
-                      ? SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5,
-                            color: NeedHubTokens.forest,
-                          ),
-                        )
-                      : Text(
-                          '✦ Suggest intro',
-                          style: GoogleFonts.hankenGrotesk(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: NeedHubTokens.forest,
-                          ),
-                        ),
+                  ],
                 ),
               ),
             ],
@@ -2023,12 +2161,11 @@ class _OfferFormView extends StatelessWidget {
             ),
             child: TextField(
               controller: noteController,
-              minLines: 3,
-              maxLines: 5,
+              maxLines: 4,
               onChanged: (_) => onChanged(),
               style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.ink),
               decoration: InputDecoration(
-                hintText: 'Tell them why you\'re a great fit…',
+                hintText: 'Explain why you are a good fit for this task…',
                 hintStyle:
                     GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
                 border: InputBorder.none,
@@ -2037,9 +2174,14 @@ class _OfferFormView extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 14),
-
-          // Work sample slot (optional)
+          // Work sample label
+          Text('WORK SAMPLE (OPTIONAL)',
+              style: GoogleFonts.hankenGrotesk(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: t.muted2,
+                  letterSpacing: 0.7)),
+          const SizedBox(height: 8),
           if (hasCurrentSample) ...[
             Container(
               padding: const EdgeInsets.all(12),
@@ -2440,7 +2582,34 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
+
+                // Subtle 10-Minute Info Notice
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAB308).withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFEAB308).withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.timer_outlined, size: 14, color: Color(0xFFB45309)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Applications can be edited or withdrawn within 10 minutes of submitting.',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFB45309),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Container(
                   decoration: BoxDecoration(
                     color: t.paper,
@@ -2454,7 +2623,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                     style:
                         GoogleFonts.hankenGrotesk(fontSize: 14, color: t.ink),
                     decoration: InputDecoration(
-                      hintText: 'Hi! I saw your need and…',
+                      hintText: 'Introduce yourself…',
                       hintStyle: GoogleFonts.hankenGrotesk(
                         fontSize: 14,
                         color: t.muted,
@@ -2465,7 +2634,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -2601,9 +2770,80 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Send message'),
+                        : Text(widget.existingOffer != null ? 'Update message' : 'Send message'),
                   ),
                 ),
+                if (widget.existingOffer != null) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                      label: Text(
+                        'Withdraw Application',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.red,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Colors.red, width: 1.2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      onPressed: () async {
+                        final respId = widget.existingOffer?.responseId;
+                        if (respId == null) {
+                          mockOffers[widget.need.id]?.removeWhere((o) => o.name == 'You' || o.initials == 'ME');
+                          offersNotifier.value++;
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Application withdrawn.')),
+                          );
+                          return;
+                        }
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Withdraw Application'),
+                            content: const Text('Are you sure you want to withdraw your application?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Withdraw', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm != true) return;
+
+                        try {
+                          await ref.read(needsApiProvider).withdrawResponse(widget.need.id, respId);
+                          mockOffers[widget.need.id]?.removeWhere((o) => o.name == 'You' || o.initials == 'ME');
+                          offersNotifier.value++;
+                          if (!mounted) return;
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Application withdrawn successfully.')),
+                          );
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed to withdraw application: $e')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ],
             ),
     );
@@ -2861,6 +3101,231 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EditNeedSheet extends StatefulWidget {
+  final Need need;
+  final VoidCallback onUpdated;
+
+  const _EditNeedSheet({required this.need, required this.onUpdated});
+
+  @override
+  State<_EditNeedSheet> createState() => _EditNeedSheetState();
+}
+
+class _EditNeedSheetState extends State<_EditNeedSheet> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _descController;
+  late final TextEditingController _budgetMinController;
+  late final TextEditingController _budgetMaxController;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.need.title);
+    _descController = TextEditingController(text: widget.need.description);
+    _budgetMinController = TextEditingController(
+        text: widget.need.budgetMin != null ? '${widget.need.budgetMin}' : '');
+    _budgetMaxController = TextEditingController(
+        text: widget.need.budgetMax != null ? '${widget.need.budgetMax}' : '');
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    _budgetMinController.dispose();
+    _budgetMaxController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        20,
+        24,
+        MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom +
+            24,
+      ),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: t.rail,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Edit Need',
+              style: GoogleFonts.bricolageGrotesque(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: t.ink,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('TITLE',
+                style: GoogleFonts.hankenGrotesk(
+                    fontSize: 11, fontWeight: FontWeight.w700, color: t.muted2)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: t.paper,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text('DESCRIPTION',
+                style: GoogleFonts.hankenGrotesk(
+                    fontSize: 11, fontWeight: FontWeight.w700, color: t.muted2)),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _descController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: t.paper,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('MIN BUDGET (₹)',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: t.muted2)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _budgetMinController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: t.paper,
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('MAX BUDGET (₹)',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: t.muted2)),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _budgetMaxController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: t.paper,
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(_error!,
+                  style: GoogleFonts.hankenGrotesk(
+                      fontSize: 12, color: Colors.red)),
+            ],
+            const SizedBox(height: 20),
+            Consumer(
+              builder: (context, ref, _) => SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: _saving
+                      ? null
+                      : () async {
+                          setState(() {
+                            _saving = true;
+                            _error = null;
+                          });
+                          try {
+                            final api = ref.read(needsApiProvider);
+                            await api.updateNeed(
+                              widget.need.id,
+                              title: _titleController.text.trim(),
+                              description: _descController.text.trim(),
+                              budgetMin:
+                                  int.tryParse(_budgetMinController.text.trim()),
+                              budgetMax:
+                                  int.tryParse(_budgetMaxController.text.trim()),
+                            );
+                            if (!mounted) return;
+                            Navigator.of(context).pop();
+                            widget.onUpdated();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Need updated successfully!')),
+                            );
+                          } catch (e) {
+                            if (mounted) {
+                              setState(() {
+                                _error = 'Failed to update need: $e';
+                                _saving = false;
+                              });
+                            }
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: NeedHubTokens.forest,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _saving
+                      ? const CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2)
+                      : Text('Save Changes',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
