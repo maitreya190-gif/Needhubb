@@ -113,11 +113,11 @@ class NotificationNavigator {
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => ConversationScreen(
-                name: need.poster.displayName,
-                initials: _initials(need.poster.displayName),
+                name: need.authorName,
+                initials: need.authorInitials,
                 avatarColor: NeedHubTokens.forest,
-                avatarUrl: need.poster.profile?.avatarUrl,
-                userId: need.poster.id,
+                avatarUrl: need.posterAvatarUrl,
+                userId: need.posterId,
               ),
             ),
           );
