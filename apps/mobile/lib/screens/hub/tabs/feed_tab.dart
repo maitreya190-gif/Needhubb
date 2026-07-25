@@ -1785,13 +1785,15 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
                                       height: 1.4)),
                             ],
                           ),
-                        ),
-                      ],
-                );
-              },
-              );
-            },
-          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
         ],
       ),
     );
