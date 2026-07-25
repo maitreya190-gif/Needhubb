@@ -266,6 +266,9 @@ class YouScreen extends ConsumerWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   // ── My Posted Needs & History ──────────────────────────────
                   _MyPostedNeedsSection(t: t),
                   const SizedBox(height: 24),
