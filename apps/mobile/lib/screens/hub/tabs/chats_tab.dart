@@ -692,6 +692,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
   String _query = '';
   List<_RemoteUser> _combinedResults = const [];
   bool _searching = false;
+  String? _error;
   Timer? _debounce;
 
   @override
@@ -729,9 +730,10 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
     setState(() {
       _combinedResults = localMatches;
       _searching = true;
+      _error = null;
     });
 
-    _debounce = Timer(const Duration(milliseconds: 250), () async {
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
       try {
         final api = ref.read(apiClientProvider);
         final rows =
@@ -755,11 +757,19 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
             ...remoteMatches,
             ...localMatches.where((l) => !existingIds.contains(l.id)),
           ];
-          setState(() => _combinedResults = combined);
+          setState(() {
+            _combinedResults = combined;
+            _error = null;
+          });
         }
       } catch (e) {
         debugPrint('[SearchUserSheet] Search API error: $e');
-        if (mounted) setState(() => _combinedResults = localMatches);
+        if (mounted) {
+          setState(() {
+            _combinedResults = localMatches;
+            _error = 'Could not reach server. Check your connection.';
+          });
+        }
       } finally {
         if (mounted) setState(() => _searching = false);
       }
@@ -852,7 +862,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                             style: GoogleFonts.hankenGrotesk(
                                 fontSize: 15, color: t.ink),
                             decoration: InputDecoration(
-                              hintText: 'username',
+                              hintText: 'name or username',
                               hintStyle: GoogleFonts.hankenGrotesk(
                                   fontSize: 15, color: t.muted),
                               border: InputBorder.none,
@@ -871,7 +881,27 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
             ),
 
             // Results
-            if (_query.trim().isEmpty)
+            if (_error != null)
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.wifi_off_rounded, size: 40, color: Colors.red.shade300),
+                        const SizedBox(height: 10),
+                        Text(
+                          _error!,
+                          style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else if (_query.trim().isEmpty)
               Expanded(
                 child: Center(
                   child: Column(
@@ -880,7 +910,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                       Icon(Icons.person_search_rounded, size: 48, color: t.muted.withValues(alpha: 0.4)),
                       const SizedBox(height: 12),
                       Text(
-                        'Type a username or name to find people',
+                        'Search by name or @username',
                         style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
                         textAlign: TextAlign.center,
                       ),

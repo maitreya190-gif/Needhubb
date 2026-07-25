@@ -215,13 +215,20 @@ profilesRouter.get('/search', authenticate, async (req, res, next) => {
         ],
       },
       select: {
-        id: true, username: true, displayName: true, email: true,
+        id: true,
+        username: true,
+        displayName: true,
         profile: { select: { avatarUrl: true, bio: true } },
       },
       take: 20,
       orderBy: { displayName: 'asc' },
     })
-    res.json(users)
+    // Ensure every result has a handle — derive one from displayName if username is null
+    const result = users.map(u => ({
+      ...u,
+      username: u.username ?? u.displayName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+    }))
+    res.json(result)
   } catch (err) { next(err) }
 })
 
