@@ -144,8 +144,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         if (e.toString().contains('TimeoutException')) {
           // Fallback mock location for emulators without GPS fix
           pos = Position(
-            latitude: 12.9716,
-            longitude: 77.5946,
+            latitude: 19.0760,
+            longitude: 72.8777,
             timestamp: DateTime.now(),
             accuracy: 100,
             altitude: 0,
@@ -157,7 +157,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           );
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Emulator GPS timed out. Using mock location (Bengaluru).')));
+                const SnackBar(content: Text('Emulator GPS timed out. Using mock location (Mumbai).')));
           }
         } else {
           rethrow;

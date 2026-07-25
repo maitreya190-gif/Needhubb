@@ -156,7 +156,7 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> {
       genderNotifier.value = me.gender;
       locationNotifier.value = (me.locationText != null && me.locationText!.isNotEmpty)
           ? me.locationText!
-          : 'Bangalore';
+          : 'Mumbai';
       avatarUrlNotifier.value = me.avatarUrl;
       customInterestsNotifier.value = me.interestLabels;
       customSkillsNotifier.value = me.skillLabels;

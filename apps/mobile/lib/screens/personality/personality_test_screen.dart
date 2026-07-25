@@ -121,21 +121,6 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
   @override
   void initState() {
     super.initState();
-    // Defense-in-depth: if this screen ever opens for a user who already
-    // took the test, bounce them straight to their result screen. The
-    // Home CTA already handles this, but this covers any deep-link or
-    // stale navigation path.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final me = myProfileNotifier.value;
-      final existing = me?.personalityProfile;
-      if (existing != null && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => PersonalityResultScreen(profile: existing),
-          ),
-        );
-      }
-    });
   }
 
   Future<void> _submit() async {
@@ -195,7 +180,7 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
     // we don't want to leave the user on a broken white screen.
     try {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => PersonalityResultScreen(profile: resolved)),
+        MaterialPageRoute(builder: (_) => PersonalityResultScreen(profile: resolved, isFromQuiz: true)),
       );
     } catch (navErr) {
       debugPrint('[PersonalityTest] result-screen navigation failed: $navErr');
