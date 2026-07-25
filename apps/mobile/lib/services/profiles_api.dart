@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'api_client.dart';
+import 'personality_api.dart';
 
 class ProfileMe {
   final String id;
@@ -19,6 +20,10 @@ class ProfileMe {
   final List<String> interestLabels;
   final List<String> skillLabels;
   final DateTime? faceVerifiedAt;
+  final PersonalityTraits? personalityTraits;
+  final String? personalityNickname;
+  final String? personalitySummary;
+  final List<String> personalityVibeTags;
 
   const ProfileMe({
     required this.id,
@@ -38,7 +43,22 @@ class ProfileMe {
     required this.interestLabels,
     required this.skillLabels,
     this.faceVerifiedAt,
+    this.personalityTraits,
+    this.personalityNickname,
+    this.personalitySummary,
+    this.personalityVibeTags = const [],
   });
+
+  bool get hasPersonality => personalityTraits != null;
+
+  PersonalityProfile? get personalityProfile => personalityTraits == null
+      ? null
+      : PersonalityProfile(
+          traits: personalityTraits!,
+          nickname: personalityNickname ?? 'The NeedHubber',
+          summary: personalitySummary ?? '',
+          vibeTags: personalityVibeTags,
+        );
 
   factory ProfileMe.fromJson(Map<String, dynamic> j) {
     final profile = j['profile'] is Map<String, dynamic>
@@ -80,6 +100,15 @@ class ProfileMe {
         ? DateTime.tryParse(faceVerifiedAtStr)
         : null;
 
+    final traitsRaw = profile['personalityTraits'];
+    final personalityTraits = traitsRaw is Map
+        ? PersonalityTraits.fromJson(traitsRaw.cast<String, dynamic>())
+        : null;
+    final vibeTagsRaw = profile['personalityVibeTags'];
+    final personalityVibeTags = vibeTagsRaw is List
+        ? vibeTagsRaw.map((e) => e.toString()).toList()
+        : const <String>[];
+
     return ProfileMe(
       id: (j['id'] as String?) ?? (profile['id'] as String?) ?? '',
       displayName: (j['displayName'] as String?) ?? (j['name'] as String?) ?? '',
@@ -98,6 +127,10 @@ class ProfileMe {
       interestLabels: interests,
       skillLabels: skills,
       faceVerifiedAt: faceVerifiedAt,
+      personalityTraits: personalityTraits,
+      personalityNickname: profile['personalityNickname'] as String?,
+      personalitySummary: profile['personalitySummary'] as String?,
+      personalityVibeTags: personalityVibeTags,
     );
   }
 }

@@ -92,6 +92,10 @@ class Need {
   final String? posterAvatarUrl;
   final bool posterFaceVerified;
   final int offerCount;
+  final String? posterBio;
+  final List<String> posterInterests;
+  final Map<String, dynamic>? posterPersonalityTraits;
+  final String? posterPersonalityNickname;
 
   const Need({
     required this.id,
@@ -111,6 +115,10 @@ class Need {
     this.posterAvatarUrl,
     this.posterFaceVerified = false,
     this.offerCount = 0,
+    this.posterBio,
+    this.posterInterests = const [],
+    this.posterPersonalityTraits,
+    this.posterPersonalityNickname,
   });
 
   String get timeAgo {

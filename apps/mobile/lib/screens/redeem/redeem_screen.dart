@@ -84,6 +84,11 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
           promptSkill: me.promptSkill, promptCollab: me.promptCollab,
           promptNeed: me.promptNeed, pointsTotal: result.newBalance,
           interestLabels: me.interestLabels, skillLabels: me.skillLabels,
+          faceVerifiedAt: me.faceVerifiedAt,
+          personalityTraits: me.personalityTraits,
+          personalityNickname: me.personalityNickname,
+          personalitySummary: me.personalitySummary,
+          personalityVibeTags: me.personalityVibeTags,
         );
       }
       setState(() {

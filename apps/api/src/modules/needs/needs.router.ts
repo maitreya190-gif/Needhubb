@@ -216,6 +216,8 @@ needsRouter.get('/', async (req, res, next) => {
             id: true, displayName: true,
             profile: { select: {
               avatarUrl: true, gender: true, lat: true, lng: true, faceVerifiedAt: true,
+              bio: true,
+              personalityTraits: true, personalityNickname: true, personalityVibeTags: true,
               interests: { include: { interest: { select: { label: true } } } },
             } },
           },

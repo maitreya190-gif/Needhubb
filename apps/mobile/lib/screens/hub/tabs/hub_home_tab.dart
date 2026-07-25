@@ -5,7 +5,9 @@ import '../../../providers/auth_provider.dart';
 import '../../../services/reviews_api.dart';
 import '../../../theme/tokens.dart';
 import '../../chitchat/chit_chat_screen.dart';
+import '../../personality/personality_test_screen.dart';
 import '../../rating/rating_screen.dart';
+import '../../../services/profiles_api.dart';
 
 class HubHomeTab extends ConsumerWidget {
   final VoidCallback onBrowseEarn;
@@ -261,6 +263,10 @@ class HubHomeTab extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 13),
+
+                  // Personality Test — powered by Lyzr
+                  _PersonalityCta(t: t),
                 ],
               ),
               const SizedBox(height: 26),
@@ -554,6 +560,113 @@ class _PendingRatingsSectionState extends State<_PendingRatingsSection> {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Personality quiz CTA on the home surface. Shows a different subtitle
+/// once the user has taken the test so they know they can re-view results.
+class _PersonalityCta extends StatelessWidget {
+  final NeedHubTokens t;
+  const _PersonalityCta({required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ProfileMe?>(
+      valueListenable: myProfileNotifier,
+      builder: (context, me, __) {
+        final hasTaken = me?.hasPersonality ?? false;
+        final subtitle = hasTaken
+            ? 'You are ${me?.personalityNickname ?? "explored"} — tap to retake'
+            : 'AI-analyzed profile · match % with people on Connect';
+        return GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PersonalityTestScreen()),
+          ),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment(-0.9, -0.4),
+                end: Alignment(0.9, 0.4),
+                colors: [Color(0xFF7A3EA6), Color(0xFF4E2073)],
+              ),
+              borderRadius: BorderRadius.circular(22),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF7A3EA6).withValues(alpha: 0.55),
+                  offset: const Offset(0, 14),
+                  blurRadius: 26,
+                  spreadRadius: -14,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: const Icon(Icons.psychology_alt_rounded,
+                      color: Colors.white, size: 26),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            'Personality Test',
+                            style: GoogleFonts.bricolageGrotesque(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'AI',
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    color: Colors.white, size: 20),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

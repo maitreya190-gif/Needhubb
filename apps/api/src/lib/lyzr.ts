@@ -152,6 +152,81 @@ async function callFallbackLlm(userMessage: string): Promise<string> {
   }
 }
 
+// ── Personality analyzer ─────────────────────────────────────────────────────
+// Uses a dedicated Lyzr agent that returns a strict JSON personality profile
+// given 10 quiz answers. See LYZR_PERSONALITY_AGENT_ID in .env.
+
+export type PersonalityTraits = {
+  openness: number
+  conscientiousness: number
+  extraversion: number
+  agreeableness: number
+  emotionalStability: number
+}
+
+export type PersonalityProfile = {
+  traits: PersonalityTraits
+  nickname: string
+  summary: string
+  vibeTags: string[]
+}
+
+/**
+ * Analyze 10 quiz answers and return a normalized personality profile.
+ * Throws on any error (missing config, network, invalid JSON, schema mismatch).
+ */
+export async function analyzePersonality(
+  answers: string[],
+): Promise<PersonalityProfile> {
+  const apiKey = process.env.LYZR_API_KEY
+  const agentId = process.env.LYZR_PERSONALITY_AGENT_ID
+  if (!apiKey || !agentId) {
+    throw new Error('Personality analyzer not configured — set LYZR_PERSONALITY_AGENT_ID in .env')
+  }
+
+  const message = JSON.stringify(
+    Object.fromEntries(answers.map((a, i) => [`q${i + 1}`, a])),
+  )
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
+  try {
+    const res = await fetch(LYZR_API_URL, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: 'needhub-personality',
+        agent_id: agentId,
+        session_id: `${agentId}-${Date.now()}`,
+        message,
+      }),
+    })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`Lyzr personality ${res.status}: ${body.slice(0, 200)}`)
+    }
+    const data = (await res.json()) as { response?: string; output?: string }
+    const raw = (data.response ?? data.output ?? '').trim()
+    if (!raw) throw new Error('Lyzr personality returned empty response')
+
+    // Strip any accidental markdown fences.
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim()
+
+    const parsed = JSON.parse(cleaned) as PersonalityProfile
+    if (!parsed.traits || typeof parsed.traits.openness !== 'number') {
+      throw new Error('Lyzr personality returned malformed profile')
+    }
+    return parsed
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 function buildUserMessage(args: SuggestResponseArgs): string {
   const lines: string[] = [
     `Need: "${args.needTitle}"`,

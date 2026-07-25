@@ -9,6 +9,8 @@ import '../../../services/messaging_api.dart';
 import '../../../services/needs_api.dart';
 import '../../../services/notification_navigator.dart';
 import '../../../services/notifications_api.dart';
+import '../../../services/personality_api.dart';
+import '../../../services/profiles_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
 import '../../../widgets/nh_avatar.dart';
@@ -1176,6 +1178,10 @@ class _EarnCard extends StatelessWidget {
                                     size: 12,
                                     color: Color(0xFF2563EB),
                                   ),
+                                ],
+                                if (need.category == 'connect') ...[
+                                  const SizedBox(width: 6),
+                                  _MatchBadge(need: need, t: t),
                                 ],
                               ],
                             ),
@@ -2531,6 +2537,73 @@ class _ActiveFilterRibbon extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Small badge showing the compatibility % between the current user and the
+/// need's poster. Uses personality traits when both users have taken the
+/// quiz; otherwise falls back to interest-overlap + bio heuristic. Tapping
+/// jumps into the personality test when I haven't taken it yet — a nudge
+/// toward the deeper match signal.
+class _MatchBadge extends StatelessWidget {
+  final Need need;
+  final NeedHubTokens t;
+  const _MatchBadge({required this.need, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ProfileMe?>(
+      valueListenable: myProfileNotifier,
+      builder: (_, me, __) {
+        if (me == null || me.id == need.posterId) return const SizedBox.shrink();
+        final myTraits = me.personalityTraits;
+        final theirTraitsRaw = need.posterPersonalityTraits;
+        int percent;
+        bool aiBadge;
+        if (myTraits != null && theirTraitsRaw != null) {
+          final theirTraits = PersonalityTraits.fromJson(theirTraitsRaw);
+          percent = personalityMatchPercent(myTraits, theirTraits);
+          aiBadge = true;
+        } else {
+          percent = interestOverlapPercent(
+            myInterests: me.interestLabels,
+            theirInterests: need.posterInterests,
+            theirBio: need.posterBio,
+          );
+          aiBadge = false;
+        }
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: NeedHubTokens.clay.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: NeedHubTokens.clay.withValues(alpha: 0.35),
+              width: 0.8,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                aiBadge ? Icons.psychology_alt_rounded : Icons.hub_rounded,
+                size: 10,
+                color: NeedHubTokens.clay,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                '$percent%',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: NeedHubTokens.clay,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

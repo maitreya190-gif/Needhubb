@@ -85,6 +85,21 @@ Need _needFromJson(Map<String, dynamic> j) {
   final profile = poster['profile'] as Map<String, dynamic>? ?? const {};
   final posterFaceVerified = profile['faceVerifiedAt'] != null;
 
+  final posterInterestsRaw = profile['interests'];
+  final posterInterests = posterInterestsRaw is List
+      ? posterInterestsRaw
+          .map((pi) {
+            if (pi is Map && pi['interest'] is Map) {
+              return (pi['interest'] as Map)['label']?.toString();
+            }
+            return null;
+          })
+          .whereType<String>()
+          .toList()
+      : const <String>[];
+
+  final personalityTraits = profile['personalityTraits'];
+
   return Need(
     id: j['id'] as String,
     posterId: poster['id'] as String? ?? '',
@@ -102,6 +117,12 @@ Need _needFromJson(Map<String, dynamic> j) {
     posterAvatarUrl: posterProfile['avatarUrl'] as String?,
     posterFaceVerified: posterFaceVerified,
     offerCount: (j['offerCount'] as num?)?.toInt() ?? 0,
+    posterBio: profile['bio'] as String?,
+    posterInterests: posterInterests,
+    posterPersonalityTraits: personalityTraits is Map
+        ? Map<String, dynamic>.from(personalityTraits)
+        : null,
+    posterPersonalityNickname: profile['personalityNickname'] as String?,
   );
 }
 

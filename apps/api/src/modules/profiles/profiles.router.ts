@@ -5,6 +5,7 @@ import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { notFound, badRequest } from '../../lib/http-error'
 import { uploadFile, deleteFile, storageKey } from '../../lib/storage'
 import { verifyFace } from '../../lib/face-verify'
+import { analyzePersonality } from '../../lib/lyzr'
 
 export const profilesRouter: IRouter = Router()
 
@@ -190,6 +191,48 @@ profilesRouter.post('/me/face-verify', authenticate, upload.single('selfie'), as
 
     // Image buffer is dereferenced here — never stored
     res.json({ verified: true })
+  } catch (err) { next(err) }
+})
+
+// ── POST /profile/me/personality ─────────────────────────────────────────────
+// Accepts 10 quiz answers, sends them to the Lyzr personality analyzer agent,
+// and stores the resulting profile so we can compute compatibility % between
+// users on the Connect surface.
+
+profilesRouter.post('/me/personality', authenticate, async (req, res, next) => {
+  try {
+    const userId = (req as AuthedRequest).userId!
+    const body = req.body as { answers?: unknown }
+    if (!Array.isArray(body.answers) || body.answers.length !== 10) {
+      return next(badRequest('Exactly 10 answers required', 'INVALID_ANSWERS'))
+    }
+    const answers = body.answers.map((a) => String(a ?? '').trim()).filter(Boolean)
+    if (answers.length !== 10) {
+      return next(badRequest('All 10 answers must be non-empty', 'INVALID_ANSWERS'))
+    }
+
+    const profile = await analyzePersonality(answers)
+
+    await prisma.profile.upsert({
+      where: { userId },
+      update: {
+        personalityTraits: profile.traits,
+        personalityNickname: profile.nickname,
+        personalitySummary: profile.summary,
+        personalityVibeTags: profile.vibeTags,
+        personalityTakenAt: new Date(),
+      },
+      create: {
+        userId,
+        personalityTraits: profile.traits,
+        personalityNickname: profile.nickname,
+        personalitySummary: profile.summary,
+        personalityVibeTags: profile.vibeTags,
+        personalityTakenAt: new Date(),
+      },
+    })
+
+    res.json(profile)
   } catch (err) { next(err) }
 })
 

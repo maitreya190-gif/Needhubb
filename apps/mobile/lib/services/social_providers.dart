@@ -5,6 +5,7 @@ import 'friends_api.dart';
 import 'messaging_api.dart';
 import 'needs_api.dart';
 import 'notifications_api.dart';
+import 'personality_api.dart';
 import 'profiles_api.dart';
 import 'redemptions_api.dart';
 import 'reviews_api.dart';
@@ -28,6 +29,10 @@ final notificationsApiProvider = Provider<NotificationsApi>((ref) {
 
 final profilesApiProvider = Provider<ProfilesApi>((ref) {
   return ProfilesApi(ref.watch(apiClientProvider));
+});
+
+final personalityApiProvider = Provider<PersonalityApi>((ref) {
+  return PersonalityApi(ref.watch(apiClientProvider));
 });
 
 final redemptionsApiProvider = Provider<RedemptionsApi>((ref) {
