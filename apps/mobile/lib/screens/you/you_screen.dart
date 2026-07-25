@@ -1604,8 +1604,7 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
     if (_verifying) return;
     final picker = ImagePicker();
     final file = await picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
+      source: ImageSource.gallery,
       imageQuality: 85,
     );
     if (file == null || !mounted) return;
@@ -1724,7 +1723,7 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
                         Text(
                           isVerified
                               ? 'Verified badge shown on your connect needs'
-                              : 'Take a selfie to get a verified badge on your connect needs',
+                              : 'Upload a clear photo of your face to get a verified badge on your connect needs',
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 12,
                             color: t.muted,
@@ -1757,7 +1756,7 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.camera_alt_rounded,
+                                  const Icon(Icons.photo_library_rounded,
                                       size: 14, color: Colors.white),
                                   const SizedBox(width: 5),
                                   Text(
