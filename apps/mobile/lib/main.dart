@@ -51,6 +51,7 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> {
     if (next.isAuthenticated) {
       if (_lastHydratedUserId != next.userId) {
         _lastHydratedUserId = next.userId;
+        resetAllUserNotifiersOnLogout();
         _hydrateAndPoll();
       }
     } else {
@@ -61,20 +62,7 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> {
       _socialPoller = null;
       _chitchatPoller = null;
       _notifPoller = null;
-      // Reset in-memory notifiers so a new login starts clean.
-      friendUserIdsNotifier.value = {};
-      blockedUserIdsNotifier.value = {};
-      friendRequestsInboxNotifier.value = const [];
-      friendRequestsOutboxNotifier.value = const [];
-      outgoingRequestUserIdsNotifier.value = {};
-      chitchatRosterNotifier.value = const [];
-      chitchatAvailableUntilNotifier.value = null;
-      notificationsListNotifier.value = const [];
-      unreadCountNotifier.value = 0;
-      pendingReviewsNotifier.value = const [];
-      myProfileNotifier.value = null;
-      myCertificatesNotifier.value = const [];
-      myAchievementsNotifier.value = const [];
+      resetAllUserNotifiersOnLogout();
     }
   }
 
@@ -154,18 +142,15 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> {
     try {
       final me = await api.me();
       myProfileNotifier.value = me;
-      // Mirror to the legacy per-field notifiers so existing screens (you_screen,
-      // edit_profile_screen, chit_chat_screen, redeem_screen) that read from
-      // these ValueNotifiers pick up the real values without needing rewrites.
       pointsNotifier.value = me.pointsTotal;
-      if (me.bio != null && me.bio!.isNotEmpty) bioNotifier.value = me.bio!;
-      if (me.promptSkill != null) promptSkillNotifier.value = me.promptSkill!;
-      if (me.promptCollab != null) promptCollabNotifier.value = me.promptCollab!;
-      if (me.promptNeed != null) promptNeedNotifier.value = me.promptNeed!;
-      if (me.gender != null) genderNotifier.value = me.gender;
-      if (me.locationText != null && me.locationText!.isNotEmpty) {
-        locationNotifier.value = me.locationText!;
-      }
+      bioNotifier.value = me.bio ?? '';
+      promptSkillNotifier.value = me.promptSkill ?? '';
+      promptCollabNotifier.value = me.promptCollab ?? '';
+      promptNeedNotifier.value = me.promptNeed ?? '';
+      genderNotifier.value = me.gender;
+      locationNotifier.value = (me.locationText != null && me.locationText!.isNotEmpty)
+          ? me.locationText!
+          : 'Bangalore';
       avatarUrlNotifier.value = me.avatarUrl;
       customInterestsNotifier.value = me.interestLabels;
       customSkillsNotifier.value = me.skillLabels;

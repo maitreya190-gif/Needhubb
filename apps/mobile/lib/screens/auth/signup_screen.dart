@@ -273,9 +273,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       );
     } catch (_) {}
 
+    final email = _emailController.text.trim().toLowerCase();
+    final fallbackUserId = 'usr_${email.replaceAll(RegExp(r'[^\w]'), '_')}';
     final token =
         _savedToken ?? 'demo_token_${DateTime.now().millisecondsSinceEpoch}';
-    final userId = _savedUserId ?? 'usr_demo_1';
+    final userId = _savedUserId ?? fallbackUserId;
 
     await ref.read(authProvider.notifier).login(
           token: token,
@@ -283,7 +285,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           displayName: _nameController.text.trim().isNotEmpty
               ? _nameController.text.trim()
               : 'New User',
-          email: _emailController.text.trim(),
+          email: email,
         );
   }
 
