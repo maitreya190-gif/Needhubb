@@ -426,6 +426,7 @@ needsRouter.post('/:id/responses', authenticate, upload.single('workSample'), as
   try {
     const need = await prisma.need.findUnique({ where: { id: req.params.id } })
     if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
+    if (need.status !== 'OPEN') return next(badRequest('This need is frozen and no longer accepting offers', 'NEED_FROZEN'))
     if (need.posterId === userId) return next(badRequest("Can't respond to your own need", 'SELF_RESPONSE'))
     if (await isBlockedBetween(userId, need.posterId)) return next(forbidden('Cannot respond', 'BLOCKED'))
 
@@ -613,6 +614,10 @@ needsRouter.patch('/:id/responses/:respId', authenticate, async (req, res, next)
       // even without a friendship, because /chats/dm/:userId/messages checks
       // for accepted InterestResponse to bypass the friends-only rule.
       if (parsed.data.status === 'ACCEPTED') {
+        await tx.need.update({
+          where: { id: resp.needId },
+          data: { status: 'FULFILLED' },
+        })
         await tx.messageThread.upsert({
           where: { responseId: r.id },
           create: { responseId: r.id },

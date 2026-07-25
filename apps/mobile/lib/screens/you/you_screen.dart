@@ -171,6 +171,32 @@ class YouScreen extends ConsumerWidget {
                                   ),
                                 ),
                               ),
+                              FutureBuilder<({double avg, int count, List<Map<String, dynamic>> reviews})>(
+                                future: ref.read(reviewsApiProvider).byMe(),
+                                builder: (context, snapshot) {
+                                  final data = snapshot.data;
+                                  if (data == null || data.count == 0) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.star_rounded, size: 15, color: Color(0xFFEAB308)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${data.avg.toStringAsFixed(1)} ★ (${data.count} ${data.count == 1 ? 'rating' : 'ratings'})',
+                                          style: GoogleFonts.hankenGrotesk(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: t.onDark,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
                               ValueListenableBuilder<String>(
                                 valueListenable: bioNotifier,
                                 builder: (_, bio, __) {

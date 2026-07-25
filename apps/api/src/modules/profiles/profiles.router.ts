@@ -35,7 +35,14 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
       },
     })
     if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'))
-    res.json(user)
+    const reviewsAgg = await prisma.review.aggregate({
+      where: { revieweeId: userId },
+      _avg: { rating: true },
+      _count: { id: true },
+    })
+    const avgRating = reviewsAgg._avg.rating ? Math.round(reviewsAgg._avg.rating * 10) / 10 : 0
+    const ratingCount = reviewsAgg._count.id
+    res.json({ ...user, avgRating, ratingCount })
   } catch (err) { next(err) }
 })
 
@@ -291,6 +298,13 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       },
     })
     if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'))
-    res.json(user)
+    const reviewsAgg = await prisma.review.aggregate({
+      where: { revieweeId: req.params.userId },
+      _avg: { rating: true },
+      _count: { id: true },
+    })
+    const avgRating = reviewsAgg._avg.rating ? Math.round(reviewsAgg._avg.rating * 10) / 10 : 0
+    const ratingCount = reviewsAgg._count.id
+    res.json({ ...user, avgRating, ratingCount })
   } catch (err) { next(err) }
 })

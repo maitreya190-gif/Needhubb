@@ -12,6 +12,7 @@ import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_report_sheet.dart';
 import '../hub/conversation_screen.dart';
 import '../../widgets/nh_full_screen_image_viewer.dart';
+import '../../services/social_providers.dart';
 
 class _OfferRevisionData {
   final String note;
@@ -84,8 +85,37 @@ class NeedDetailScreen extends ConsumerStatefulWidget {
 class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   Need get need => widget.need;
   List<_OfferData> _realOffers = const [];
+  List<Map<String, dynamic>> _needReviews = const [];
   String _offerSortMode = 'newest';
   Timer? _pollTimer;
+
+  bool get _isNeedFrozen =>
+      need.isFrozen || _realOffers.any((o) => o.status == 'ACCEPTED');
+
+  @override
+  void initState() {
+    super.initState();
+    offersNotifier.addListener(_rebuild);
+    Future.microtask(() {
+      _hydrateOffers();
+      _fetchNeedReviews();
+    });
+    // Poll for new responses every 15 s so the poster sees them without refreshing
+    _pollTimer =
+        Timer.periodic(const Duration(seconds: 15), (_) => _hydrateOffers());
+  }
+
+  Future<void> _fetchNeedReviews() async {
+    try {
+      final api = ref.read(apiClientProvider);
+      final res = await api.get('/reviews/need/${need.id}');
+      if (!mounted) return;
+      setState(() {
+        _needReviews =
+            ((res['reviews'] as List?) ?? const []).cast<Map<String, dynamic>>();
+      });
+    } catch (_) {}
+  }
 
   bool get _isPoster {
     final myId = ref.read(authProvider).userId;
@@ -115,16 +145,6 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
       }
     }
     return null;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    offersNotifier.addListener(_rebuild);
-    Future.microtask(_hydrateOffers);
-    // Poll for new responses every 15 s so the poster sees them without refreshing
-    _pollTimer =
-        Timer.periodic(const Duration(seconds: 15), (_) => _hydrateOffers());
   }
 
   Future<void> _hydrateOffers() async {
@@ -841,6 +861,15 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                         ),
                       );
                     }),
+
+                    // Feedback & Ratings section — rendered when need is frozen or accepted
+                    if (_isNeedFrozen) ...[
+                      const SizedBox(height: 18),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: _buildFeedbackSection(context, t),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -850,6 +879,34 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
             ValueListenableBuilder<int>(
               valueListenable: offersNotifier,
               builder: (context, _, __) {
+                if (_isNeedFrozen) {
+                  return Container(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      16,
+                      20,
+                      MediaQuery.of(context).padding.bottom + 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: t.paper,
+                      border: Border(top: BorderSide(color: t.rail, width: 1)),
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.lock_outline_rounded, size: 18),
+                        label: const Text('Need Accepted & Frozen'),
+                        onPressed: null,
+                        style: ElevatedButton.styleFrom(
+                          disabledBackgroundColor: t.rail,
+                          disabledForegroundColor: t.muted,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
                 final myOffer = _myOffer;
                 final hasApplied = myOffer != null;
                 final canEdit = !hasApplied || _canEditOffer(myOffer);
@@ -923,6 +980,221 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFeedbackSection(BuildContext context, NeedHubTokens t) {
+    final currentUserId = ref.read(authProvider).userId;
+    final acceptedOffer = _realOffers.firstWhere(
+      (o) => o.status == 'ACCEPTED',
+      orElse: () => const _OfferData(
+        initials: '?',
+        name: 'Helper',
+        note: '',
+        amount: '—',
+        tint: NeedHubTokens.forest,
+      ),
+    );
+
+    final isPoster = _isPoster;
+    final isAcceptedHelper = acceptedOffer.responderId == currentUserId;
+    final isParticipant = isPoster || isAcceptedHelper;
+
+    final counterpartyName = isPoster ? acceptedOffer.name : need.authorName;
+    final counterpartyId = isPoster ? acceptedOffer.responderId : need.posterId;
+
+    final myReview = _needReviews.firstWhere(
+      (r) => r['reviewerId'] == currentUserId,
+      orElse: () => const {},
+    );
+    final hasMyReview = myReview.isNotEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: t.card,
+        border: Border.all(
+          color: const Color(0xFF211E17).withValues(alpha: 0.10),
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.star_rounded, color: Color(0xFFEAB308), size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'FEEDBACK & RATINGS (${_needReviews.length})',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.08 * 12,
+                  color: t.ink,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF15803D).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'FROZEN',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF15803D),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_needReviews.isEmpty)
+            Text(
+              'No feedback submitted yet.',
+              style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
+            )
+          else
+            ..._needReviews.map((rev) {
+              final reviewer = rev['reviewer'] as Map<String, dynamic>? ?? {};
+              final reviewerProfile =
+                  reviewer['profile'] as Map<String, dynamic>?;
+              final reviewerName =
+                  reviewer['displayName'] as String? ?? 'User';
+              final rating = (rev['rating'] as num?)?.toInt() ?? 5;
+              final comment = rev['comment'] as String?;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: t.paper,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: t.rail, width: 1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        ClipOval(
+                          child: reviewerProfile?['avatarUrl'] != null
+                              ? Image.network(
+                                  reviewerProfile!['avatarUrl'] as String,
+                                  width: 28,
+                                  height: 28,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 28,
+                                    height: 28,
+                                    color: t.rail2,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      reviewerName.isNotEmpty
+                                          ? reviewerName[0]
+                                          : '?',
+                                      style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 11,
+                                          color: t.muted4,
+                                          fontWeight: FontWeight.w700),
+                                    ),
+                                  ),
+                                )
+                              : Container(
+                                  width: 28,
+                                  height: 28,
+                                  color: t.rail2,
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    reviewerName.isNotEmpty
+                                        ? reviewerName[0]
+                                        : '?',
+                                    style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 11,
+                                        color: t.muted4,
+                                        fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            reviewerName,
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: t.ink,
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: List.generate(
+                            5,
+                            (i) => Icon(
+                              i < rating
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              size: 14,
+                              color:
+                                  i < rating ? const Color(0xFFEAB308) : t.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (comment != null && comment.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        comment,
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12.5, color: t.ink),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }),
+          if (isParticipant &&
+              counterpartyId != null &&
+              counterpartyId.isNotEmpty &&
+              !hasMyReview) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.rate_review_outlined, size: 18),
+                label: Text('Rate & Give Feedback to $counterpartyName'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: NeedHubTokens.forest,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => _FeedbackSheet(
+                      needId: need.id,
+                      revieweeId: counterpartyId,
+                      revieweeName: counterpartyName,
+                      onSubmitted: _fetchNeedReviews,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -2406,6 +2678,184 @@ class _InitialsAvatar extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: textColor,
         ),
+      ),
+    );
+  }
+}
+
+class _FeedbackSheet extends StatefulWidget {
+  final String needId;
+  final String revieweeId;
+  final String revieweeName;
+  final VoidCallback onSubmitted;
+
+  const _FeedbackSheet({
+    required this.needId,
+    required this.revieweeId,
+    required this.revieweeName,
+    required this.onSubmitted,
+  });
+
+  @override
+  State<_FeedbackSheet> createState() => _FeedbackSheetState();
+}
+
+class _FeedbackSheetState extends State<_FeedbackSheet> {
+  int _rating = 5;
+  final _commentController = TextEditingController();
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        20,
+        24,
+        MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).padding.bottom +
+            24,
+      ),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: t.rail,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Rate & Give Feedback',
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: t.ink,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'How was your experience with ${widget.revieweeName}?',
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 13.5,
+              color: t.muted,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (index) {
+              final star = index + 1;
+              return IconButton(
+                onPressed: () => setState(() => _rating = star),
+                icon: Icon(
+                  star <= _rating
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  color: star <= _rating ? const Color(0xFFEAB308) : t.muted,
+                  size: 36,
+                ),
+              );
+            }),
+          ),
+          Center(
+            child: Text(
+              '$_rating Star${_rating == 1 ? '' : 's'}',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: t.ink,
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _commentController,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Write feedback (visible only to both of you)…',
+              hintStyle:
+                  GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
+              filled: true,
+              fillColor: t.paper,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: t.rail),
+              ),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!,
+                style:
+                    GoogleFonts.hankenGrotesk(fontSize: 12, color: Colors.red)),
+          ],
+          const SizedBox(height: 20),
+          Consumer(
+            builder: (context, ref, _) => SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _submitting
+                    ? null
+                    : () async {
+                        setState(() {
+                          _submitting = true;
+                          _error = null;
+                        });
+                        try {
+                          final api = ref.read(reviewsApiProvider);
+                          final pts = await api.submit(
+                            needId: widget.needId,
+                            revieweeId: widget.revieweeId,
+                            rating: _rating,
+                            comment: _commentController.text.trim(),
+                          );
+                          if (!mounted) return;
+                          Navigator.of(context).pop();
+                          widget.onSubmitted();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                                content: Text(
+                                    'Feedback submitted! ${pts > 0 ? "+$pts points awarded!" : ""}')),
+                          );
+                        } catch (e) {
+                          if (mounted) {
+                            setState(() {
+                              _error = 'Failed to submit feedback: $e';
+                              _submitting = false;
+                            });
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: NeedHubTokens.forest,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: _submitting
+                    ? const CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2)
+                    : Text('Submit Feedback & Rating',
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 15, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -37,8 +37,8 @@ reviewsRouter.post('/', authenticate, async (req, res, next) => {
       },
     })
     if (!need) return next(notFound('Need not found'))
-    if (need.status !== 'FULFILLED')
-      return next(unprocessable('Need is not fulfilled yet', 'NEED_NOT_FULFILLED'))
+    if (need.status !== 'FULFILLED' && need.status !== 'IN_PROGRESS')
+      return next(unprocessable('Need is not fulfilled or accepted yet', 'NEED_NOT_FULFILLED'))
 
     // Reviewer must have been either the poster or an accepted responder.
     const isPoster = need.posterId === me
@@ -188,3 +188,53 @@ reviewsRouter.get('/for/:userId', async (req, res, next) => {
     res.json({ reviews: rows, avg: Math.round(avg * 10) / 10, count })
   } catch (err) { next(err) }
 })
+
+// GET /reviews/need/:needId — fetch reviews for a specific need with privacy protection.
+// Written feedback (comment) is only visible to the 2 participants (poster and helper).
+reviewsRouter.get('/need/:needId', async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization
+    let me: string | null = null
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7)
+        const jwt = require('jsonwebtoken')
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { userId?: string }
+        me = decoded.userId ?? null
+      } catch (_) {}
+    }
+
+    const need = await prisma.need.findUnique({
+      where: { id: req.params.needId },
+      include: { responses: { where: { status: 'ACCEPTED' }, select: { responderId: true } } },
+    })
+    if (!need) return next(notFound('Need not found'))
+
+    const reviews = await prisma.review.findMany({
+      where: { needId: req.params.needId },
+      include: {
+        reviewer: { select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } } },
+        reviewee: { select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const participants = new Set<string>([need.posterId, ...need.responses.map((r) => r.responderId)])
+    const isParticipant = me != null && participants.has(me)
+
+    const sanitized = reviews.map((r) => ({
+      id: r.id,
+      needId: r.needId,
+      reviewerId: r.reviewerId,
+      reviewer: r.reviewer,
+      revieweeId: r.revieweeId,
+      reviewee: r.reviewee,
+      rating: r.rating,
+      comment: isParticipant ? r.comment : null, // Private comment visible only to participants!
+      createdAt: r.createdAt,
+    }))
+
+    res.json({ reviews: sanitized, isParticipant })
+  } catch (err) { next(err) }
+})
+

@@ -116,13 +116,13 @@ Need _needFromJson(Map<String, dynamic> j) {
     tags: _tagsFor(j),
     posterAvatarUrl: posterProfile['avatarUrl'] as String?,
     posterFaceVerified: posterFaceVerified,
-    offerCount: (j['offerCount'] as num?)?.toInt() ?? 0,
     posterBio: profile['bio'] as String?,
     posterInterests: posterInterests,
     posterPersonalityTraits: personalityTraits is Map
         ? Map<String, dynamic>.from(personalityTraits)
         : null,
     posterPersonalityNickname: profile['personalityNickname'] as String?,
+    status: j['status'] as String? ?? 'OPEN',
   );
 }
 

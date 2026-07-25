@@ -96,6 +96,7 @@ class Need {
   final List<String> posterInterests;
   final Map<String, dynamic>? posterPersonalityTraits;
   final String? posterPersonalityNickname;
+  final String status;
 
   const Need({
     required this.id,
@@ -119,7 +120,10 @@ class Need {
     this.posterInterests = const [],
     this.posterPersonalityTraits,
     this.posterPersonalityNickname,
+    this.status = 'OPEN',
   });
+
+  bool get isFrozen => status.toUpperCase() != 'OPEN';
 
   String get timeAgo {
     final diff = DateTime.now().difference(createdAt);
