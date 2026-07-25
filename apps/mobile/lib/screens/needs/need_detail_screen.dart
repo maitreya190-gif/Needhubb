@@ -26,7 +26,6 @@ class _OfferRevisionData {
     required this.createdAt,
   });
 }
->>>>>>> 3be66c0 (need)
 
 class _OfferData {
   final String initials;
