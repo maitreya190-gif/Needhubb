@@ -1726,74 +1726,86 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
                   itemCount: list.length,
                   separatorBuilder: (_, __) =>
                       Divider(color: t.rail, height: 1, indent: 56),
-                itemBuilder: (_, i) {
-                  final n = list[i];
-                  final color = _colorFor(n.type);
-                  return InkWell(
-                    onTap: () => NotificationNavigator.handleTap(
-                      context: context,
-                      notif: n,
-                      ref: ref,
-                      isBottomSheet: true,
-                    ),
-                    child: Container(
-                      color: n.isUnread
-                          ? color.withValues(alpha: 0.04)
-                          : Colors.transparent,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          alignment: Alignment.center,
-                          child: Icon(_iconFor(n.type), color: color, size: 18),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
+                  itemBuilder: (_, i) {
+                    final n = list[i];
+                    final color = _colorFor(n.type);
+                    return InkWell(
+                      onTap: () => NotificationNavigator.handleTap(
+                        context: context,
+                        notif: n,
+                        ref: ref,
+                        isBottomSheet: true,
+                      ),
+                      child: Container(
+                        color: n.isUnread
+                            ? color.withValues(alpha: 0.04)
+                            : Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(_iconFor(n.type), color: color, size: 18),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Text(n.title,
-                                        style: GoogleFonts.hankenGrotesk(
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          n.title,
+                                          style: GoogleFonts.hankenGrotesk(
                                             fontSize: 13.5,
                                             fontWeight: n.isUnread
                                                 ? FontWeight.w800
                                                 : FontWeight.w700,
-                                            color: t.ink)),
+                                            color: t.ink,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _timeAgo(n.createdAt),
+                                        style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 11,
+                                          color: t.muted,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(_timeAgo(n.createdAt),
-                                      style: GoogleFonts.hankenGrotesk(
-                                          fontSize: 11, color: t.muted)),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(n.body,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.hankenGrotesk(
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    n.body,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.hankenGrotesk(
                                       fontSize: 12.5,
                                       color: t.muted2,
-                                      height: 1.4)),
-                            ],
-                          ),
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            );
-          },
-        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
         ],
       ),
     );
