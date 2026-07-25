@@ -82,6 +82,7 @@ Need _needFromJson(Map<String, dynamic> j) {
 
   return Need(
     id: j['id'] as String,
+    posterId: poster['id'] as String? ?? '',
     title: j['title'] as String? ?? '',
     description: j['description'] as String? ?? '',
     category: category,

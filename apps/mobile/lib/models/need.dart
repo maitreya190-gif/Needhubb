@@ -68,6 +68,7 @@ final Map<String, List<NeedOffer>> mockOffers = {
 
 class Need {
   final String id;
+  final String posterId;
   final String title;
   final String description;
   final String category; // 'connect' | 'earn' | 'chitchat'
@@ -83,6 +84,7 @@ class Need {
 
   const Need({
     required this.id,
+    this.posterId = '',
     required this.title,
     required this.description,
     required this.category,

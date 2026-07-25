@@ -1,11 +1,12 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/need.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
-import '../../services/notifications_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_report_sheet.dart';
@@ -56,15 +57,22 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   Need get need => widget.need;
   List<_OfferData> _realOffers = const [];
   String _offerSortMode = 'newest';
+  Timer? _pollTimer;
 
-  bool get _isPoster =>
-      need.authorName == 'You' || need.authorInitials == 'ME';
+  bool get _isPoster {
+    final myId = ref.read(authProvider).userId;
+    if (myId != null && need.posterId.isNotEmpty) return need.posterId == myId;
+    // Fallback for mock data
+    return need.authorName == 'You' || need.authorInitials == 'ME';
+  }
 
   @override
   void initState() {
     super.initState();
     offersNotifier.addListener(_rebuild);
     Future.microtask(_hydrateOffers);
+    // Poll for new responses every 15 s so the poster sees them without refreshing
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) => _hydrateOffers());
   }
 
   Future<void> _hydrateOffers() async {
@@ -151,6 +159,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     offersNotifier.removeListener(_rebuild);
     super.dispose();
   }
@@ -986,12 +995,35 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
           'quotedPrice': price,
         });
       }
-    } catch (_) {
-      // Fallback: If network or mock need ID endpoint responds with non-2xx status,
-      // swallow the exception so local offer state updates seamlessly.
+    } on DioException catch (e) {
+      final code = (e.response?.data as Map?)?['code'] as String? ?? '';
+      if (mounted) {
+        if (e.response?.statusCode == 422 || code == 'MODERATION_HARD_BLOCK') {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Message blocked'),
+              content: const Text(
+                  'Your message contains content that violates community guidelines. Please revise it.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(_),
+                  child: const Text('OK'),
+                )
+              ],
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not send offer. Please try again.')),
+          );
+        }
+      }
+      setState(() => _sending = false);
+      return;
     }
 
-    // Always update local offers list so the offer displays immediately in the UI
+    // Update local offers list so the offer displays immediately in the UI
     final offers = mockOffers.putIfAbsent(widget.need.id, () => []);
     final existingIdx =
         offers.indexWhere((o) => o.name == 'You' || o.initials == 'ME');
@@ -1009,22 +1041,6 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
       offers.insert(0, updatedOffer);
     }
     offersNotifier.value++;
-
-    // Generate clickable push notification for the offer
-    final newNotif = NhNotification(
-      id: 'notif_offer_${DateTime.now().millisecondsSinceEpoch}',
-      type: 'NEED_RESPONSE_RECEIVED',
-      title: 'New Offer Received!',
-      body: 'Someone made an offer of ₹$rateText on "${widget.need.title}": "$noteText"',
-      refType: 'NEED',
-      refId: widget.need.id,
-      createdAt: DateTime.now(),
-    );
-    notificationsListNotifier.value = [
-      newNotif,
-      ...notificationsListNotifier.value,
-    ];
-    unreadCountNotifier.value++;
 
     if (mounted) {
       setState(() {
@@ -1381,7 +1397,7 @@ class _OfferSentView extends StatelessWidget {
 
 // ── Connect / Apply bottom sheet ───────────────────────────────────────────────
 
-class _ConnectSheet extends StatefulWidget {
+class _ConnectSheet extends ConsumerStatefulWidget {
   final Need need;
   final String actionLabel;
   final Color categoryColor;
@@ -1393,12 +1409,13 @@ class _ConnectSheet extends StatefulWidget {
   });
 
   @override
-  State<_ConnectSheet> createState() => _ConnectSheetState();
+  ConsumerState<_ConnectSheet> createState() => _ConnectSheetState();
 }
 
-class _ConnectSheetState extends State<_ConnectSheet> {
+class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
   final _controller = TextEditingController();
   bool _sent = false;
+  bool _sending = false;
 
   @override
   void dispose() {
@@ -1527,43 +1544,62 @@ class _ConnectSheetState extends State<_ConnectSheet> {
                   width: double.infinity,
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: () {
-                      final msg = _controller.text.trim();
-                      if (msg.isEmpty) return;
+                    onPressed: _sending
+                        ? null
+                        : () async {
+                            final msg = _controller.text.trim();
+                            if (msg.isEmpty) return;
+                            setState(() => _sending = true);
+                            try {
+                              final api = ref.read(apiClientProvider);
+                              await api.post('/needs/${widget.need.id}/responses', {
+                                'message': msg,
+                              });
+                            } on DioException catch (e) {
+                              if (!mounted) return;
+                              final code = (e.response?.data as Map?)?['code'] as String? ?? '';
+                              setState(() => _sending = false);
+                              if (e.response?.statusCode == 422 || code == 'MODERATION_HARD_BLOCK') {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Message blocked'),
+                                    content: const Text(
+                                        'Your message contains content that violates community guidelines. Please revise it.'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx),
+                                        child: const Text('OK'),
+                                      )
+                                    ],
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Could not send message. Please try again.')),
+                                );
+                              }
+                              return;
+                            }
 
-                      final offers = mockOffers.putIfAbsent(widget.need.id, () => []);
-                      final existingIdx = offers.indexWhere((o) => o.name == 'You' || o.initials == 'ME');
-                      final updatedOffer = NeedOffer(
-                        name: 'You',
-                        initials: 'ME',
-                        note: msg,
-                        amount: '—',
-                        color: widget.categoryColor,
-                      );
-                      if (existingIdx != -1) {
-                        offers[existingIdx] = updatedOffer;
-                      } else {
-                        offers.insert(0, updatedOffer);
-                      }
-                      offersNotifier.value++;
-
-                      final newNotif = NhNotification(
-                        id: 'notif_offer_${DateTime.now().millisecondsSinceEpoch}',
-                        type: 'NEED_RESPONSE_RECEIVED',
-                        title: 'New Offer Received!',
-                        body: 'Someone responded to your need "${widget.need.title}": "$msg"',
-                        refType: 'NEED',
-                        refId: widget.need.id,
-                        createdAt: DateTime.now(),
-                      );
-                      notificationsListNotifier.value = [
-                        newNotif,
-                        ...notificationsListNotifier.value,
-                      ];
-                      unreadCountNotifier.value++;
-
-                      setState(() => _sent = true);
-                    },
+                            // Update local state optimistically after confirmed API success
+                            final offers = mockOffers.putIfAbsent(widget.need.id, () => []);
+                            final existingIdx = offers.indexWhere((o) => o.name == 'You' || o.initials == 'ME');
+                            final updatedOffer = NeedOffer(
+                              name: 'You',
+                              initials: 'ME',
+                              note: msg,
+                              amount: '—',
+                              color: widget.categoryColor,
+                            );
+                            if (existingIdx != -1) {
+                              offers[existingIdx] = updatedOffer;
+                            } else {
+                              offers.insert(0, updatedOffer);
+                            }
+                            offersNotifier.value++;
+                            if (mounted) setState(() => _sent = true);
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: widget.categoryColor,
                       foregroundColor: Colors.white,
@@ -1576,7 +1612,13 @@ class _ConnectSheetState extends State<_ConnectSheet> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    child: Text('Send message'),
+                    child: _sending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Send message'),
                   ),
                 ),
               ],

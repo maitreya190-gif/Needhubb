@@ -1622,6 +1622,7 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
           final createdIso = j['createdAt'] as String?;
           return Need(
             id: j['id'] as String,
+            posterId: j['posterId'] as String? ?? '',
             title: j['title'] as String? ?? '',
             description: j['description'] as String? ?? '',
             category: category,

@@ -152,6 +152,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
         final parent = res['parent'] as Map<String, dynamic>;
         postedNeed = Need(
           id: parent['id'] as String? ?? 'posted_${DateTime.now().millisecondsSinceEpoch}',
+          posterId: parent['posterId'] as String? ?? ref.read(authProvider).userId ?? '',
           title: parent['title'] as String? ?? _titleController.text.trim(),
           description: parent['description'] as String? ?? _descController.text.trim(),
           category: (parent['needType'] as String? ?? (_category == 'earn' ? 'EARN' : 'CONNECT')) == 'EARN' ? 'earn' : 'connect',
@@ -170,6 +171,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
     // Fallback: If API did not return parent, create optimistic local Need
     postedNeed ??= Need(
       id: 'posted_${DateTime.now().millisecondsSinceEpoch}',
+      posterId: ref.read(authProvider).userId ?? '',
       title: needsPayload.first['title'] as String? ?? _titleController.text.trim(),
       description: needsPayload.first['description'] as String? ?? _descController.text.trim(),
       category: _category,
