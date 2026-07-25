@@ -20,6 +20,7 @@ import '../../needs/need_detail_screen.dart';
 import '../../connect/connect_detail_screen.dart';
 import '../../person/person_screen.dart';
 import '../conversation_screen.dart';
+import 'package:needhub/services/messaging_api.dart';
 
 class FeedTab extends ConsumerStatefulWidget {
   final String initialSurface;
