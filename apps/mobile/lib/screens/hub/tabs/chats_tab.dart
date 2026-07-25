@@ -34,7 +34,40 @@ class _ChatPreview {
   });
 }
 
-final _mockChats = <_ChatPreview>[];
+final _mockChats = <_ChatPreview>[
+  const _ChatPreview(
+    name: 'Anika Patel',
+    initials: 'AP',
+    lastMessage: 'Hey! Are you still up for coffee and DSA practice today?',
+    time: '10m',
+    unread: 2,
+    avatarColor: NeedHubTokens.forest,
+  ),
+  const _ChatPreview(
+    name: 'Karan Joshi',
+    initials: 'KJ',
+    lastMessage: 'Thanks for helping with the Flutter layout yesterday!',
+    time: '2h',
+    unread: 0,
+    avatarColor: NeedHubTokens.clay,
+  ),
+  const _ChatPreview(
+    name: 'dont_add_me_as_yo_friend',
+    initials: 'DA',
+    lastMessage: 'yoo',
+    time: '37m',
+    unread: 1,
+    avatarColor: NeedHubTokens.forest,
+  ),
+  const _ChatPreview(
+    name: 'Priya Nair',
+    initials: 'PN',
+    lastMessage: 'See you at the gym tomorrow morning at 7!',
+    time: '1d',
+    unread: 0,
+    avatarColor: NeedHubTokens.ochre,
+  ),
+];
 
 class ChatsTab extends ConsumerStatefulWidget {
   const ChatsTab({super.key});
@@ -55,7 +88,9 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     try {
       final api = ref.read(messagingApiProvider);
       final rows = await api.chats();
-      chatsListNotifier.value = rows;
+      if (rows.isNotEmpty) {
+        chatsListNotifier.value = rows;
+      }
       if (mounted) setState(() {});
     } catch (_) {/* keep last-known list */}
   }
@@ -368,7 +403,12 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                               child: ValueListenableBuilder<List<ChitchatPerson>>(
                                 valueListenable: chitchatRosterNotifier,
                                 builder: (context, roster, _) {
-                                  const mockPeople = <({String initials, String name, String area, Color color})>[];
+                                  const mockPeople = <({String initials, String name, String area, Color color})>[
+                                    (initials: 'AP', name: 'Anika Patel', area: 'Indiranagar', color: NeedHubTokens.forest),
+                                    (initials: 'KJ', name: 'Karan Joshi', area: 'Koramangala', color: NeedHubTokens.clay),
+                                    (initials: 'RM', name: 'Rohan Mehta', area: 'HSR Layout', color: NeedHubTokens.ochre),
+                                    (initials: 'PN', name: 'Priya Nair', area: 'Jayanagar', color: NeedHubTokens.forest),
+                                  ];
                                   return ListView(
                                     scrollDirection: Axis.horizontal,
                                     padding:

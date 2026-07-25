@@ -132,8 +132,10 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> {
   Future<void> _hydrateFeed(NeedsApi api) async {
     try {
       final res = await api.feed(sort: 'smart', take: 60);
-      feedNeedsNotifier.value = res.needs;
-      feedRankerNotifier.value = res.ranker;
+      if (res.needs.isNotEmpty) {
+        feedNeedsNotifier.value = res.needs;
+        feedRankerNotifier.value = res.ranker;
+      }
     } catch (_) {/* swallow — the mock fallback stays visible */}
   }
 

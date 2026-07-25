@@ -17,6 +17,17 @@ class FriendRequest {
   });
 }
 
-final mockIncomingRequests = <FriendRequest>[];
+final mockIncomingRequests = <FriendRequest>[
+  FriendRequest(
+    fromName: 'Anika Patel',
+    fromInitials: 'AP',
+    fromColor: NeedHubTokens.forest,
+  ),
+  FriendRequest(
+    fromName: 'Karan Joshi',
+    fromInitials: 'KJ',
+    fromColor: NeedHubTokens.clay,
+  ),
+];
 
 // friendRequestNotifier is defined in user_state.dart — hydrated from the API.

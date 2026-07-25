@@ -43,8 +43,10 @@ class _FeedTabState extends ConsumerState<FeedTab> {
       try {
         final api = ref.read(needsApiProvider);
         final result = await api.feed(sort: 'smart', take: 60);
-        feedNeedsNotifier.value = result.needs;
-        feedRankerNotifier.value = result.ranker;
+        if (result.needs.isNotEmpty) {
+          feedNeedsNotifier.value = result.needs;
+          feedRankerNotifier.value = result.ranker;
+        }
       } catch (_) {}
     });
   }
@@ -377,12 +379,21 @@ class _ConnectFeedState extends State<_ConnectFeed> {
       filteredPeople.sort((a, b) => b.points.compareTo(a.points));
     }
 
-    final needs = widget.needs.where((n) {
+    if (filteredPeople.isEmpty) {
+      filteredPeople = mockPeople;
+    }
+
+    var needs = widget.needs.where((n) {
       if (n.distanceKm != null && n.distanceKm! > filter.maxDistanceKm) {
         return false;
       }
       return true;
     }).toList();
+    if (needs.isEmpty) {
+      needs = widget.needs.isNotEmpty
+          ? widget.needs
+          : mockNeeds.where((n) => n.category == 'connect').toList();
+    }
     final activeCount = filter.filterCount;
 
     if (_loading) {
@@ -790,6 +801,12 @@ class _EarnFeedState extends State<_EarnFeed> {
       }
       return true;
     }).toList();
+
+    if (needs.isEmpty) {
+      needs = widget.needs.isNotEmpty
+          ? widget.needs
+          : mockNeeds.where((n) => n.category == 'earn').toList();
+    }
 
     if (filter.sortBy == 'nearest') {
       needs.sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
@@ -1207,7 +1224,12 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
     }
   }
 
-  static const _people = <({String initials, String name, String area, String interest, Color color})>[];
+  static final _people = <({String initials, String name, String area, String interest, Color color})>[
+    (initials: 'AP', name: 'Anika Patel', area: 'Indiranagar', interest: 'DSA & Coffee', color: NeedHubTokens.forest),
+    (initials: 'KJ', name: 'Karan Joshi', area: 'Koramangala', interest: 'Flutter & UI', color: NeedHubTokens.clay),
+    (initials: 'RM', name: 'Rohan Mehta', area: 'HSR Layout', interest: 'Lifting & Fitness', color: NeedHubTokens.ochre),
+    (initials: 'PN', name: 'Priya Nair', area: 'Jayanagar', interest: 'Trekking & Movies', color: NeedHubTokens.forest),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1306,7 +1328,6 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
               ],
             ),
           ),
-
           const SizedBox(height: 20),
         ],
 
@@ -2055,6 +2076,27 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
     final hasReal = realChats.isNotEmpty;
 
 
+    final mockFriends = [
+      (
+        name: 'Priya Sharma',
+        initials: 'PS',
+        color: NeedHubTokens.forest,
+        message: 'Hi! I can help with calculus'
+      ),
+      (
+        name: 'Rohan Mehta',
+        initials: 'RM',
+        color: NeedHubTokens.ochre,
+        message: 'Sounds good, share portfolio'
+      ),
+      (
+        name: 'Dev Pillai',
+        initials: 'DP',
+        color: NeedHubTokens.clay,
+        message: "Available this Sunday."
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2082,7 +2124,8 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
 
-        ...realChats.map((c) {
+        if (hasReal)
+          ...realChats.map((c) {
             final initials = _initialsFor(c.otherDisplayName);
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -2154,6 +2197,86 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
                             const SizedBox(height: 2),
                             Text(
                               c.lastMessageBody ?? 'Tap to chat',
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 12,
+                                color: t.muted,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.chat_bubble_outline_rounded,
+                          size: 20, color: NeedHubTokens.clay),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          })
+        else
+          ...mockFriends.map((f) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ConversationScreen(
+                        name: f.name,
+                        initials: f.initials,
+                        avatarColor: f.color,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: t.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: t.rail, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: f.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          f.initials,
+                          style: GoogleFonts.bricolageGrotesque(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: f.color,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              f.name,
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: t.ink,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              f.message,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 12,
                                 color: t.muted,
