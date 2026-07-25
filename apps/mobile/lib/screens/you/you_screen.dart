@@ -11,7 +11,6 @@ import '../../services/social_providers.dart';
 import '../../services/uploads_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
-import '../chitchat/chit_chat_screen.dart';
 import '../history/history_screen.dart';
 import '../redeem/redeem_screen.dart';
 import 'edit_profile_screen.dart';
@@ -519,34 +518,15 @@ class YouScreen extends ConsumerWidget {
                   const SizedBox(height: 22),
 
                   // ── Quick links ──────────────────────────────────────────
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _QuickLink(
-                          icon: Icons.history_rounded,
-                          label: 'History',
-                          color: NeedHubTokens.forest,
-                          t: t,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => const HistoryScreen()),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _QuickLink(
-                          icon: Icons.chat_bubble_outline_rounded,
-                          label: 'Chit-chat',
-                          color: NeedHubTokens.clay,
-                          t: t,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => const ChitChatScreen()),
-                          ),
-                        ),
-                      ),
-                    ],
+                  _QuickLink(
+                    icon: Icons.history_rounded,
+                    label: 'Past Work & Review History',
+                    color: NeedHubTokens.forest,
+                    t: t,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const HistoryScreen()),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
@@ -1444,23 +1424,24 @@ class _QuickLink extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(14),
           border:
               Border.all(color: color.withValues(alpha: 0.20), width: 1.5),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 6),
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 8),
             Text(
               label,
               style: GoogleFonts.hankenGrotesk(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
                 color: color,
               ),
             ),

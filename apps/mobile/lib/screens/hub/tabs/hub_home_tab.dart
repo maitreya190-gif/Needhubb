@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/reviews_api.dart';
 import '../../../theme/tokens.dart';
+import '../../chitchat/chit_chat_screen.dart';
 import '../../rating/rating_screen.dart';
 
 class HubHomeTab extends ConsumerWidget {
@@ -67,7 +68,13 @@ class HubHomeTab extends ConsumerWidget {
                   ),
                   const SizedBox(width: 12),
                   GestureDetector(
-                    onTap: onOpenChats,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ChitChatScreen(),
+                        ),
+                      );
+                    },
                     child: Container(
                       width: 46,
                       height: 46,

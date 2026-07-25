@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_state.dart';
 import '../../services/chitchat_api.dart';
+import '../../services/messaging_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_report_sheet.dart';
@@ -125,42 +126,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
         padding: EdgeInsets.fromLTRB(
             20, 0, 20, MediaQuery.of(context).padding.bottom + 24),
         children: [
-          // Eyebrow
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: NeedHubTokens.clay.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              'CHIT-CHAT',
-              style: GoogleFonts.hankenGrotesk(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-                color: NeedHubTokens.clay,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          Text(
-            'A quick, low-stakes hello.',
-            style: GoogleFonts.bricolageGrotesque(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: t.ink,
-              height: 1.15,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Toggle yourself available and see who nearby is up for a quick casual chat. Auto-expires after 24 hours.',
-            style: GoogleFonts.hankenGrotesk(
-                fontSize: 14, color: t.muted, height: 1.4),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 8),
 
           // Availability toggle
           GestureDetector(
@@ -203,32 +169,42 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 28),
-
-          // Section header
-          Text(
-            'UP FOR A CHAT RIGHT NOW',
-            style: GoogleFonts.hankenGrotesk(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.7,
-              color: t.muted2,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          if (available) _SelfTile(t: t),
-
-          // Real roster (hydrated by main.dart poller — refreshed every 15s).
-          ...chitchatRosterNotifier.value.map(
-            (p) => _RealPersonTile(person: p, t: t),
-          ),
-
-          // Fallback mock list — only when no real roster available.
-          if (chitchatRosterNotifier.value.isEmpty)
-            ..._people.map((p) => _PersonTile(person: p, t: t)),
-
           const SizedBox(height: 20),
+
+          // Friends' DMs & Messages Section
+          _ChitChatFriendsDmsHeader(t: t),
+
+          if (available) ...[
+            Text(
+              'UP FOR A CHAT RIGHT NOW',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.7,
+                color: t.muted2,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            _SelfTile(t: t),
+            const SizedBox(height: 10),
+
+            SizedBox(
+              height: 68,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  ...chitchatRosterNotifier.value.map(
+                    (p) => _RealPersonCuboidalTile(person: p, t: t),
+                  ),
+                  if (chitchatRosterNotifier.value.isEmpty)
+                    ..._people.map((p) => _PersonCuboidalTile(person: p, t: t)),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+          ],
 
           // Footer info card
           Container(
@@ -261,7 +237,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
   }
 }
 
-class _PersonTile extends StatelessWidget {
+class _PersonCuboidalTile extends StatelessWidget {
   final ({
     String initials,
     String name,
@@ -271,13 +247,13 @@ class _PersonTile extends StatelessWidget {
   }) person;
   final NeedHubTokens t;
 
-  const _PersonTile({required this.person, required this.t});
+  const _PersonCuboidalTile({required this.person, required this.t});
 
   @override
   Widget build(BuildContext context) {
     final p = person;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(right: 10),
       child: GestureDetector(
         onTap: () => showModalBottomSheet(
           context: context,
@@ -286,42 +262,63 @@ class _PersonTile extends StatelessWidget {
           builder: (_) => _PersonProfileSheet(person: p, t: t),
         ),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          width: 195,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: t.card,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: t.rail, width: 1),
           ),
           child: Row(
             children: [
               Container(
-                width: 46,
-                height: 46,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   color: p.color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(11),
                 ),
                 alignment: Alignment.center,
-                child: Text(p.initials,
-                    style: GoogleFonts.bricolageGrotesque(
-                        fontSize: 16, fontWeight: FontWeight.w700, color: p.color)),
+                child: Text(
+                  p.initials,
+                  style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: p.color,
+                  ),
+                ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(p.name,
-                        style: GoogleFonts.hankenGrotesk(
-                            fontSize: 14, fontWeight: FontWeight.w600, color: t.ink)),
-                    const SizedBox(height: 3),
-                    Text(p.area,
-                        style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
+                    Text(
+                      p.name,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: t.ink,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      p.area,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11,
+                        color: t.muted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded, size: 20, color: t.muted2),
+              Icon(Icons.chat_bubble_outline_rounded,
+                  size: 16, color: NeedHubTokens.clay),
             ],
           ),
         ),
@@ -542,11 +539,11 @@ class _SelfTile extends StatelessWidget {
 
 // ── Real person tile (hydrated from API) ─────────────────────────────────────
 
-class _RealPersonTile extends ConsumerWidget {
+class _RealPersonCuboidalTile extends ConsumerWidget {
   final ChitchatPerson person;
   final NeedHubTokens t;
 
-  const _RealPersonTile({required this.person, required this.t});
+  const _RealPersonCuboidalTile({required this.person, required this.t});
 
   String get _initials {
     final parts = person.displayName.trim().split(RegExp(r'\s+'));
@@ -557,154 +554,352 @@ class _RealPersonTile extends ConsumerWidget {
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
-  Future<void> _message(BuildContext context) async {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ConversationScreen(
-          name: person.displayName,
-          initials: _initials,
-          avatarColor: NeedHubTokens.forest,
-          avatarUrl: person.avatarUrl,
-          userId: person.userId,
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ConversationScreen(
+                name: person.displayName,
+                initials: _initials,
+                avatarColor: NeedHubTokens.forest,
+                avatarUrl: person.avatarUrl,
+                userId: person.userId,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          width: 195,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: t.rail, width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: NeedHubTokens.forest.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                alignment: Alignment.center,
+                child: person.avatarUrl != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(11),
+                        child: Image.network(
+                          person.avatarUrl!,
+                          width: 38,
+                          height: 38,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Text(
+                            _initials,
+                            style: GoogleFonts.bricolageGrotesque(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: NeedHubTokens.forest,
+                            ),
+                          ),
+                        ),
+                      )
+                    : Text(
+                        _initials,
+                        style: GoogleFonts.bricolageGrotesque(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: NeedHubTokens.forest,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      person.displayName,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: t.ink,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      person.distanceLabel.isNotEmpty
+                          ? person.distanceLabel
+                          : 'Nearby',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11,
+                        color: t.muted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chat_bubble_outline_rounded,
+                  size: 16, color: NeedHubTokens.clay),
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Future<void> _sendFriend(BuildContext context, WidgetRef ref) async {
-    final api = ref.read(friendsApiProvider);
-    try {
-      await api.sendRequest(person.userId);
-      outgoingRequestUserIdsNotifier.value = {
-        ...outgoingRequestUserIdsNotifier.value,
-        person.userId,
-      };
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Friend request sent to ${person.displayName}')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
-    }
-  }
+class _ChitChatFriendsDmsHeader extends ConsumerWidget {
+  final NeedHubTokens t;
+
+  const _ChitChatFriendsDmsHeader({required this.t});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isFriend = friendUserIdsNotifier.value.contains(person.userId);
-    final requestSent =
-        outgoingRequestUserIdsNotifier.value.contains(person.userId);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: GestureDetector(
-        // Tap anywhere on the ChitChat card → open the chat directly.
-        onTap: () => _message(context),
-        child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: t.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: t.rail, width: 1),
-        ),
-        child: Row(
+    final realChats = chatsListNotifier.value;
+    final hasReal = realChats.isNotEmpty;
+
+    final mockFriends = [
+      (
+        name: 'Priya Sharma',
+        initials: 'PS',
+        color: NeedHubTokens.forest,
+        message: 'Hi! I can help with calculus'
+      ),
+      (
+        name: 'Rohan Mehta',
+        initials: 'RM',
+        color: NeedHubTokens.ochre,
+        message: 'Sounds good, share portfolio'
+      ),
+      (
+        name: 'Dev Pillai',
+        initials: 'DP',
+        color: NeedHubTokens.clay,
+        message: "Available this Sunday."
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: NeedHubTokens.forest.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(13),
+            Text(
+              "FRIENDS' DMs",
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.7,
+                color: t.muted2,
               ),
-              alignment: Alignment.center,
-              child: person.avatarUrl != null
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(13),
-                      child: Image.network(person.avatarUrl!,
-                          width: 46, height: 46, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Text(_initials,
-                              style: GoogleFonts.bricolageGrotesque(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: NeedHubTokens.forest))),
-                    )
-                  : Text(_initials,
-                      style: GoogleFonts.bricolageGrotesque(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: NeedHubTokens.forest)),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(person.displayName,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.bricolageGrotesque(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: t.ink)),
+            const Spacer(),
+            Text(
+              "Direct Messages",
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: NeedHubTokens.clay,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        if (hasReal)
+          ...realChats.map((c) {
+            final initials = _initialsFor(c.otherDisplayName);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ConversationScreen(
+                        name: c.otherDisplayName,
+                        initials: initials,
+                        avatarColor: NeedHubTokens.forest,
+                        avatarUrl: c.otherAvatarUrl,
+                        userId: c.otherUserId,
+                        threadId: c.threadId,
                       ),
-                      if (person.distanceLabel.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Icon(Icons.place_rounded,
-                            size: 11, color: NeedHubTokens.clay),
-                        const SizedBox(width: 2),
-                        Text(person.distanceLabel,
-                            style: GoogleFonts.hankenGrotesk(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: NeedHubTokens.clay)),
-                      ],
-                    ],
-                  ),
-                  if (person.bio?.isNotEmpty ?? false)
-                    Text(person.bio!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.hankenGrotesk(
-                            fontSize: 12, color: t.muted)),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: Icon(Icons.chat_bubble_outline_rounded,
-                  color: NeedHubTokens.clay, size: 20),
-              onPressed: () => _message(context),
-            ),
-            if (!isFriend)
-              GestureDetector(
-                onTap: requestSent ? null : () => _sendFriend(context, ref),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: requestSent ? t.chip : NeedHubTokens.forest,
-                    borderRadius: BorderRadius.circular(10),
-                    border: requestSent
-                        ? Border.all(color: t.rail, width: 1)
-                        : null,
-                  ),
-                  child: Text(
-                    requestSent ? 'Sent' : 'Add',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: requestSent ? t.muted : Colors.white,
                     ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: t.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: t.rail, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: NeedHubTokens.forest.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        alignment: Alignment.center,
+                        child: c.otherAvatarUrl != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(13),
+                                child: Image.network(c.otherAvatarUrl!,
+                                    width: 44, height: 44, fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Text(initials,
+                                        style: GoogleFonts.bricolageGrotesque(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            color: NeedHubTokens.forest))),
+                              )
+                            : Text(initials,
+                                style: GoogleFonts.bricolageGrotesque(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: NeedHubTokens.forest)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c.otherDisplayName,
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: t.ink,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              c.lastMessageBody ?? 'Tap to chat',
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 12,
+                                color: t.muted,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.chat_bubble_outline_rounded,
+                          size: 20, color: NeedHubTokens.clay),
+                    ],
                   ),
                 ),
               ),
-          ],
-        ),
-        ),
-      ),
+            );
+          })
+        else
+          ...mockFriends.map((f) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ConversationScreen(
+                        name: f.name,
+                        initials: f.initials,
+                        avatarColor: f.color,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: t.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: t.rail, width: 1),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: f.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(13),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          f.initials,
+                          style: GoogleFonts.bricolageGrotesque(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: f.color,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              f.name,
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: t.ink,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              f.message,
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 12,
+                                color: t.muted,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.chat_bubble_outline_rounded,
+                          size: 20, color: NeedHubTokens.clay),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+
+        const SizedBox(height: 14),
+      ],
     );
+  }
+
+  static String _initialsFor(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts[0].isEmpty) return '?';
+    if (parts.length == 1) {
+      return parts[0].substring(0, parts[0].length.clamp(1, 2)).toUpperCase();
+    }
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 }
