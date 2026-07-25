@@ -577,12 +577,21 @@ class _PersonalityCta extends StatelessWidget {
       builder: (context, me, __) {
         final hasTaken = me?.hasPersonality ?? false;
         final subtitle = hasTaken
-            ? 'You are ${me?.personalityNickname ?? "explored"} — tap to retake'
+            ? 'You are ${me?.personalityNickname ?? "in"} — tap to see your profile'
             : 'AI-analyzed profile · match % with people on Connect';
         return GestureDetector(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const PersonalityTestScreen()),
-          ),
+          onTap: () {
+            // Once taken, the test is one-shot — send them straight to
+            // their result screen instead of the quiz.
+            final myProfile = me?.personalityProfile;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => myProfile != null
+                    ? PersonalityResultScreen(profile: myProfile)
+                    : const PersonalityTestScreen(),
+              ),
+            );
+          },
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),

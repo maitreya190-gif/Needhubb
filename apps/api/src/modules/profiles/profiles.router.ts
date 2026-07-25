@@ -218,6 +218,15 @@ profilesRouter.post('/me/personality', authenticate, async (req, res, next) => {
       return next(badRequest('All 10 answers must be non-empty', 'INVALID_ANSWERS'))
     }
 
+    // One-shot: refuse if the user has already taken the test.
+    const existing = await prisma.profile.findUnique({
+      where: { userId },
+      select: { personalityTakenAt: true },
+    })
+    if (existing?.personalityTakenAt) {
+      return next(badRequest('Personality test already taken', 'ALREADY_TAKEN'))
+    }
+
     const profile = await analyzePersonality(answers)
 
     await prisma.profile.upsert({
