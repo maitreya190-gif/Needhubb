@@ -251,7 +251,7 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                         FriendRequestDto? matchingReq;
                         for (final r in inbox) {
                           if ((widget.userId != null && (r.fromUserId == widget.userId || r.id == widget.userId)) ||
-                              r.fromDisplayName.toLowerCase() == name.toLowerCase()) {
+                              (r.otherDisplayName ?? '').toLowerCase() == name.toLowerCase()) {
                             matchingReq = r;
                             break;
                           }
