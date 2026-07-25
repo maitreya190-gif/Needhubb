@@ -20,6 +20,7 @@ class _OfferData {
   final String? responseId;
   final String? responderId;
   final String status;
+  final String? avatarUrl;
 
   const _OfferData({
     required this.initials,
@@ -30,6 +31,7 @@ class _OfferData {
     this.responseId,
     this.responderId,
     this.status = 'PENDING',
+    this.avatarUrl,
   });
 
   _OfferData withStatus(String newStatus) => _OfferData(
@@ -41,6 +43,7 @@ class _OfferData {
         responseId: responseId,
         responderId: responderId,
         status: newStatus,
+        avatarUrl: avatarUrl,
       );
 }
 
@@ -97,6 +100,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
             responseId: j['id'] as String?,
             responderId: responder['id'] as String?,
             status: j['status'] as String? ?? 'PENDING',
+            avatarUrl: responder['avatarUrl'] as String?,
           );
         }).toList();
       });
@@ -638,6 +642,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                       t: t,
                                       isPoster: _isPoster,
                                       status: o.status,
+                                      avatarUrl: o.avatarUrl,
                                       onAccept: (_isPoster && o.responseId != null)
                                           ? () => _acceptOffer(o.responseId!)
                                           : null,
@@ -733,6 +738,7 @@ class _OfferCard extends StatefulWidget {
   final NeedHubTokens t;
   final bool isPoster;
   final String status;
+  final String? avatarUrl;
   final Future<void> Function()? onAccept;
   final Future<void> Function()? onDecline;
 
@@ -746,6 +752,7 @@ class _OfferCard extends StatefulWidget {
     required this.t,
     this.isPoster = false,
     this.status = 'PENDING',
+    this.avatarUrl,
     this.onAccept,
     this.onDecline,
   });
@@ -794,23 +801,31 @@ class _OfferCardState extends State<_OfferCard> {
           children: [
             Row(
               children: [
-                Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: widget.tint,
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    widget.initials,
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+                // Profile picture — network image with initials fallback
+                Builder(builder: (_) {
+                  final url = widget.avatarUrl;
+                  if (url != null && url.isNotEmpty) {
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.network(
+                        url,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _InitialsAvatar(
+                          initials: widget.initials,
+                          tint: widget.tint,
+                          size: 40,
+                        ),
+                      ),
+                    );
+                  }
+                  return _InitialsAvatar(
+                    initials: widget.initials,
+                    tint: widget.tint,
+                    size: 40,
+                  );
+                }),
                 const SizedBox(width: 11),
                 Expanded(
                   child: Column(
@@ -1686,6 +1701,41 @@ class _OfferSortChip extends StatelessWidget {
             fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
             color: selected ? NeedHubTokens.clay : t.muted,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Circular avatar that renders initials on a solid tinted background.
+/// Used as fallback when a network profile picture is unavailable.
+class _InitialsAvatar extends StatelessWidget {
+  final String initials;
+  final Color tint;
+  final double size;
+
+  const _InitialsAvatar({
+    required this.initials,
+    required this.tint,
+    this.size = 40,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: tint,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: GoogleFonts.hankenGrotesk(
+          fontSize: size * 0.35,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
         ),
       ),
     );
