@@ -182,7 +182,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               time: m.createdAt,
               isRead: m.readAt != null,
               remoteId: m.id,
-              senderName: m.sender.displayName,
+              senderName: m.senderName,
               reactions: m.reactions.values.map((e) => e.toString()).toList(),
               replyTo: m.replyTo != null ? _Message(
                 text: m.replyTo!.body.isEmpty ? null : m.replyTo!.body,
