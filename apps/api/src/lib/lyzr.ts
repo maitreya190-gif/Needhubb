@@ -12,7 +12,7 @@
  * Grok/Groq LLM so the feature still works offline / before Lyzr is wired up.
  */
 
-const LYZR_API_URL = 'https://api.lyzr.ai/v2/inference/chat'
+const LYZR_API_URL = 'https://agent-prod.studio.lyzr.ai/v3/inference/chat/'
 const TIMEOUT_MS = 15_000
 
 export type SuggestResponseArgs = {
@@ -80,6 +80,9 @@ async function callLyzr(apiKey: string, agentId: string, message: string): Promi
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
 
+  // Use a stable session per agent so Lyzr memory works across calls
+  const sessionId = `${agentId}-needhub`
+
   try {
     const res = await fetch(LYZR_API_URL, {
       method: 'POST',
@@ -89,10 +92,10 @@ async function callLyzr(apiKey: string, agentId: string, message: string): Promi
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        user_id: 'needhub-suggest',
+        user_id: 'needhub-app',
         agent_id: agentId,
+        session_id: sessionId,
         message,
-        session_id: `suggest-${Date.now()}`,
       }),
     })
 
@@ -101,8 +104,9 @@ async function callLyzr(apiKey: string, agentId: string, message: string): Promi
       throw new Error(`Lyzr ${res.status}: ${body.slice(0, 200)}`)
     }
 
-    const data = (await res.json()) as { response?: string; message?: string }
-    const text = data.response ?? data.message
+    // v3 API returns { response: string, ... }
+    const data = (await res.json()) as { response?: string; output?: string; message?: string }
+    const text = data.response ?? data.output ?? data.message
     if (!text?.trim()) throw new Error('Lyzr returned empty response')
     return text.trim()
   } finally {
