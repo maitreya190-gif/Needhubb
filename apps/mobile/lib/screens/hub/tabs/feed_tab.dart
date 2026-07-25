@@ -343,8 +343,13 @@ class _ConnectFeedState extends State<_ConnectFeed> {
   Widget build(BuildContext context) {
     final t = widget.t;
     final filter = connectFilterNotifier.value;
-    final filteredPeople = mockPeople.where((p) {
+    var filteredPeople = mockPeople.where((p) {
       if (p.distanceKm > filter.maxDistanceKm) return false;
+      if (filter.genders.isNotEmpty &&
+          p.gender != null &&
+          !filter.genders.contains(p.gender)) {
+        return false;
+      }
       if (filter.interests.isNotEmpty) {
         final hasOverlap = p.interests.any(
           (i) => filter.interests.any(
@@ -354,8 +359,24 @@ class _ConnectFeedState extends State<_ConnectFeed> {
         );
         if (!hasOverlap) return false;
       }
+      if (filter.skills.isNotEmpty) {
+        final hasSkill = p.skills.any(
+          (s) => filter.skills.any(
+            (fs) => s.toLowerCase().contains(fs.toLowerCase()) ||
+                fs.toLowerCase().contains(s.toLowerCase()),
+          ),
+        );
+        if (!hasSkill) return false;
+      }
       return true;
     }).toList();
+
+    if (filter.sortBy == 'nearest') {
+      filteredPeople.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
+    } else if (filter.sortBy == 'highest_points') {
+      filteredPeople.sort((a, b) => b.points.compareTo(a.points));
+    }
+
     final needs = widget.needs.where((n) {
       if (n.distanceKm != null && n.distanceKm! > filter.maxDistanceKm) {
         return false;
@@ -378,14 +399,19 @@ class _ConnectFeedState extends State<_ConnectFeed> {
     }
 
     if (filteredPeople.isEmpty && needs.isEmpty) {
-      return Center(
-        child: NhEmptyState(
-          icon: Icons.people_outline_rounded,
-          title: activeCount > 0 ? 'No matches for these filters' : 'No one nearby yet',
-          subtitle: activeCount > 0
-              ? 'Try loosening the distance or interest filters'
-              : 'Try expanding the radius or check back soon',
-        ),
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
+        children: [
+          _ActiveFilterRibbon(filter: filter, surface: 'connect', t: t),
+          SizedBox(height: activeCount > 0 ? 20 : 60),
+          NhEmptyState(
+            icon: Icons.people_outline_rounded,
+            title: activeCount > 0 ? 'No matches for these filters' : 'No one nearby yet',
+            subtitle: activeCount > 0
+                ? 'Tap "Edit filters" or "Clear all" above to change your search'
+                : 'Try expanding the radius or check back soon',
+          ),
+        ],
       );
     }
 
@@ -437,6 +463,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
           ],
         ),
         const SizedBox(height: 12),
+        _ActiveFilterRibbon(filter: filter, surface: 'connect', t: t),
 
         ...filteredPeople.asMap().entries.map((e) {
           final i = e.key;
@@ -725,7 +752,7 @@ class _EarnFeedState extends State<_EarnFeed> {
   Widget build(BuildContext context) {
     final t = widget.t;
     final filter = earnFilterNotifier.value;
-    final needs = widget.needs.where((n) {
+    var needs = widget.needs.where((n) {
       if (n.distanceKm != null && n.distanceKm! > filter.maxDistanceKm) {
         return false;
       }
@@ -738,6 +765,11 @@ class _EarnFeedState extends State<_EarnFeed> {
           n.budgetMin! > filter.maxBudget!) {
         return false;
       }
+      if (filter.genders.isNotEmpty &&
+          n.posterGender != null &&
+          !filter.genders.contains(n.posterGender)) {
+        return false;
+      }
       if (filter.interests.isNotEmpty) {
         final hasTag = n.tags.any(
           (tag) => filter.interests.any(
@@ -747,8 +779,24 @@ class _EarnFeedState extends State<_EarnFeed> {
         );
         if (!hasTag) return false;
       }
+      if (filter.skills.isNotEmpty) {
+        final hasSkill = filter.skills.any(
+          (sk) =>
+              n.title.toLowerCase().contains(sk.toLowerCase()) ||
+              n.description.toLowerCase().contains(sk.toLowerCase()) ||
+              n.tags.any((t) => t.toLowerCase().contains(sk.toLowerCase())),
+        );
+        if (!hasSkill) return false;
+      }
       return true;
     }).toList();
+
+    if (filter.sortBy == 'nearest') {
+      needs.sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
+    } else if (filter.sortBy == 'highest_points') {
+      needs.sort((a, b) => (b.budgetMin ?? 0).compareTo(a.budgetMin ?? 0));
+    }
+
     final activeCount = filter.filterCount;
 
     if (_loading) {
@@ -765,14 +813,19 @@ class _EarnFeedState extends State<_EarnFeed> {
     }
 
     if (needs.isEmpty) {
-      return Center(
-        child: NhEmptyState(
-          icon: Icons.search_off_rounded,
-          title: activeCount > 0 ? 'No needs match these filters' : 'Nothing nearby yet',
-          subtitle: activeCount > 0
-              ? 'Try adjusting the budget, distance, or skill filter'
-              : 'Try expanding the radius or check back soon',
-        ),
+      return ListView(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 120),
+        children: [
+          _ActiveFilterRibbon(filter: filter, surface: 'earn', t: t),
+          SizedBox(height: activeCount > 0 ? 20 : 60),
+          NhEmptyState(
+            icon: Icons.search_off_rounded,
+            title: activeCount > 0 ? 'No needs match these filters' : 'Nothing nearby yet',
+            subtitle: activeCount > 0
+                ? 'Tap "Edit filters" or "Clear all" above to change your search'
+                : 'Try expanding the radius or check back soon',
+          ),
+        ],
       );
     }
 
@@ -824,6 +877,7 @@ class _EarnFeedState extends State<_EarnFeed> {
           ],
         ),
         const SizedBox(height: 12),
+        _ActiveFilterRibbon(filter: filter, surface: 'earn', t: t),
 
         ...needs.asMap().entries.map((e) {
           final i = e.key;
@@ -2019,6 +2073,7 @@ class _RankerBadge extends StatelessWidget {
   }
 }
 
+<<<<<<< HEAD
 class _ChitChatFriendsDmsHeader extends ConsumerWidget {
   final NeedHubTokens t;
 
@@ -2263,4 +2318,127 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
     }
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
+=======
+class _ActiveFilterRibbon extends StatelessWidget {
+  final FeedFilter filter;
+  final String surface;
+  final NeedHubTokens t;
+
+  const _ActiveFilterRibbon({
+    required this.filter,
+    required this.surface,
+    required this.t,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final badges = filter.activeBadges;
+    if (badges.isEmpty) return const SizedBox.shrink();
+
+    final notifier =
+        surface == 'earn' ? earnFilterNotifier : connectFilterNotifier;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: NeedHubTokens.clay.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: NeedHubTokens.clay.withValues(alpha: 0.20),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.filter_alt_rounded,
+                  size: 14, color: NeedHubTokens.clay),
+              const SizedBox(width: 6),
+              Text(
+                'ACTIVE FILTERS (${badges.length})',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: NeedHubTokens.clay,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => NhFilterSheet.open(context, surface: surface),
+                child: Text(
+                  'Edit filters',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: NeedHubTokens.forest,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () => notifier.value = const FeedFilter(),
+                child: Text(
+                  'Clear all',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: NeedHubTokens.clay,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: badges.map((badge) {
+              return Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: t.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: NeedHubTokens.clay.withValues(alpha: 0.30),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      badge.label,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: t.ink,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () {
+                        notifier.value = filter.removeBadge(badge);
+                      },
+                      child: Icon(
+                        Icons.cancel_rounded,
+                        size: 15,
+                        color: NeedHubTokens.clay,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+>>>>>>> d7fd1115ed00eb58be5a8a62766be77084f23822
 }
