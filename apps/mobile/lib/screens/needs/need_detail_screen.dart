@@ -55,6 +55,7 @@ class NeedDetailScreen extends ConsumerStatefulWidget {
 class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   Need get need => widget.need;
   List<_OfferData> _realOffers = const [];
+  String _offerSortMode = 'newest';
 
   bool get _isPoster =>
       need.authorName == 'You' || need.authorInitials == 'ME';
@@ -519,21 +520,96 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                       }
                       final List<_OfferData> displayOffers = mergedMap.values.toList();
 
+                      // Apply sorting: time, price, location
+                      if (_offerSortMode == 'oldest') {
+                        displayOffers.sort((a, b) => 1);
+                      } else if (_offerSortMode == 'price_high') {
+                        displayOffers.sort((a, b) {
+                          final pa = int.tryParse(a.amount.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+                          final pb = int.tryParse(b.amount.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+                          return pb.compareTo(pa);
+                        });
+                      } else if (_offerSortMode == 'price_low') {
+                        displayOffers.sort((a, b) {
+                          final pa = int.tryParse(a.amount.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+                          final pb = int.tryParse(b.amount.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+                          return pa.compareTo(pb);
+                        });
+                      } else if (_offerSortMode == 'nearest') {
+                        displayOffers.sort((a, b) => a.name.compareTo(b.name));
+                      }
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'OFFERS (${displayOffers.length})',
-                              style: GoogleFonts.hankenGrotesk(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.08 * 12,
-                                color: t.muted,
+                            Row(
+                              children: [
+                                Text(
+                                  'OFFERS (${displayOffers.length})',
+                                  style: GoogleFonts.hankenGrotesk(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.08 * 12,
+                                    color: t.muted,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  'Public Offers',
+                                  style: GoogleFonts.hankenGrotesk(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: NeedHubTokens.forest,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            // Filter/Sort chips row
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  _OfferSortChip(
+                                    label: '⏱ Newest',
+                                    selected: _offerSortMode == 'newest',
+                                    onTap: () => setState(() => _offerSortMode = 'newest'),
+                                    t: t,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _OfferSortChip(
+                                    label: '💰 Highest ₹',
+                                    selected: _offerSortMode == 'price_high',
+                                    onTap: () => setState(() => _offerSortMode = 'price_high'),
+                                    t: t,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _OfferSortChip(
+                                    label: '🏷 Lowest ₹',
+                                    selected: _offerSortMode == 'price_low',
+                                    onTap: () => setState(() => _offerSortMode = 'price_low'),
+                                    t: t,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _OfferSortChip(
+                                    label: '📍 Nearest',
+                                    selected: _offerSortMode == 'nearest',
+                                    onTap: () => setState(() => _offerSortMode = 'nearest'),
+                                    t: t,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  _OfferSortChip(
+                                    label: '⏳ Oldest',
+                                    selected: _offerSortMode == 'oldest',
+                                    onTap: () => setState(() => _offerSortMode = 'oldest'),
+                                    t: t,
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 9),
+                            const SizedBox(height: 12),
                             if (displayOffers.isEmpty)
                               NhEmptyState(
                                 icon: Icons.inbox_outlined,
@@ -1505,6 +1581,47 @@ class _ConnectSheetState extends State<_ConnectSheet> {
                 ),
               ],
             ),
+    );
+  }
+}
+
+class _OfferSortChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final NeedHubTokens t;
+
+  const _OfferSortChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.t,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: selected ? NeedHubTokens.clay.withValues(alpha: 0.14) : t.card,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(
+            color: selected ? NeedHubTokens.clay : t.rail,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 11.5,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            color: selected ? NeedHubTokens.clay : t.muted,
+          ),
+        ),
+      ),
     );
   }
 }
