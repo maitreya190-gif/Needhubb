@@ -392,10 +392,10 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                 ),
               ),
             ),
-            // Bottom nav
+
+            // Navigation bar
             Container(
-              padding: EdgeInsets.fromLTRB(
-                20, 12, 20, MediaQuery.of(context).padding.bottom + 14),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: t.paper,
                 border: Border(top: BorderSide(color: t.rail, width: 1)),
@@ -422,12 +422,6 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                   if (_step > 0) const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton(
-                      // On the last step, always allow the tap — _submit()
-                      // itself handles missing answers by jumping to the
-                      // first unanswered question. This means users are
-                      // never stuck if a state bug leaves the current answer
-                      // stale. On intermediate steps we still require an
-                      // answer to advance.
                       onPressed: _submitting
                           ? null
                           : (isLast || _answers[_step] != null)
@@ -486,141 +480,188 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
 /// You screen tapping the "personality" card to re-view results.
 class PersonalityResultScreen extends StatelessWidget {
   final PersonalityProfile profile;
-  const PersonalityResultScreen({super.key, required this.profile});
+  final bool isFromQuiz;
+  const PersonalityResultScreen({
+    super.key,
+    required this.profile,
+    this.isFromQuiz = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
     final traits = profile.traits;
 
-    return Scaffold(
-      backgroundColor: t.paper,
-      appBar: AppBar(
+    return PopScope(
+      canPop: !isFromQuiz,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (isFromQuiz) {
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      },
+      child: Scaffold(
         backgroundColor: t.paper,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: t.ink),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: Text(
-          'Your Personality',
-          style: GoogleFonts.hankenGrotesk(
-              fontSize: 16, fontWeight: FontWeight.w800, color: t.ink),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  NeedHubTokens.clay,
-                  NeedHubTokens.clay.withValues(alpha: 0.72),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'YOU ARE',
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.9,
-                    color: Colors.white.withValues(alpha: 0.85),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  profile.nickname,
-                  style: GoogleFonts.bricolageGrotesque(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    height: 1.15,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  profile.summary,
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 14.5,
-                    color: Colors.white.withValues(alpha: 0.95),
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: profile.vibeTags.map((tag) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        tag,
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
+        appBar: AppBar(
+          backgroundColor: t.paper,
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back_rounded, color: t.ink),
+            onPressed: () {
+              if (isFromQuiz) {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              } else {
+                Navigator.of(context).maybePop();
+              }
+            },
           ),
-          const SizedBox(height: 24),
-          Text(
-            'TRAIT PROFILE',
+          title: Text(
+            'Your Personality',
             style: GoogleFonts.hankenGrotesk(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: t.muted2,
-            ),
+                fontSize: 16, fontWeight: FontWeight.w800, color: t.ink),
           ),
-          const SizedBox(height: 12),
-          _TraitBar(label: 'Openness', value: traits.openness, t: t),
-          _TraitBar(label: 'Conscientiousness', value: traits.conscientiousness, t: t),
-          _TraitBar(label: 'Extraversion', value: traits.extraversion, t: t),
-          _TraitBar(label: 'Agreeableness', value: traits.agreeableness, t: t),
-          _TraitBar(label: 'Emotional Stability', value: traits.emotionalStability, t: t),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: t.chip,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline_rounded, size: 16, color: t.muted2),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Your profile helps us surface a compatibility % on Connect. '
-                    'You can retake anytime from your You tab.',
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    NeedHubTokens.clay,
+                    NeedHubTokens.clay.withValues(alpha: 0.72),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'YOU ARE',
                     style: GoogleFonts.hankenGrotesk(
-                        fontSize: 12.5, color: t.muted, height: 1.4),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.9,
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    profile.nickname,
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    profile.summary,
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 14.5,
+                      color: Colors.white.withValues(alpha: 0.95),
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: profile.vibeTags.map((tag) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          tag,
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'TRAIT PROFILE',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: t.muted2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _TraitBar(label: 'Openness', value: traits.openness, t: t),
+            _TraitBar(label: 'Conscientiousness', value: traits.conscientiousness, t: t),
+            _TraitBar(label: 'Extraversion', value: traits.extraversion, t: t),
+            _TraitBar(label: 'Agreeableness', value: traits.agreeableness, t: t),
+            _TraitBar(label: 'Emotional Stability', value: traits.emotionalStability, t: t),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: t.chip,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, size: 16, color: t.muted2),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Your profile helps us surface a compatibility % on Connect. '
+                      'You can retake anytime from your You tab.',
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12.5, color: t.muted, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isFromQuiz) ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: NeedHubTokens.clay,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    'Back to NeedHub',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
