@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/need.dart';
 import '../../../models/user_state.dart';
+import '../../../services/needs_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
 import '../../needs/need_detail_screen.dart';
@@ -25,6 +26,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   void initState() {
     super.initState();
     needsNotifier.addListener(_onNeedsChanged);
+    feedNeedsNotifier.addListener(_onNeedsChanged);
   }
 
   void _onNeedsChanged() => setState(() {});
@@ -32,12 +34,13 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   @override
   void dispose() {
     needsNotifier.removeListener(_onNeedsChanged);
+    feedNeedsNotifier.removeListener(_onNeedsChanged);
     _searchController.dispose();
     super.dispose();
   }
 
   List<Need> get _filtered {
-    var needs = List<Need>.from(mockNeeds)
+    var needs = List<Need>.from(feedNeedsNotifier.value)
         .where((n) => n.authorName != 'You' && n.authorInitials != 'ME')
         .toList();
     if (_selectedCategory != 'all') {

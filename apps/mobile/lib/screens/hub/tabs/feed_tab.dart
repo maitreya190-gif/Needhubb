@@ -400,10 +400,8 @@ class _ConnectFeedState extends State<_ConnectFeed> {
       }
       return true;
     }).toList();
-    if (needs.isEmpty) {
-      needs = widget.needs.isNotEmpty
-          ? widget.needs
-          : mockNeeds.where((n) => n.category == 'connect').toList();
+    if (needs.isEmpty && widget.needs.isNotEmpty) {
+      needs = widget.needs;
     }
     final activeCount = filter.filterCount;
 
@@ -813,10 +811,8 @@ class _EarnFeedState extends State<_EarnFeed> {
       return true;
     }).toList();
 
-    if (needs.isEmpty) {
-      needs = widget.needs.isNotEmpty
-          ? widget.needs
-          : mockNeeds.where((n) => n.category == 'earn').toList();
+    if (needs.isEmpty && widget.needs.isNotEmpty) {
+      needs = widget.needs;
     }
 
     if (filter.sortBy == 'nearest') {

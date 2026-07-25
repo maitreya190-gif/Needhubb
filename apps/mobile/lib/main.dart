@@ -120,11 +120,16 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> {
   Future<void> _hydrateFeed(NeedsApi api) async {
     try {
       final res = await api.feed(sort: 'smart', take: 60);
-      if (res.needs.isNotEmpty) {
-        feedNeedsNotifier.value = res.needs;
-        feedRankerNotifier.value = res.ranker;
+      final Map<String, Need> map = {};
+      for (final n in feedNeedsNotifier.value.where((n) => n.authorName == 'You' || n.authorInitials == 'ME')) {
+        map[n.id] = n;
       }
-    } catch (_) {/* swallow — the mock fallback stays visible */}
+      for (final n in res.needs) {
+        map[n.id] = n;
+      }
+      feedNeedsNotifier.value = map.values.toList();
+      feedRankerNotifier.value = res.ranker;
+    } catch (_) {/* swallow */}
   }
 
   Future<void> _hydrateNotifications(NotificationsApi api) async {

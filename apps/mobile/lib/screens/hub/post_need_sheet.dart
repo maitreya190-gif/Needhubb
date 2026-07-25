@@ -185,6 +185,10 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
 
     // Optimistically prepend to local feed so the feed refreshes immediately
     mockNeeds.insert(0, postedNeed);
+    feedNeedsNotifier.value = [
+      postedNeed,
+      ...feedNeedsNotifier.value.where((n) => n.id != postedNeed!.id),
+    ];
     needsNotifier.value++;
     unawaited(_refreshRankedFeed());
 

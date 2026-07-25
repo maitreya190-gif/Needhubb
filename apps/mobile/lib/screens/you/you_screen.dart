@@ -1641,7 +1641,7 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
-    final localMine = mockNeeds.where((n) => n.authorName == 'You' || n.authorInitials == 'ME').toList();
+    final localMine = feedNeedsNotifier.value.where((n) => n.authorName == 'You' || n.authorInitials == 'ME').toList();
 
     // Merge API posted needs + local mine
     final Map<String, Need> map = {};
