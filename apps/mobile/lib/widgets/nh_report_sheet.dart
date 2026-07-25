@@ -6,7 +6,6 @@ import '../models/user_state.dart';
 import '../services/api_client.dart';
 import '../services/social_providers.dart';
 import '../theme/tokens.dart';
-import 'package:needhub/services/api_client.dart';
 
 class NhReportSheet extends ConsumerStatefulWidget {
   final String targetName;
