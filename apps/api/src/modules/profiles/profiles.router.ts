@@ -227,25 +227,32 @@ profilesRouter.post('/me/personality', authenticate, async (req, res, next) => {
       return next(badRequest('Personality test already taken', 'ALREADY_TAKEN'))
     }
 
-    const profile = await analyzePersonality(answers)
+    let profile
+    try {
+      // analyzePersonality tries Lyzr first, silently falls back to Groq.
+      // Only throws when BOTH are unavailable — that's a rare hard failure.
+      profile = await analyzePersonality(answers)
+    } catch (aiErr) {
+      console.error('[personality] both Lyzr and Groq failed:', (aiErr as Error).message)
+      return res.status(502).json({
+        error: 'Personality analyzer is temporarily unavailable. Please try again in a moment.',
+        code: 'LYZR_UNAVAILABLE',
+        detail: (aiErr as Error).message,
+      })
+    }
 
+    // Persist only the DB-shape (strip the `poweredBy` badge before writing).
+    const dbFields = {
+      personalityTraits: profile.traits,
+      personalityNickname: profile.nickname,
+      personalitySummary: profile.summary,
+      personalityVibeTags: profile.vibeTags,
+      personalityTakenAt: new Date(),
+    }
     await prisma.profile.upsert({
       where: { userId },
-      update: {
-        personalityTraits: profile.traits,
-        personalityNickname: profile.nickname,
-        personalitySummary: profile.summary,
-        personalityVibeTags: profile.vibeTags,
-        personalityTakenAt: new Date(),
-      },
-      create: {
-        userId,
-        personalityTraits: profile.traits,
-        personalityNickname: profile.nickname,
-        personalitySummary: profile.summary,
-        personalityVibeTags: profile.vibeTags,
-        personalityTakenAt: new Date(),
-      },
+      update: dbFields,
+      create: { userId, ...dbFields },
     })
 
     res.json(profile)

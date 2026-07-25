@@ -100,14 +100,29 @@ class ProfileMe {
         ? DateTime.tryParse(faceVerifiedAtStr)
         : null;
 
-    final traitsRaw = profile['personalityTraits'];
-    final personalityTraits = traitsRaw is Map
-        ? PersonalityTraits.fromJson(traitsRaw.cast<String, dynamic>())
-        : null;
-    final vibeTagsRaw = profile['personalityVibeTags'];
-    final personalityVibeTags = vibeTagsRaw is List
-        ? vibeTagsRaw.map((e) => e.toString()).toList()
-        : const <String>[];
+    // Personality data is defensive-parsed — a bad row must never crash
+    // the whole ProfileMe factory because every screen listens to the
+    // profile notifier and would red-screen on a single throw.
+    PersonalityTraits? personalityTraits;
+    try {
+      final traitsRaw = profile['personalityTraits'];
+      if (traitsRaw is Map) {
+        personalityTraits = PersonalityTraits.fromJson(
+            traitsRaw.cast<String, dynamic>());
+      }
+    } catch (e) {
+      debugPrint('[ProfileMe] personalityTraits parse failed: $e');
+    }
+    List<String> personalityVibeTags = const [];
+    try {
+      final vibeTagsRaw = profile['personalityVibeTags'];
+      if (vibeTagsRaw is List) {
+        personalityVibeTags =
+            vibeTagsRaw.map((e) => e?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+      }
+    } catch (e) {
+      debugPrint('[ProfileMe] personalityVibeTags parse failed: $e');
+    }
 
     return ProfileMe(
       id: (j['id'] as String?) ?? (profile['id'] as String?) ?? '',

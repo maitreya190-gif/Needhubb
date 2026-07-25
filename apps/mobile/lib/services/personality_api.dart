@@ -18,12 +18,25 @@ class PersonalityTraits {
     required this.emotionalStability,
   });
 
+  /// Defensive int coercion — accepts numbers, numeric strings, anything that
+  /// parses. Falls back to a neutral 50 for anything unparseable so a bad
+  /// row from the AI (string instead of number, missing field, etc.) can
+  /// never crash a widget build.
+  static int _asInt(dynamic v) {
+    if (v is num) return v.toInt().clamp(0, 100);
+    if (v is String) {
+      final parsed = num.tryParse(v.trim());
+      if (parsed != null) return parsed.toInt().clamp(0, 100);
+    }
+    return 50;
+  }
+
   factory PersonalityTraits.fromJson(Map<String, dynamic> j) => PersonalityTraits(
-        openness: (j['openness'] as num?)?.toInt() ?? 50,
-        conscientiousness: (j['conscientiousness'] as num?)?.toInt() ?? 50,
-        extraversion: (j['extraversion'] as num?)?.toInt() ?? 50,
-        agreeableness: (j['agreeableness'] as num?)?.toInt() ?? 50,
-        emotionalStability: (j['emotionalStability'] as num?)?.toInt() ?? 50,
+        openness: _asInt(j['openness']),
+        conscientiousness: _asInt(j['conscientiousness']),
+        extraversion: _asInt(j['extraversion']),
+        agreeableness: _asInt(j['agreeableness']),
+        emotionalStability: _asInt(j['emotionalStability']),
       );
 
   List<int> get vector => [

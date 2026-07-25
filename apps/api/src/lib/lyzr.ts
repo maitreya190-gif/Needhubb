@@ -154,8 +154,7 @@ async function callFallbackLlm(userMessage: string): Promise<string> {
 
 // ── Personality analyzer ─────────────────────────────────────────────────────
 // Uses a dedicated Lyzr agent that returns a strict JSON personality profile
-// given 10 quiz answers. If Lyzr is missing or fails, falls back to Grok/Groq LLM
-// or a deterministic local Big Five scoring engine so submission NEVER fails with 502.
+// given 10 quiz answers. See LYZR_PERSONALITY_AGENT_ID in .env.
 
 export type PersonalityTraits = {
   openness: number
@@ -172,43 +171,58 @@ export type PersonalityProfile = {
   vibeTags: string[]
 }
 
+const PERSONALITY_SYSTEM_PROMPT = `You are NeedHub's personality analyst.
+
+INPUT: A JSON object with 10 numbered answers (q1..q10) to a personality quiz.
+
+OUTPUT: STRICT JSON only — no markdown, no code fences, no commentary. Match this schema exactly:
+
+{
+  "traits": {
+    "openness": <integer 0-100>,
+    "conscientiousness": <integer 0-100>,
+    "extraversion": <integer 0-100>,
+    "agreeableness": <integer 0-100>,
+    "emotionalStability": <integer 0-100>
+  },
+  "nickname": "<max 3 words, evocative and positive, e.g. 'The Builder', 'The Quiet Storm'>",
+  "summary": "<one warm sentence, max 25 words, never judgmental>",
+  "vibeTags": ["<lowercase-tag>", "<lowercase-tag>", "<lowercase-tag>"]
+}
+
+Ground every score in the answers. Return ONLY the JSON. No prefix, no suffix.`
+
 /**
  * Analyze 10 quiz answers and return a normalized personality profile.
- * 3-Tier Fallback Architecture:
- *   1. Lyzr Agent (if LYZR_PERSONALITY_AGENT_ID is configured)
- *   2. Grok/Groq Fallback LLM (if LLM_* env vars are configured)
- *   3. Deterministic Local Big Five Scoring Engine (always guaranteed to succeed)
+ * Tries Lyzr first (branded feature), falls back silently to Groq so the
+ * quiz still works when Lyzr is down. Only throws when BOTH are unavailable.
  */
 export async function analyzePersonality(
   answers: string[],
-): Promise<PersonalityProfile> {
-  const apiKey = process.env.LYZR_API_KEY
-  const agentId = process.env.LYZR_PERSONALITY_AGENT_ID
-
-  // 1. Try Lyzr API
-  if (apiKey && agentId) {
-    try {
-      return await callLyzrPersonality(apiKey, agentId, answers)
-    } catch (err) {
-      console.warn('[lyzr] Personality Lyzr call failed, trying LLM fallback:', (err as Error).message)
-    }
-  }
-
-  // 2. Try Fallback LLM
-  try {
-    return await callFallbackLlmForPersonality(answers)
-  } catch (err) {
-    console.warn('[lyzr] Personality LLM call failed, using local scoring engine:', (err as Error).message)
-  }
-
-  // 3. Fallback to robust local scoring engine (always succeeds)
-  return computeLocalPersonality(answers)
-}
-
-async function callLyzrPersonality(apiKey: string, agentId: string, answers: string[]): Promise<PersonalityProfile> {
+): Promise<PersonalityProfile & { poweredBy: 'lyzr' | 'groq' }> {
   const message = JSON.stringify(
     Object.fromEntries(answers.map((a, i) => [`q${i + 1}`, a])),
   )
+
+  // Attempt 1: Lyzr agent (branded, on the Home CTA).
+  try {
+    const lyzrProfile = await callLyzrPersonality(message)
+    return { ...lyzrProfile, poweredBy: 'lyzr' }
+  } catch (err) {
+    console.warn('[personality] Lyzr failed, falling back to Groq:', (err as Error).message)
+  }
+
+  // Attempt 2: Groq via the same key we already use for moderation + decompose.
+  const groqProfile = await callGroqPersonality(message)
+  return { ...groqProfile, poweredBy: 'groq' }
+}
+
+async function callLyzrPersonality(message: string): Promise<PersonalityProfile> {
+  const apiKey = process.env.LYZR_API_KEY
+  const agentId = process.env.LYZR_PERSONALITY_AGENT_ID
+  if (!apiKey || !agentId) {
+    throw new Error('Lyzr personality agent not configured')
+  }
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -232,210 +246,100 @@ async function callLyzrPersonality(apiKey: string, agentId: string, answers: str
     const data = (await res.json()) as { response?: string; output?: string }
     const raw = (data.response ?? data.output ?? '').trim()
     if (!raw) throw new Error('Lyzr personality returned empty response')
-    return parseAndCleanProfile(raw)
+
+    // Extract the first {...} JSON object from the response. Handles cases
+    // where Lyzr wraps the JSON in markdown fences or adds a preamble/suffix.
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim()
+    let jsonText = cleaned
+    if (!jsonText.startsWith('{')) {
+      const firstBrace = jsonText.indexOf('{')
+      const lastBrace = jsonText.lastIndexOf('}')
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        jsonText = jsonText.slice(firstBrace, lastBrace + 1)
+      }
+    }
+
+    let parsed: PersonalityProfile
+    try {
+      parsed = JSON.parse(jsonText) as PersonalityProfile
+    } catch (err) {
+      console.error('[lyzr] personality parse failure. Raw response:', raw.slice(0, 500))
+      throw new Error(`Lyzr personality returned unparseable JSON: ${(err as Error).message}`)
+    }
+    if (!parsed.traits || typeof parsed.traits.openness !== 'number') {
+      throw new Error('Lyzr personality returned malformed profile — missing traits')
+    }
+    // Coerce missing / fuzzy fields so downstream code never crashes.
+    parsed.nickname = parsed.nickname?.trim() || 'The NeedHubber'
+    parsed.summary = parsed.summary?.trim() || ''
+    parsed.vibeTags = Array.isArray(parsed.vibeTags)
+      ? parsed.vibeTags.map((t) => String(t).trim()).filter(Boolean).slice(0, 6)
+      : []
+    return parsed
   } finally {
     clearTimeout(timeout)
   }
 }
 
-async function callFallbackLlmForPersonality(answers: string[]): Promise<PersonalityProfile> {
+async function callGroqPersonality(message: string): Promise<PersonalityProfile> {
   const baseUrl = process.env.LLM_BASE_URL
   const key = process.env.LLM_API_KEY
   const model = process.env.LLM_MODEL
-  if (!baseUrl || !key || !model) throw new Error('No LLM configured')
+  if (!baseUrl || !key || !model) {
+    throw new Error('Groq fallback not configured — set LLM_API_KEY, LLM_BASE_URL, LLM_MODEL in .env')
+  }
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
-
-  const prompt = `Analyze these 10 personality quiz responses:
-${answers.map((a, i) => `Q${i + 1}: ${a}`).join('\n')}
-
-Return ONLY a JSON object matching this exact schema:
-{
-  "traits": {
-    "openness": <number 50-98>,
-    "conscientiousness": <number 50-98>,
-    "extraversion": <number 50-98>,
-    "agreeableness": <number 50-98>,
-    "emotionalStability": <number 50-98>
-  },
-  "nickname": "<a catchy 2-3 word archetype, e.g. 'The Grounded Builder'>",
-  "summary": "<2-sentence insight about their style & strengths>",
-  "vibeTags": ["<tag1>", "<tag2>", "<tag3>", "<tag4>"]
-}`
 
   try {
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       signal: controller.signal,
       headers: {
-        'Authorization': `Bearer ${key}`,
+        Authorization: `Bearer ${key}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         model,
-        temperature: 0.7,
-        max_tokens: 300,
+        temperature: 0.6,
+        max_tokens: 400,
+        response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: 'You are a personality psychologist. Return valid JSON only.' },
-          { role: 'user', content: prompt },
+          { role: 'system', content: PERSONALITY_SYSTEM_PROMPT },
+          { role: 'user', content: message },
         ],
       }),
     })
-
-    if (!res.ok) throw new Error(`LLM ${res.status}`)
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`Groq personality ${res.status}: ${body.slice(0, 200)}`)
+    }
     const data = (await res.json()) as { choices?: { message?: { content?: string } }[] }
     const raw = data.choices?.[0]?.message?.content?.trim()
-    if (!raw) throw new Error('LLM returned no content')
-    return parseAndCleanProfile(raw)
+    if (!raw) throw new Error('Groq personality returned no content')
+
+    let parsed: PersonalityProfile
+    try {
+      parsed = JSON.parse(raw) as PersonalityProfile
+    } catch (err) {
+      console.error('[groq] personality parse failure. Raw:', raw.slice(0, 500))
+      throw new Error(`Groq personality returned unparseable JSON: ${(err as Error).message}`)
+    }
+    if (!parsed.traits || typeof parsed.traits.openness !== 'number') {
+      throw new Error('Groq personality returned malformed profile')
+    }
+    parsed.nickname = parsed.nickname?.trim() || 'The NeedHubber'
+    parsed.summary = parsed.summary?.trim() || ''
+    parsed.vibeTags = Array.isArray(parsed.vibeTags)
+      ? parsed.vibeTags.map((t) => String(t).trim()).filter(Boolean).slice(0, 6)
+      : []
+    return parsed
   } finally {
     clearTimeout(timeout)
-  }
-}
-
-function parseAndCleanProfile(raw: string): PersonalityProfile {
-  const cleaned = raw
-    .replace(/^```(?:json)?\s*/i, '')
-    .replace(/```\s*$/i, '')
-    .trim()
-  let jsonText = cleaned
-  if (!jsonText.startsWith('{')) {
-    const firstBrace = jsonText.indexOf('{')
-    const lastBrace = jsonText.lastIndexOf('}')
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      jsonText = jsonText.slice(firstBrace, lastBrace + 1)
-    }
-  }
-
-  const parsed = JSON.parse(jsonText) as PersonalityProfile
-  if (!parsed.traits || typeof parsed.traits.openness !== 'number') {
-    throw new Error('Lyzr personality returned malformed profile — missing traits')
-  }
-  parsed.nickname = parsed.nickname?.trim() || 'The NeedHubber'
-  parsed.summary = parsed.summary?.trim() || ''
-  parsed.vibeTags = Array.isArray(parsed.vibeTags)
-    ? parsed.vibeTags.map((t) => String(t).trim()).filter(Boolean).slice(0, 6)
-    : []
-  return parsed
-}
-
-export function computeLocalPersonality(answers: string[]): PersonalityProfile {
-  let openness = 65
-  let conscientiousness = 65
-  let extraversion = 65
-  let agreeableness = 65
-  let emotionalStability = 65
-
-  answers.forEach((ans) => {
-    const a = ans.toLowerCase()
-    // Q1
-    if (a.includes('walk somewhere new')) { openness += 12 }
-    else if (a.includes('solo project')) { conscientiousness += 12; extraversion -= 6 }
-    else if (a.includes('group hangout')) { extraversion += 15 }
-    else if (a.includes('cozy day in')) { agreeableness += 10 }
-
-    // Q2
-    if (a.includes('ask a lot of questions')) { openness += 10; agreeableness += 8 }
-    else if (a.includes('listen more')) { agreeableness += 12; extraversion -= 6 }
-    else if (a.includes('crack a joke')) { extraversion += 12; emotionalStability += 6 }
-    else if (a.includes('wait for them')) { emotionalStability += 8 }
-
-    // Q3
-    if (a.includes('everything has its place')) { conscientiousness += 15 }
-    else if (a.includes('organized chaos')) { openness += 8; conscientiousness += 6 }
-    else if (a.includes('rotating pile')) { openness += 15 }
-    else if (a.includes('wherever my laptop')) { extraversion += 8 }
-
-    // Q4
-    if (a.includes('relief')) { emotionalStability += 10; extraversion -= 8 }
-    else if (a.includes('curiosity')) { agreeableness += 12 }
-    else if (a.includes('annoyed but flexible')) { emotionalStability += 12 }
-    else if (a.includes('text three other')) { extraversion += 15 }
-
-    // Q5
-    if (a.includes('building something')) { conscientiousness += 12; openness += 8 }
-    else if (a.includes('learning a new idea')) { openness += 15 }
-    else if (a.includes('helping someone')) { agreeableness += 15 }
-    else if (a.includes('surrounded by good energy')) { extraversion += 12; agreeableness += 8 }
-
-    // Q6
-    if (a.includes('depth over breadth')) { conscientiousness += 10; extraversion -= 5 }
-    else if (a.includes('stay curious')) { openness += 15 }
-    else if (a.includes('people are the point')) { agreeableness += 15; extraversion += 8 }
-    else if (a.includes('ship, then polish')) { conscientiousness += 15 }
-
-    // Q7
-    if (a.includes('withdraw and recharge')) { extraversion -= 8; emotionalStability += 8 }
-    else if (a.includes('talk it out')) { agreeableness += 10; extraversion += 8 }
-    else if (a.includes('distract yourself with a task')) { conscientiousness += 12 }
-    else if (a.includes('move your body')) { emotionalStability += 15 }
-
-    // Q8
-    if (a.includes('something unexpected')) { openness += 12 }
-    else if (a.includes('actually listened')) { agreeableness += 15 }
-    else if (a.includes('warm and easy')) { agreeableness += 10; emotionalStability += 8 }
-    else if (a.includes('niche interest')) { openness += 10; conscientiousness += 6 }
-
-    // Q9
-    if (a.includes('someone you trust')) { agreeableness += 10 }
-    else if (a.includes('data that convinced')) { conscientiousness += 15 }
-    else if (a.includes('itch you’ve had') || a.includes("itch you've had")) { openness += 12 }
-    else if (a.includes('bored of your usual')) { extraversion += 10; openness += 8 }
-
-    // Q10
-    if (a.includes('person i call')) { agreeableness += 15; emotionalStability += 10 }
-    else if (a.includes('make things happen')) { conscientiousness += 15; extraversion += 8 }
-    else if (a.includes('see something no one else')) { openness += 15 }
-    else if (a.includes('around you is easy')) { agreeableness += 20; emotionalStability += 12 }
-  })
-
-  const clamp = (val: number) => Math.min(96, Math.max(52, Math.round(val)))
-  const traits: PersonalityTraits = {
-    openness: clamp(openness),
-    conscientiousness: clamp(conscientiousness),
-    extraversion: clamp(extraversion),
-    agreeableness: clamp(agreeableness),
-    emotionalStability: clamp(emotionalStability),
-  }
-
-  const maxTrait = Object.entries(traits).reduce((a, b) => (b[1] > a[1] ? b : a))
-  let nickname = 'The Thoughtful Explorer'
-  let summary = 'You balance practical focus with a warm, open perspective when connecting with others.'
-  let vibeTags = ['Curious', 'Reliable', 'Thoughtful', 'Balanced']
-
-  switch (maxTrait[0]) {
-    case 'openness':
-      nickname = 'The Visionary Catalyst'
-      summary = 'Driven by curiosity and fresh ideas, you bring imaginative problem-solving to every room you enter.'
-      vibeTags = ['Creative', 'Curious', 'Innovative', 'Open-Minded']
-      break
-    case 'conscientiousness':
-      nickname = 'The Grounded Architect'
-      summary = 'Methodical and dependable, you take pride in turning ideas into tangible, high-quality results.'
-      vibeTags = ['Focused', 'Reliable', 'Detail-Oriented', 'Structured']
-      break
-    case 'extraversion':
-      nickname = 'The Energy Connector'
-      summary = 'You thrive on vibrant interactions and bring warmth, enthusiasm, and momentum wherever you go.'
-      vibeTags = ['Outgoing', 'Dynamic', 'Expressive', 'Engaging']
-      break
-    case 'agreeableness':
-      nickname = 'The Harmony Builder'
-      summary = 'Empathetic and grounded, you create safe, supportive spaces where people feel truly heard.'
-      vibeTags = ['Empathetic', 'Warm', 'Supportive', 'Good Listener']
-      break
-    case 'emotionalStability':
-      nickname = 'The Calm Anchor'
-      summary = 'Composed under pressure, your steady presence helps clarify chaos and navigate challenges with ease.'
-      vibeTags = ['Steady', 'Adaptable', 'Resilient', 'Calm Energy']
-      break
-  }
-
-  return {
-    traits,
-    nickname,
-    summary,
-    vibeTags,
   }
 }
 
