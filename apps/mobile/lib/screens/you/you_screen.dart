@@ -154,20 +154,47 @@ class YouScreen extends ConsumerWidget {
                               ),
                               ValueListenableBuilder<String>(
                                 valueListenable: bioNotifier,
-                                builder: (_, bio, __) => Padding(
-                                  padding:
-                                      const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    bio,
-                                    style: GoogleFonts.hankenGrotesk(
-                                      fontSize: 12.5,
-                                      color: t.onDark,
-                                      height: 1.35,
+                                builder: (_, bio, __) {
+                                  if (bio.trim().isEmpty) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: GestureDetector(
+                                        onTap: () => Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                              builder: (_) => const EditProfileScreen()),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.edit_note_rounded,
+                                                size: 15, color: t.onDarkMuted),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Add a short bio about yourself…',
+                                              style: GoogleFonts.hankenGrotesk(
+                                                fontSize: 12,
+                                                color: t.onDarkMuted,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      bio,
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 12.5,
+                                        color: t.onDark,
+                                        height: 1.35,
+                                      ),
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -1486,35 +1513,62 @@ class _PromptCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: t.card,
-        borderRadius: BorderRadius.circular(14),
+    final isEmpty = a.trim().isEmpty || a == '—';
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const EditProfileScreen()),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            q,
-            style: GoogleFonts.hankenGrotesk(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: t.muted,
-              letterSpacing: 0.4,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: BorderRadius.circular(14),
+          border: isEmpty
+              ? Border.all(color: t.rail, width: 1.5)
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              q,
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: t.muted,
+                letterSpacing: 0.4,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            a,
-            style: GoogleFonts.hankenGrotesk(
-              fontSize: 14,
-              color: t.ink,
-              height: 1.5,
-            ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            if (isEmpty)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Tap to answer this prompt…',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 13.5,
+                        fontStyle: FontStyle.italic,
+                        color: t.muted,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.add_circle_outline_rounded,
+                      size: 18, color: NeedHubTokens.forest),
+                ],
+              )
+            else
+              Text(
+                a,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 14,
+                  color: t.ink,
+                  height: 1.5,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

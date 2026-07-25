@@ -293,7 +293,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             // Bio
             _MultilineField(
               label: 'BIO',
-              hint: 'A line about you…',
+              hint: 'Write a short bio about yourself (e.g. Passionate developer, coffee lover & avid reader…)',
               controller: _bioController,
               t: t,
               minLines: 3,
@@ -479,7 +479,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 8),
             _MultilineField(
               label: '',
-              hint: 'A skill you love teaching…',
+              hint: 'e.g. Public speaking — I can help you structure talks and overcome stage fear.',
               controller: _promptSkillController,
               t: t,
               minLines: 2,
@@ -498,7 +498,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 8),
             _MultilineField(
               label: '',
-              hint: 'The kind of person you love to work with…',
+              hint: 'e.g. A designer who loves clean UI and shipping fast.',
               controller: _promptCollabController,
               t: t,
               minLines: 2,
@@ -517,7 +517,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 8),
             _MultilineField(
               label: '',
-              hint: 'Something you\'d ask for right now…',
+              hint: 'e.g. Someone to help test my mobile app and give honest feedback.',
               controller: _promptNeedController,
               t: t,
               minLines: 2,

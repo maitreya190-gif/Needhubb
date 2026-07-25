@@ -38,18 +38,10 @@ final chitchatAvailableUntilNotifier = ValueNotifier<DateTime?>(null);
 final chitchatRosterNotifier = ValueNotifier<List<ChitchatPerson>>(const []);
 
 // Profile prompts + bio + gender + location
-final bioNotifier = ValueNotifier<String>(
-  "A line about you…",
-);
-final promptSkillNotifier = ValueNotifier<String>(
-  "DSA — I love breaking down complex algorithms into simple patterns that anyone can grasp.",
-);
-final promptCollabNotifier = ValueNotifier<String>(
-  "Someone who ships fast and loves midnight brainstorming sessions with coffee.",
-);
-final promptNeedNotifier = ValueNotifier<String>(
-  "A designer who can help me make my side project look less like a dev made it.",
-);
+final bioNotifier = ValueNotifier<String>("");
+final promptSkillNotifier = ValueNotifier<String>("");
+final promptCollabNotifier = ValueNotifier<String>("");
+final promptNeedNotifier = ValueNotifier<String>("");
 final genderNotifier = ValueNotifier<String?>(null);
 final locationNotifier = ValueNotifier<String>('Bangalore');
 final avatarUrlNotifier = ValueNotifier<String?>(null);
