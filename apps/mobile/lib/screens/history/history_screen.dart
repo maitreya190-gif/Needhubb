@@ -41,60 +41,7 @@ class HistoryScreen extends ConsumerStatefulWidget {
     this.userId,
   });
 
-  static const List<HistoryReviewItem> defaultReviews = [
-    HistoryReviewItem(
-      id: 'rev_1',
-      name: 'Rohan Sharma',
-      initials: 'RS',
-      task: 'Calculus tutoring',
-      date: '2 days ago',
-      rating: 5,
-      comment:
-          'Aarav was super patient and broke down multivariable calculus concepts so easily! Highly recommend!',
-      color: NeedHubTokens.ochre,
-    ),
-    HistoryReviewItem(
-      id: 'rev_2',
-      name: 'Priya Nair',
-      initials: 'PN',
-      task: 'Logo design',
-      date: '1 week ago',
-      rating: 4,
-      comment:
-          'Delivered clean vector assets ahead of schedule. Great communication throughout.',
-      color: NeedHubTokens.clay,
-    ),
-    HistoryReviewItem(
-      id: 'rev_3',
-      name: 'Dev Pillai',
-      initials: 'DP',
-      task: 'Photography gig',
-      date: '2 weeks ago',
-      rating: 0,
-      comment: null,
-      color: NeedHubTokens.forest,
-    ),
-    HistoryReviewItem(
-      id: 'rev_4',
-      name: 'Kavya Rao',
-      initials: 'KR',
-      task: 'Moving help',
-      date: '1 month ago',
-      rating: 5,
-      comment: 'Punctual, friendly, and super helpful with moving heavy boxes!',
-      color: NeedHubTokens.ochre,
-    ),
-    HistoryReviewItem(
-      id: 'rev_5',
-      name: 'Arjun Das',
-      initials: 'AD',
-      task: 'Study group',
-      date: '6 weeks ago',
-      rating: 5,
-      comment: 'Great organizer for the DSA study group. Kept everyone focused.',
-      color: NeedHubTokens.clay,
-    ),
-  ];
+  static const List<HistoryReviewItem> defaultReviews = [];
 
   @override
   ConsumerState<HistoryScreen> createState() => _HistoryScreenState();

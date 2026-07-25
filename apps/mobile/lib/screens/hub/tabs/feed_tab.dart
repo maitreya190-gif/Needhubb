@@ -1207,36 +1207,7 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
     }
   }
 
-  static const _people = [
-    (
-      initials: 'AK',
-      name: 'Aarav Kumar',
-      area: 'Koramangala · 0.4 km',
-      interest: 'on Flutter',
-      color: NeedHubTokens.forest,
-    ),
-    (
-      initials: 'MK',
-      name: 'Meera Kulkarni',
-      area: 'HSR Layout · 1.1 km',
-      interest: 'on Startups',
-      color: NeedHubTokens.clay,
-    ),
-    (
-      initials: 'RV',
-      name: 'Rohan Verma',
-      area: 'Indiranagar · 1.8 km',
-      interest: 'on Coffee',
-      color: NeedHubTokens.ochre,
-    ),
-    (
-      initials: 'PN',
-      name: 'Priya Nair',
-      area: 'Whitefield · 2.3 km',
-      interest: 'on DSA',
-      color: NeedHubTokens.forest,
-    ),
-  ];
+  static const _people = <({String initials, String name, String area, String interest, Color color})>[];
 
   @override
   Widget build(BuildContext context) {
@@ -2083,26 +2054,6 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
     final realChats = chatsListNotifier.value;
     final hasReal = realChats.isNotEmpty;
 
-    final mockFriends = [
-      (
-        name: 'Priya Sharma',
-        initials: 'PS',
-        color: NeedHubTokens.forest,
-        message: 'Hi! I can help with calculus'
-      ),
-      (
-        name: 'Rohan Mehta',
-        initials: 'RM',
-        color: NeedHubTokens.ochre,
-        message: 'Sounds good, share portfolio'
-      ),
-      (
-        name: 'Dev Pillai',
-        initials: 'DP',
-        color: NeedHubTokens.clay,
-        message: "Available this Sunday."
-      ),
-    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2131,8 +2082,7 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
 
-        if (hasReal)
-          ...realChats.map((c) {
+        ...realChats.map((c) {
             final initials = _initialsFor(c.otherDisplayName);
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -2204,86 +2154,6 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
                             const SizedBox(height: 2),
                             Text(
                               c.lastMessageBody ?? 'Tap to chat',
-                              style: GoogleFonts.hankenGrotesk(
-                                fontSize: 12,
-                                color: t.muted,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(Icons.chat_bubble_outline_rounded,
-                          size: 20, color: NeedHubTokens.clay),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          })
-        else
-          ...mockFriends.map((f) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ConversationScreen(
-                        name: f.name,
-                        initials: f.initials,
-                        avatarColor: f.color,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: t.card,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: t.rail, width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: f.color.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(13),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          f.initials,
-                          style: GoogleFonts.bricolageGrotesque(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: f.color,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              f.name,
-                              style: GoogleFonts.hankenGrotesk(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: t.ink,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              f.message,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 12,
                                 color: t.muted,
