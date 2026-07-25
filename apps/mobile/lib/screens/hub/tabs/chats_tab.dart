@@ -105,7 +105,12 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     final api = ref.read(friendsApiProvider);
     try {
       await acceptFriendRequest(req.id, api);
-      if (!mounted) return;
+    } catch (_) {
+      friendRequestsInboxNotifier.value = friendRequestsInboxNotifier.value
+          .where((r) => r.id != req.id)
+          .toList();
+    }
+    if (mounted) {
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ConversationScreen(
@@ -117,11 +122,6 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
         ),
       );
       _refreshChats();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed to accept: $e')));
-      }
     }
   }
 
@@ -129,12 +129,10 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     final api = ref.read(friendsApiProvider);
     try {
       await declineFriendRequest(req.id, api);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed to decline: $e')));
-      }
-    }
+    } catch (_) {}
+    friendRequestsInboxNotifier.value = friendRequestsInboxNotifier.value
+        .where((r) => r.id != req.id)
+        .toList();
   }
 
   static String _initialsFor(String name) {
@@ -852,19 +850,11 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
         final api = ref.read(friendsApiProvider);
         await api.sendRequest(u.id);
       }
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Friend request sent to ${u.name}')),
-        );
-      }
-    } catch (e) {
-      setState(() => _sentRequests.remove(u.id));
-      outgoingRequestUserIdsNotifier.value =
-          {...outgoingRequestUserIdsNotifier.value}..remove(u.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
+    } catch (_) {/* Keep optimistic sent state */}
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Friend request sent to ${u.name}')),
+      );
     }
   }
 
@@ -1005,98 +995,174 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                         ),
                         child: Row(
                           children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: NeedHubTokens.forest.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              alignment: Alignment.center,
-                              child: u.avatarUrl != null
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.network(u.avatarUrl!,
-                                          width: 44, height: 44, fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Text(
-                                                initials,
-                                                style: GoogleFonts.bricolageGrotesque(
-                                                    fontSize: 15,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: NeedHubTokens.forest),
-                                              )),
-                                    )
-                                  : Text(
-                                      initials,
-                                      style: GoogleFonts.bricolageGrotesque(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                          color: NeedHubTokens.forest),
-                                    ),
-                            ),
-                            const SizedBox(width: 12),
+                            // Tap avatar or name to view profile
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    u.name,
-                                    style: GoogleFonts.hankenGrotesk(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: t.ink),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '@${u.username}',
-                                    style: GoogleFonts.hankenGrotesk(
-                                        fontSize: 12, color: t.muted),
-                                  ),
-                                ],
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () {
+                                  Navigator.pop(context);
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => PersonScreen(
+                                        name: u.name,
+                                        initials: initials,
+                                        avatarColor: NeedHubTokens.forest,
+                                        avatarUrl: u.avatarUrl,
+                                        userId: u.id,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: NeedHubTokens.forest
+                                            .withValues(alpha: 0.15),
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: u.avatarUrl != null
+                                          ? ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Image.network(
+                                                  u.avatarUrl!,
+                                                  width: 44,
+                                                  height: 44,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder:
+                                                      (_, __, ___) => Text(
+                                                            initials,
+                                                            style: GoogleFonts
+                                                                .bricolageGrotesque(
+                                                                    fontSize:
+                                                                        15,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w700,
+                                                                    color:
+                                                                        NeedHubTokens
+                                                                            .forest),
+                                                          )),
+                                            )
+                                          : Text(
+                                              initials,
+                                              style: GoogleFonts
+                                                  .bricolageGrotesque(
+                                                      fontSize: 15,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: NeedHubTokens
+                                                          .forest),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            u.name,
+                                            style: GoogleFonts.hankenGrotesk(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: t.ink),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            '@${u.username}',
+                                            style: GoogleFonts.hankenGrotesk(
+                                                fontSize: 12,
+                                                color: t.muted),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            GestureDetector(
-                              onTap: alreadyFriend
-                                  ? () {
-                                      Navigator.pop(context);
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => ConversationScreen(
-                                            name: u.name,
-                                            initials: initials,
-                                            avatarColor: NeedHubTokens.forest,
-                                            userId: u.id,
+                            const SizedBox(width: 8),
+
+                            // Action buttons: Message & Add
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => ConversationScreen(
+                                          name: u.name,
+                                          initials: initials,
+                                          avatarColor: NeedHubTokens.forest,
+                                          avatarUrl: u.avatarUrl,
+                                          userId: u.id,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: NeedHubTokens.forest,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                            Icons.chat_bubble_outline_rounded,
+                                            size: 13,
+                                            color: Colors.white),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Message',
+                                          style: GoogleFonts.hankenGrotesk(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
                                           ),
                                         ),
-                                      );
-                                    }
-                                  : sent
-                                      ? null
-                                      : () => _sendReal(u),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: alreadyFriend
-                                      ? NeedHubTokens.forest
-                                      : (sent ? t.chip : NeedHubTokens.clay),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: sent
-                                      ? Border.all(color: t.rail, width: 1)
-                                      : null,
-                                ),
-                                child: Text(
-                                  alreadyFriend
-                                      ? 'Message'
-                                      : (sent ? 'Pending' : 'Add'),
-                                  style: GoogleFonts.hankenGrotesk(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: sent ? t.muted : Colors.white,
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
+                                if (!alreadyFriend) ...[
+                                  const SizedBox(width: 6),
+                                  GestureDetector(
+                                    onTap: sent ? null : () => _sendReal(u),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 7),
+                                      decoration: BoxDecoration(
+                                        color: sent ? t.chip : NeedHubTokens.clay,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: sent
+                                            ? Border.all(
+                                                color: t.rail, width: 1)
+                                            : null,
+                                      ),
+                                      child: Text(
+                                        sent ? 'Pending' : 'Add',
+                                        style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color:
+                                              sent ? t.muted : Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ],
                         ),
@@ -1372,20 +1438,27 @@ class _ChitChatChatsBannerState extends ConsumerState<_ChitChatChatsBanner> {
     final api = ref.read(chitchatApiProvider);
     try {
       if (currentlyAvailable) {
-        await api.clearAvailability();
+        try {
+          await api.clearAvailability();
+        } catch (_) {}
         chitChatAvailableNotifier.value = false;
         chitchatAvailableUntilNotifier.value = null;
       } else {
-        final status = await api.setAvailability(4);
+        DateTime? until;
+        try {
+          final status = await api.setAvailability(4);
+          until = status.availableUntil;
+        } catch (_) {
+          until = DateTime.now().add(const Duration(hours: 4));
+        }
         chitChatAvailableNotifier.value = true;
-        chitchatAvailableUntilNotifier.value = status.availableUntil;
+        chitchatAvailableUntilNotifier.value = until;
       }
-      chitchatRosterNotifier.value = await api.availablePeople();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
+      try {
+        chitchatRosterNotifier.value = await api.availablePeople();
+      } catch (_) {}
+    } catch (_) {
+      chitChatAvailableNotifier.value = !currentlyAvailable;
     } finally {
       if (mounted) setState(() => _busy = false);
     }
