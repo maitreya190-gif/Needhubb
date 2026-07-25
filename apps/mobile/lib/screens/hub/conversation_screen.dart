@@ -244,6 +244,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         Timer.periodic(const Duration(seconds: 2), (_) => _tail());
   }
 
+  String _sendErrorMessage(Object e) {
+    if (e is DioException) {
+      final code = (e.response?.data as Map?)?['code'] as String?;
+      switch (code) {
+        case 'BLOCKED':
+          return 'This person has blocked you';
+        case 'NOT_FRIENDS':
+          return 'Add them as a friend first to send messages';
+      }
+      final msg = (e.response?.data as Map?)?['error'] as String?;
+      if (msg != null) return msg;
+    }
+    return 'Failed to send message';
+  }
+
   Future<void> _send() async {
     if (_isBlocked) return;
     final text = _controller.text.trim();
@@ -257,18 +272,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       setState(() => _sending = true);
       try {
         await _sendToApi(text: text);
-        if (mounted) setState(() { _messages.last = _messages.last.copyWith(isRead: true); });
       } catch (e) {
         if (mounted) {
           setState(() => _messages.removeLast());
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Send failed: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_sendErrorMessage(e))));
         }
       } finally {
         if (mounted) setState(() => _sending = false);
       }
     } else {
       Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) setState(() { _isTyping = false; _messages.last = _messages.last.copyWith(isRead: true); });
+        if (mounted) setState(() => _isTyping = false);
         _scrollToBottom();
       });
     }
@@ -303,11 +317,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       setState(() => _sending = true);
       try {
         await _sendToApi(imagePath: path);
-        if (mounted) setState(() { _messages.last = _messages.last.copyWith(isRead: true); });
       } catch (e) {
         if (mounted) {
           setState(() => _messages.removeLast());
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Image send failed: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_sendErrorMessage(e))));
         }
       } finally {
         if (mounted) setState(() => _sending = false);
@@ -410,27 +423,31 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.name,
-                    style: GoogleFonts.bricolageGrotesque(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: t.ink,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.name,
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: t.ink,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Text(
-                    'Online',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: NeedHubTokens.forest,
+                    Text(
+                      'Online',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: NeedHubTokens.forest,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),

@@ -1,29 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 
-class ChatSummary {
-  final String threadId;
-  final String otherUserId;
-  final String otherDisplayName;
-  final String? otherAvatarUrl;
-  final String? lastMessageBody;
-  final String? lastMessageImageUrl;
-  final String? lastMessageSenderId;
-  final DateTime updatedAt;
-  final int unreadCount;
-
-  const ChatSummary({
-    required this.threadId,
-    required this.otherUserId,
-    required this.otherDisplayName,
-    this.otherAvatarUrl,
-    this.lastMessageBody,
-    this.lastMessageImageUrl,
-    this.lastMessageSenderId,
-    required this.updatedAt,
-    required this.unreadCount,
-  });
-
 DateTime _parseDateTime(dynamic value) {
   if (value is! String || value.trim().isEmpty) return DateTime.now();
   final raw = value.trim();
@@ -148,4 +125,4 @@ class MessagingApi {
 }
 
 /// Global chats list, hydrated on chats tab open + focus.
-final chatsListNotifier = ValueNotifier<List<ChatSummary>>(const []);
+final chatsListNotifier = ValueNotifier<List<ChatSummary>>([]);

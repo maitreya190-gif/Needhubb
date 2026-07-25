@@ -5,6 +5,7 @@ import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { badRequest, forbidden, notFound } from '../../lib/http-error'
 import { uploadFile, storageKey } from '../../lib/storage'
 import { isBlockedBetween, areFriends } from '../friends/friends.service'
+import { pushNotification } from '../../lib/notifications'
 
 export const messagingRouter: IRouter = Router()
 
@@ -148,19 +149,34 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
 
     const [userAId, userBId] = sortedPair(senderId, recipientId)
 
+    const sender = await prisma.user.findUnique({
+      where: { id: senderId },
+      select: { displayName: true },
+    })
+
     const message = await prisma.$transaction(async (tx) => {
       const thread = await tx.dmThread.upsert({
         where: { userAId_userBId: { userAId, userBId } },
         create: { userAId, userBId },
         update: {},
       })
-      return tx.dmMessage.create({
+      const msg = await tx.dmMessage.create({
         data: { threadId: thread.id, senderId, body: body || '', imageUrl },
         include: {
           sender: { select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } } },
           thread: { select: { id: true } },
         },
       })
+      const preview = body ? body.slice(0, 60) : '📷 Image'
+      await pushNotification(tx, {
+        userId: recipientId,
+        type: 'MESSAGE_RECEIVED',
+        title: sender?.displayName ?? 'New message',
+        body: preview,
+        refType: 'USER',
+        refId: senderId,
+      })
+      return msg
     })
 
     res.status(201).json(message)
