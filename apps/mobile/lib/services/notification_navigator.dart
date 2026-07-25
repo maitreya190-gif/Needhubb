@@ -161,8 +161,12 @@ class NotificationNavigator {
       }
     }
 
-    // C. FRIEND_REQUEST_RECEIVED -> Redirect to Person Profile Screen or Connect Tab
-    if (type == 'FRIEND_REQUEST_RECEIVED' || type.contains('FRIEND')) {
+    // C. FRIEND_REQUEST_RECEIVED -> Redirect directly to Person Profile Screen for that user (where Accept/Decline decision card is displayed)
+    if (type == 'FRIEND_REQUEST_RECEIVED' || (type.contains('FRIEND') && !isFriendAccepted)) {
+      final nameFromBody = notif.body.contains(' sent')
+          ? notif.body.split(' sent').first
+          : notif.title;
+
       if (refId != null && refId.isNotEmpty) {
         showLoading();
         try {
@@ -179,15 +183,30 @@ class NotificationNavigator {
             ),
           );
           return;
-        } catch (_) {}
-      }
-      if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const FeedTab(initialSurface: 'connect'),
-          ),
-        );
-        return;
+        } catch (_) {
+          if (context.mounted) {
+            Navigator.of(context).push(
+              PersonScreen.route(
+                name: nameFromBody.isNotEmpty ? nameFromBody : 'Friend Request',
+                initials: _initials(nameFromBody),
+                avatarColor: NeedHubTokens.forest,
+                userId: refId,
+              ),
+            );
+            return;
+          }
+        }
+      } else {
+        if (context.mounted) {
+          Navigator.of(context).push(
+            PersonScreen.route(
+              name: nameFromBody.isNotEmpty ? nameFromBody : 'Friend Request',
+              initials: _initials(nameFromBody),
+              avatarColor: NeedHubTokens.forest,
+            ),
+          );
+          return;
+        }
       }
     }
 
