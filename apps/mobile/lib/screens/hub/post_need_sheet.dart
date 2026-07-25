@@ -390,25 +390,24 @@ class _NeedForm extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        _InputField(
+        _Field(
           controller: titleController,
-          label: 'Title',
+          label: 'TITLE',
           hint: category == 'earn'
               ? 'e.g., Need calculus tutor for 2 weeks'
               : 'e.g., Looking for hackathon teammate',
-          maxLength: 80,
-          onChanged: onChanged,
+          onChanged: (_) => onChanged(),
           t: t,
         ),
         const SizedBox(height: 14),
 
-        _InputField(
+        _Field(
           controller: descController,
-          label: 'Description',
+          label: 'DETAILS',
           hint: 'Describe what you need in detail...',
-          maxLines: 4,
-          maxLength: 500,
-          onChanged: onChanged,
+          minLines: 3,
+          maxLines: 5,
+          onChanged: (_) => onChanged(),
           t: t,
         ),
 
@@ -418,23 +417,23 @@ class _NeedForm extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _InputField(
+                child: _Field(
                   controller: budgetMinController,
-                  label: 'Min budget (₹)',
+                  label: 'MIN BUDGET (₹)',
                   hint: '500',
                   keyboardType: TextInputType.number,
-                  onChanged: onChanged,
+                  onChanged: (_) => onChanged(),
                   t: t,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _InputField(
+                child: _Field(
                   controller: budgetMaxController,
-                  label: 'Max budget (₹)',
+                  label: 'MAX BUDGET (₹)',
                   hint: '2000',
                   keyboardType: TextInputType.number,
-                  onChanged: onChanged,
+                  onChanged: (_) => onChanged(),
                   t: t,
                 ),
               ),
