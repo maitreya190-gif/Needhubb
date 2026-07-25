@@ -62,6 +62,15 @@ class ReviewsApi {
       reviews: ((r['reviews'] as List?) ?? const []).cast<Map<String, dynamic>>(),
     );
   }
+
+  Future<({double avg, int count, List<Map<String, dynamic>> reviews})> byMe() async {
+    final r = await _api.get('/reviews/by-me');
+    return (
+      avg: ((r['avg'] as num?) ?? 0).toDouble(),
+      count: (r['count'] as int?) ?? 0,
+      reviews: ((r['reviews'] as List?) ?? const []).cast<Map<String, dynamic>>(),
+    );
+  }
 }
 
 final pendingReviewsNotifier =

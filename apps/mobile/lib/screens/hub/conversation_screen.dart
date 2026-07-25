@@ -50,8 +50,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   bool _sending = false;
   int? _reactingIndex;
 
-  bool get _isFriend => friendsNotifier.value.contains(widget.name);
-  bool get _isBlocked => blockedNotifier.value.contains(widget.name);
+  bool get _isFriend =>
+      widget.userId != null &&
+      friendUserIdsNotifier.value.contains(widget.userId!);
+  bool get _isBlocked =>
+      widget.userId != null &&
+      blockedUserIdsNotifier.value.contains(widget.userId!);
   bool get _hasRealApi => widget.userId != null;
 
   void _bump() {
@@ -69,6 +73,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     super.initState();
     friendsNotifier.addListener(_bump);
     blockedNotifier.addListener(_bump);
+    friendUserIdsNotifier.addListener(_bump);
+    blockedUserIdsNotifier.addListener(_bump);
     _resolvedThreadId = widget.threadId;
 
     if (_hasRealApi) {
@@ -180,6 +186,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     _tailPoller?.cancel();
     friendsNotifier.removeListener(_bump);
     blockedNotifier.removeListener(_bump);
+    friendUserIdsNotifier.removeListener(_bump);
+    blockedUserIdsNotifier.removeListener(_bump);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -237,6 +245,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   }
 
   Future<void> _send() async {
+    if (_isBlocked) return;
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
     _controller.clear();
@@ -285,6 +294,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   }
 
   Future<void> _addImage(String path) async {
+    if (_isBlocked) return;
     final msg = _Message(imagePath: path, isMe: true, time: DateTime.now());
     setState(() { _messages.add(msg); _isTyping = !_hasRealApi; });
     _scrollToBottom();
@@ -440,11 +450,24 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   isFriend: _isFriend,
                   isBlocked: _isBlocked,
                   onToggleFriend: () {
+                    final friendsApi = ref.read(friendsApiProvider);
                     if (_isFriend) {
-                      removeFriend(widget.name);
+                      removeFriend(widget.name,
+                          userId: widget.userId, api: friendsApi);
                     } else {
-                      addFriend(widget.name);
+                      addFriend(widget.name,
+                          userId: widget.userId, api: friendsApi);
                     }
+                  },
+                  onBlock: () {
+                    blockUser(widget.name,
+                        userId: widget.userId,
+                        api: ref.read(friendsApiProvider));
+                  },
+                  onUnblock: () {
+                    unblockUser(widget.name,
+                        userId: widget.userId,
+                        api: ref.read(friendsApiProvider));
                   },
                   onDeleteForMe: () {
                     setState(() => _messages.clear());
@@ -456,6 +479,46 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         ),
         body: Column(
           children: [
+            if (_isBlocked)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                color: Colors.red.shade50,
+                child: Row(
+                  children: [
+                    Icon(Icons.block_rounded, color: Colors.red.shade400, size: 15),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'You\'ve blocked ${widget.name}. Unblock to send messages.',
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 13, color: Colors.red.shade600),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (_hasRealApi && !_isFriend)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: NeedHubTokens.forest.withValues(alpha: 0.08),
+                child: Row(
+                  children: [
+                    Icon(Icons.chat_bubble_outline_rounded,
+                        color: NeedHubTokens.forest, size: 14),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Chitchat mode · Add friend to move to official DMs',
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12,
+                            color: NeedHubTokens.forest),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Expanded(
               child: _messages.isEmpty
                   ? Center(
@@ -520,62 +583,76 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 color: t.card,
                 border: Border(top: BorderSide(color: t.rail, width: 1)),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  GestureDetector(
-                    onTap: _showAttachmentMenu,
-                    child: Container(
-                      width: 42,
+              child: _isBlocked
+                  ? SizedBox(
                       height: 42,
-                      decoration: BoxDecoration(
-                        color: t.chip,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: t.rail, width: 1.5),
-                      ),
-                      child: Icon(Icons.add_rounded, color: t.muted2, size: 22),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Container(
-                      constraints: const BoxConstraints(maxHeight: 120),
-                      decoration: BoxDecoration(
-                        color: t.paper,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: t.rail, width: 1.5),
-                      ),
-                      child: TextField(
-                        controller: _controller,
-                        maxLines: null,
-                        style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.ink),
-                        decoration: InputDecoration(
-                          hintText: 'Message…',
-                          hintStyle: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          filled: false,
+                      child: Center(
+                        child: Text(
+                          'Unblock ${widget.name} to send messages',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 13, color: t.muted),
                         ),
-                        onSubmitted: (_) => _send(),
                       ),
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        GestureDetector(
+                          onTap: _showAttachmentMenu,
+                          child: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: t.chip,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: t.rail, width: 1.5),
+                            ),
+                            child: Icon(Icons.add_rounded, color: t.muted2, size: 22),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            constraints: const BoxConstraints(maxHeight: 120),
+                            decoration: BoxDecoration(
+                              color: t.paper,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(color: t.rail, width: 1.5),
+                            ),
+                            child: TextField(
+                              controller: _controller,
+                              maxLines: null,
+                              style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 14, color: t.ink),
+                              decoration: InputDecoration(
+                                hintText: 'Message…',
+                                hintStyle: GoogleFonts.hankenGrotesk(
+                                    fontSize: 14, color: t.muted),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 10),
+                                filled: false,
+                              ),
+                              onSubmitted: (_) => _send(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _send,
+                          child: Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: NeedHubTokens.clay,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(Icons.arrow_upward_rounded,
+                                color: Colors.white, size: 20),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _send,
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: NeedHubTokens.clay,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(Icons.arrow_upward_rounded,
-                          color: Colors.white, size: 20),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -1177,6 +1254,8 @@ class _ChatMenuSheet extends StatelessWidget {
   final bool isFriend;
   final bool isBlocked;
   final VoidCallback onToggleFriend;
+  final VoidCallback onBlock;
+  final VoidCallback onUnblock;
   final VoidCallback onDeleteForMe;
 
   const _ChatMenuSheet({
@@ -1185,6 +1264,8 @@ class _ChatMenuSheet extends StatelessWidget {
     required this.isFriend,
     required this.isBlocked,
     required this.onToggleFriend,
+    required this.onBlock,
+    required this.onUnblock,
     required this.onDeleteForMe,
   });
 
@@ -1243,7 +1324,7 @@ class _ChatMenuSheet extends StatelessWidget {
           TextButton(
             onPressed: () {
               Navigator.of(dialogCtx).pop();
-              blockUser(personName);
+              onBlock();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('$personName has been blocked')),
               );
@@ -1300,7 +1381,7 @@ class _ChatMenuSheet extends StatelessWidget {
               color: NeedHubTokens.forest,
               onTap: () {
                 Navigator.of(context).pop();
-                unblockUser(personName);
+                onUnblock();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('$personName unblocked')),
                 );

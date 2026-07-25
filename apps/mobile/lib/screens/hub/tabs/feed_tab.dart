@@ -1833,32 +1833,8 @@ class _ChitChatRealTile extends ConsumerWidget {
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
-  Future<void> _sendFriend(BuildContext context, WidgetRef ref) async {
-    final api = ref.read(friendsApiProvider);
-    try {
-      await api.sendRequest(person.userId);
-      outgoingRequestUserIdsNotifier.value = {
-        ...outgoingRequestUserIdsNotifier.value,
-        person.userId,
-      };
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Request sent to ${person.displayName}')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isFriend = friendUserIdsNotifier.value.contains(person.userId);
-    final requestSent =
-        outgoingRequestUserIdsNotifier.value.contains(person.userId);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
@@ -1939,26 +1915,9 @@ class _ChitChatRealTile extends ConsumerWidget {
                   ],
                 ),
               ),
-              if (!isFriend)
-                GestureDetector(
-                  onTap: requestSent ? null : () => _sendFriend(context, ref),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: requestSent ? t.chip : NeedHubTokens.forest,
-                      borderRadius: BorderRadius.circular(10),
-                      border: requestSent ? Border.all(color: t.rail, width: 1) : null,
-                    ),
-                    child: Text(
-                      requestSent ? 'Sent' : 'Add',
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: requestSent ? t.muted : Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
+              // ChitChat is for casual chat without requiring friendship.
+              // The "Add Friend" option is available inside the conversation.
+              Icon(Icons.chevron_right_rounded, color: t.muted, size: 20),
             ],
           ),
         ),

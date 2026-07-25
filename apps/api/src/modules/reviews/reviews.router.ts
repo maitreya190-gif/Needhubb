@@ -154,6 +154,24 @@ reviewsRouter.get('/pending', authenticate, async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
+// GET /reviews/by-me — reviews I wrote (people who helped me + people I helped and rated).
+reviewsRouter.get('/by-me', authenticate, async (req, res, next) => {
+  try {
+    const me = (req as unknown as AuthedRequest).userId!
+    const rows = await prisma.review.findMany({
+      where: { reviewerId: me },
+      include: {
+        reviewee: { select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } } },
+        need: { select: { id: true, title: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+    const count = rows.length
+    const avg = count === 0 ? 0 : rows.reduce((s, r) => s + r.rating, 0) / count
+    res.json({ reviews: rows, avg: Math.round(avg * 10) / 10, count })
+  } catch (err) { next(err) }
+})
+
 // GET /reviews/for/:userId — public reviews of a user + avg + count.
 reviewsRouter.get('/for/:userId', async (req, res, next) => {
   try {

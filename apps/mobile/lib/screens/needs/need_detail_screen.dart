@@ -9,37 +9,37 @@ import '../../theme/tokens.dart';
 import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_report_sheet.dart';
 
-// Static offers that always appear under every need (mock)
-final _staticOffers = [
-  _OfferData(
-    initials: 'MK',
-    name: 'Meera Krishnan',
-    note: 'I can start this weekend!',
-    amount: '₹600',
-    tint: NeedHubTokens.forest,
-  ),
-  _OfferData(
-    initials: 'AB',
-    name: 'Arjun Bhat',
-    note: 'Experienced, have portfolio ready.',
-    amount: '₹500',
-    tint: NeedHubTokens.ochre,
-  ),
-];
-
 class _OfferData {
   final String initials;
   final String name;
   final String note;
   final String amount;
   final Color tint;
+  final String? responseId;
+  final String? responderId;
+  final String status;
+
   const _OfferData({
     required this.initials,
     required this.name,
     required this.note,
     required this.amount,
     required this.tint,
+    this.responseId,
+    this.responderId,
+    this.status = 'PENDING',
   });
+
+  _OfferData withStatus(String newStatus) => _OfferData(
+        initials: initials,
+        name: name,
+        note: note,
+        amount: amount,
+        tint: tint,
+        responseId: responseId,
+        responderId: responderId,
+        status: newStatus,
+      );
 }
 
 class NeedDetailScreen extends ConsumerStatefulWidget {
@@ -83,10 +83,56 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
             note: j['message'] as String? ?? '',
             amount: price != null ? '₹$price' : '—',
             tint: NeedHubTokens.forest,
+            responseId: j['id'] as String?,
+            responderId: responder['id'] as String?,
+            status: j['status'] as String? ?? 'PENDING',
           );
         }).toList();
       });
-    } catch (_) {/* not the poster — keep static offers */}
+    } catch (_) {/* not the poster */}
+  }
+
+  Future<void> _acceptOffer(String responseId) async {
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.patch('/needs/${need.id}/responses/$responseId', {'status': 'ACCEPTED'});
+      if (mounted) {
+        setState(() {
+          _realOffers = _realOffers
+              .map((o) => o.responseId == responseId ? o.withStatus('ACCEPTED') : o)
+              .toList();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offer accepted! Chat is now open.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not accept offer: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _declineOffer(String responseId) async {
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.patch('/needs/${need.id}/responses/$responseId', {'status': 'DECLINED'});
+      if (mounted) {
+        setState(() {
+          _realOffers = _realOffers
+              .map((o) => o.responseId == responseId ? o.withStatus('DECLINED') : o)
+              .toList();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not decline offer: $e')),
+        );
+      }
+    }
   }
 
   static String _initialsOf(String name) {
@@ -433,37 +479,30 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
 
                     // Recent offers section
                     Builder(builder: (context) {
+                      // Poster sees real API offers with accept/decline.
+                      // Non-poster sees only their own locally submitted offers.
                       final userOffers = mockOffers[need.id] ?? [];
-                      // If the API returned real offers (poster view), those
-                      // come first. Otherwise show local + static mock offers.
-                      final allOffers = _realOffers.isNotEmpty
-                          ? [
-                              ..._realOffers,
-                              ...userOffers.map((o) => _OfferData(
+                      final List<_OfferData> displayOffers = _isPoster
+                          ? _realOffers
+                          : userOffers
+                              .map((o) => _OfferData(
                                     initials: o.initials,
                                     name: o.name,
                                     note: o.note,
                                     amount: o.amount,
                                     tint: o.color,
-                                  )),
-                            ]
-                          : [
-                              ...userOffers.map((o) => _OfferData(
-                                    initials: o.initials,
-                                    name: o.name,
-                                    note: o.note,
-                                    amount: o.amount,
-                                    tint: o.color,
-                                  )),
-                              ..._staticOffers,
-                            ];
+                                  ))
+                              .toList();
+
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'RECENT OFFERS (${allOffers.length})',
+                              _isPoster
+                                  ? 'OFFERS (${displayOffers.length})'
+                                  : 'YOUR OFFER',
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -472,25 +511,37 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 9),
-                            if (allOffers.isEmpty)
-                              const NhEmptyState(
+                            if (displayOffers.isEmpty)
+                              NhEmptyState(
                                 icon: Icons.inbox_outlined,
-                                title: 'No offers yet',
-                                subtitle: 'Be the first to respond to this need',
+                                title: _isPoster
+                                    ? 'No offers yet'
+                                    : 'No offer submitted',
+                                subtitle: _isPoster
+                                    ? 'You\'ll be notified when someone applies'
+                                    : 'Tap the button below to apply',
                               )
                             else
-                              ...allOffers.map((o) => Padding(
-                                padding: const EdgeInsets.only(bottom: 9),
-                                child: _OfferCard(
-                                  initials: o.initials,
-                                  name: o.name,
-                                  note: o.note,
-                                  amount: o.amount,
-                                  tint: o.tint,
-                                  catTint: cat,
-                                  t: t,
-                                ),
-                              )),
+                              ...displayOffers.map((o) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 9),
+                                    child: _OfferCard(
+                                      initials: o.initials,
+                                      name: o.name,
+                                      note: o.note,
+                                      amount: o.amount,
+                                      tint: o.tint,
+                                      catTint: cat,
+                                      t: t,
+                                      isPoster: _isPoster,
+                                      status: o.status,
+                                      onAccept: (_isPoster && o.responseId != null)
+                                          ? () => _acceptOffer(o.responseId!)
+                                          : null,
+                                      onDecline: (_isPoster && o.responseId != null)
+                                          ? () => _declineOffer(o.responseId!)
+                                          : null,
+                                    ),
+                                  )),
                           ],
                         ),
                       );
@@ -568,7 +619,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   }
 }
 
-class _OfferCard extends StatelessWidget {
+class _OfferCard extends StatefulWidget {
   final String initials;
   final String name;
   final String note;
@@ -576,6 +627,10 @@ class _OfferCard extends StatelessWidget {
   final Color tint;
   final Color catTint;
   final NeedHubTokens t;
+  final bool isPoster;
+  final String status;
+  final Future<void> Function()? onAccept;
+  final Future<void> Function()? onDecline;
 
   const _OfferCard({
     required this.initials,
@@ -585,71 +640,185 @@ class _OfferCard extends StatelessWidget {
     required this.tint,
     required this.catTint,
     required this.t,
+    this.isPoster = false,
+    this.status = 'PENDING',
+    this.onAccept,
+    this.onDecline,
   });
 
   @override
+  State<_OfferCard> createState() => _OfferCardState();
+}
+
+class _OfferCardState extends State<_OfferCard> {
+  bool _acting = false;
+
+  Future<void> _tap(Future<void> Function() fn) async {
+    if (_acting) return;
+    setState(() => _acting = true);
+    try {
+      await fn();
+    } finally {
+      if (mounted) setState(() => _acting = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: t.card,
-        border: Border.all(
-          color: const Color(0xFF211E17).withValues(alpha: 0.08),
-          width: 1,
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: tint,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              initials,
-              style: GoogleFonts.hankenGrotesk(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
+    final t = widget.t;
+    final isAccepted = widget.status == 'ACCEPTED';
+    final isDeclined = widget.status == 'DECLINED';
+
+    return Opacity(
+      opacity: isDeclined ? 0.5 : 1.0,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: isAccepted
+              ? NeedHubTokens.forest.withValues(alpha: 0.06)
+              : t.card,
+          border: Border.all(
+            color: isAccepted
+                ? NeedHubTokens.forest.withValues(alpha: 0.3)
+                : const Color(0xFF211E17).withValues(alpha: 0.08),
+            width: 1,
           ),
-          const SizedBox(width: 11),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text(
-                  name,
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: t.ink,
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: widget.tint,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    widget.initials,
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.name,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: t.ink,
+                        ),
+                      ),
+                      Text(
+                        widget.note,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12,
+                          color: t.muted,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 Text(
-                  note,
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 12,
-                    color: t.muted,
+                  widget.amount,
+                  style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: widget.catTint,
                   ),
                 ),
               ],
             ),
-          ),
-          Text(
-            amount,
-            style: GoogleFonts.bricolageGrotesque(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: catTint,
-            ),
-          ),
-        ],
+            if (isAccepted) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded,
+                      color: NeedHubTokens.forest, size: 14),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Accepted',
+                    style: GoogleFonts.hankenGrotesk(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: NeedHubTokens.forest),
+                  ),
+                ],
+              ),
+            ] else if (isDeclined) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Declined',
+                style: GoogleFonts.hankenGrotesk(
+                    fontSize: 12, color: t.muted),
+              ),
+            ] else if (widget.isPoster &&
+                widget.onAccept != null &&
+                !isAccepted &&
+                !isDeclined) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _acting
+                          ? null
+                          : () => _tap(widget.onDecline!),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade400,
+                        side: BorderSide(color: Colors.red.shade300),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text('Decline',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _acting
+                          ? null
+                          : () => _tap(widget.onAccept!),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: NeedHubTokens.forest,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: _acting
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : Text('Accept',
+                              style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 13, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

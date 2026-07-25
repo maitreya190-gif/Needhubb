@@ -124,8 +124,20 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
     if (await isBlockedBetween(senderId, recipientId)) {
       return next(forbidden('Cannot message this user', 'BLOCKED'))
     }
-    if (!await areFriends(senderId, recipientId)) {
-      return next(forbidden('Must be friends to send DMs', 'NOT_FRIENDS'))
+
+    const friends = await areFriends(senderId, recipientId)
+    if (!friends) {
+      // Allow messaging without friendship if both users are in active chitchat mode.
+      const now = new Date()
+      const [myProfile, theirProfile] = await Promise.all([
+        prisma.profile.findUnique({ where: { userId: senderId }, select: { chitchatAvailableUntil: true } }),
+        prisma.profile.findUnique({ where: { userId: recipientId }, select: { chitchatAvailableUntil: true } }),
+      ])
+      const chitchatActive = myProfile?.chitchatAvailableUntil && myProfile.chitchatAvailableUntil > now
+        && theirProfile?.chitchatAvailableUntil && theirProfile.chitchatAvailableUntil > now
+      if (!chitchatActive) {
+        return next(forbidden('Must be friends or both in chitchat mode to send messages', 'NOT_FRIENDS'))
+      }
     }
 
     let imageUrl: string | null = null
