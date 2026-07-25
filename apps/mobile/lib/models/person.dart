@@ -9,6 +9,7 @@ class Person {
   final String location;
   final double distanceKm;
   final List<String> interests;
+  final List<String> skills;
   final List<String> myInterests; // logged-in user's interests for overlap calc
   final String promptQ1;
   final String promptA1;
@@ -19,15 +20,18 @@ class Person {
   final int reviewCount;
   final int points;
   final bool isOnline;
+  final String? avatarUrl;
 
   const Person({
     required this.id,
     required this.name,
     required this.initials,
     required this.avatarColor,
+    this.avatarUrl,
     required this.location,
     required this.distanceKm,
     required this.interests,
+    this.skills = const [],
     this.myInterests = const ['DSA', 'Coffee', 'Flutter', 'Startups'],
     required this.promptQ1,
     required this.promptA1,

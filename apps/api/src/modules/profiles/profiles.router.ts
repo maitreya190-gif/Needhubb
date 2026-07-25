@@ -42,8 +42,18 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
 profilesRouter.patch('/me', authenticate, async (req, res, next) => {
   try {
     const userId = (req as AuthedRequest).userId!
-    const { bio, location, gender, promptSkill, promptCollab, promptNeed, displayName } =
-      req.body as Record<string, string | undefined>
+    const { bio, location, gender, promptSkill, promptCollab, promptNeed, displayName, interests, skills } =
+      req.body as {
+        bio?: string
+        location?: string
+        gender?: string
+        promptSkill?: string
+        promptCollab?: string
+        promptNeed?: string
+        displayName?: string
+        interests?: string[]
+        skills?: string[]
+      }
 
     if (displayName !== undefined) {
       await prisma.user.update({ where: { id: userId }, data: { displayName } })
@@ -61,7 +71,65 @@ profilesRouter.patch('/me', authenticate, async (req, res, next) => {
       },
       create: { userId, bio, locationText: location, gender, promptSkill, promptCollab, promptNeed },
     })
-    res.json(profile)
+
+    if (Array.isArray(interests)) {
+      const uniqueLabels = Array.from(new Set(interests.map(i => i.trim()).filter(Boolean)))
+      const interestRecords = await Promise.all(
+        uniqueLabels.map(label =>
+          prisma.interest.upsert({
+            where: { label },
+            update: {},
+            create: { label },
+          })
+        )
+      )
+      await prisma.profileInterest.deleteMany({ where: { profileId: profile.id } })
+      if (interestRecords.length > 0) {
+        await prisma.profileInterest.createMany({
+          data: interestRecords.map(ir => ({
+            profileId: profile.id,
+            interestId: ir.id,
+          })),
+          skipDuplicates: true,
+        })
+      }
+    }
+
+    if (Array.isArray(skills)) {
+      const uniqueLabels = Array.from(new Set(skills.map(s => s.trim()).filter(Boolean)))
+      const skillRecords = await Promise.all(
+        uniqueLabels.map(label =>
+          prisma.skill.upsert({
+            where: { label },
+            update: {},
+            create: { label },
+          })
+        )
+      )
+      await prisma.profileSkill.deleteMany({ where: { profileId: profile.id } })
+      if (skillRecords.length > 0) {
+        await prisma.profileSkill.createMany({
+          data: skillRecords.map(sr => ({
+            profileId: profile.id,
+            skillId: sr.id,
+          })),
+          skipDuplicates: true,
+        })
+      }
+    }
+
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: {
+          include: {
+            interests: { include: { interest: true } },
+            skills: { include: { skill: true } },
+          },
+        },
+      },
+    })
+    res.json(updatedUser)
   } catch (err) { next(err) }
 })
 

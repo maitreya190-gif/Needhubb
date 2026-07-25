@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/person.dart';
 import '../../theme/tokens.dart';
+import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_report_sheet.dart';
 import 'connect_request_sheet.dart';
 
@@ -91,31 +92,13 @@ class _ConnectDetailScreenState extends State<ConnectDetailScreen> {
                       child: Center(
                         child: Column(
                           children: [
-                            Container(
-                              width: 88,
-                              height: 88,
-                              decoration: BoxDecoration(
-                                color: person.avatarColor,
-                                borderRadius: BorderRadius.circular(26),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF281E0F)
-                                        .withValues(alpha: 0.5),
-                                    offset: const Offset(0, 16),
-                                    blurRadius: 30,
-                                    spreadRadius: -14,
-                                  ),
-                                ],
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                person.initials,
-                                style: GoogleFonts.bricolageGrotesque(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                ),
-                              ),
+                            NhAvatar(
+                              avatarUrl: person.avatarUrl,
+                              initials: person.initials,
+                              size: 88,
+                              borderRadius: 26,
+                              backgroundColor: person.avatarColor,
+                              fontSize: 32,
                             ),
                             const SizedBox(height: 14),
                             Text(

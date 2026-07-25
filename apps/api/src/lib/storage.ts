@@ -41,7 +41,7 @@ function uploadToLocal(buffer: Buffer, key: string): string {
   const dest = path.join(UPLOADS_DIR, key)
   ensureDir(path.dirname(dest))
   fs.writeFileSync(dest, buffer)
-  return `${API_BASE_URL}/uploads/${key}`
+  return `/uploads/${key}`
 }
 
 export async function uploadFile(key: string, buffer: Buffer, mimeType: string): Promise<string> {
