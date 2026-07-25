@@ -2318,3 +2318,126 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 }
+
+class _ActiveFilterRibbon extends StatelessWidget {
+  final FeedFilter filter;
+  final String surface;
+  final NeedHubTokens t;
+
+  const _ActiveFilterRibbon({
+    required this.filter,
+    required this.surface,
+    required this.t,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final badges = filter.activeBadges;
+    if (badges.isEmpty) return const SizedBox.shrink();
+
+    final notifier =
+        surface == 'earn' ? earnFilterNotifier : connectFilterNotifier;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: NeedHubTokens.clay.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: NeedHubTokens.clay.withValues(alpha: 0.20),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.filter_alt_rounded,
+                  size: 14, color: NeedHubTokens.clay),
+              const SizedBox(width: 6),
+              Text(
+                'ACTIVE FILTERS (${badges.length})',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: NeedHubTokens.clay,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => NhFilterSheet.open(context, surface: surface),
+                child: Text(
+                  'Edit filters',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: NeedHubTokens.forest,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: () => notifier.value = const FeedFilter(),
+                child: Text(
+                  'Clear all',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: NeedHubTokens.clay,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: badges.map((badge) {
+              return Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: t.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: NeedHubTokens.clay.withValues(alpha: 0.30),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      badge.label,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: t.ink,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () {
+                        notifier.value = filter.removeBadge(badge);
+                      },
+                      child: Icon(
+                        Icons.cancel_rounded,
+                        size: 15,
+                        color: NeedHubTokens.clay,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}

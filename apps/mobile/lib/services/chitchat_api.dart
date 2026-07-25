@@ -1,26 +1,5 @@
 import 'api_client.dart';
 
-class ChitchatPerson {
-  final String userId;
-  final String displayName;
-  final String? avatarUrl;
-  final String? bio;
-  final DateTime? availableUntil;
-  final double? lat;
-  final double? lng;
-  final double? distanceKm;
-
-  const ChitchatPerson({
-    required this.userId,
-    required this.displayName,
-    this.avatarUrl,
-    this.bio,
-    this.availableUntil,
-    this.lat,
-    this.lng,
-    this.distanceKm,
-  });
-
 DateTime? _parseDate(dynamic v) {
   if (v is! String || v.trim().isEmpty) return null;
   final raw = v.trim();
