@@ -136,7 +136,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       Position? pos = await Geolocator.getLastKnownPosition();
       pos ??= await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 10),
+        timeLimit: const Duration(seconds: 20),
       );
       if (!mounted) return;
 
@@ -187,8 +187,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       );
     } catch (e) {
       if (mounted) {
+        String msg = 'Could not fetch location: $e';
+        if (e.toString().contains('TimeoutException')) {
+          msg = 'Location fetch timed out. Try picking on the map instead.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not fetch location: $e')));
+            SnackBar(content: Text(msg)));
       }
     } finally {
       if (mounted) setState(() => _locating = false);
