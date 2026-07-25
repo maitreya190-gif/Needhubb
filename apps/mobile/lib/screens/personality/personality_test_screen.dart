@@ -186,31 +186,32 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
     );
   }
 
-  /// Convert Dio / network errors into a message the user can act on.
+  /// Convert Dio / network errors into a clean message the user can act on.
   String _friendlyError(Object e) {
     if (e is DioException) {
       final status = e.response?.statusCode;
       final data = e.response?.data;
       final code = data is Map ? data['code']?.toString() : null;
+      final serverErr = data is Map ? data['error']?.toString() : null;
+
       if (status == 401 || code == 'AUTH_REQUIRED') {
         return 'Your session expired. Log out and log in, then retry.';
       }
       if (code == 'ALREADY_TAKEN') {
         return "You've already taken the test — check your You tab.";
       }
-      if (code == 'LYZR_UNAVAILABLE' || status == 502) {
-        return 'The AI analyzer is temporarily unavailable. Please try again in a minute.';
+      if (serverErr != null && serverErr.isNotEmpty) {
+        return serverErr;
       }
       if (status == 400) {
-        final msg = data is Map ? data['error']?.toString() : null;
-        return msg ?? 'Something in your answers was invalid.';
+        return 'Something in your answers was invalid.';
       }
       if (status == 404) {
-        return 'This build is missing the personality endpoint — please restart the API server.';
+        return 'Personality test service not found. Please restart the backend server.';
       }
-      return 'Network error (${status ?? "no response"}). Check your connection.';
+      return 'Network error (${status ?? "no connection"}). Please check if the server is running.';
     }
-    return 'Could not analyze your answers. $e';
+    return 'Could not analyze your answers. Please try again.';
   }
 
   @override

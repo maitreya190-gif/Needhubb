@@ -227,17 +227,7 @@ profilesRouter.post('/me/personality', authenticate, async (req, res, next) => {
       return next(badRequest('Personality test already taken', 'ALREADY_TAKEN'))
     }
 
-    let profile
-    try {
-      profile = await analyzePersonality(answers)
-    } catch (lyzrErr) {
-      console.error('[personality] Lyzr call failed:', (lyzrErr as Error).message)
-      return res.status(502).json({
-        error: 'Personality analyzer is temporarily unavailable. Please try again in a moment.',
-        code: 'LYZR_UNAVAILABLE',
-        detail: (lyzrErr as Error).message,
-      })
-    }
+    const profile = await analyzePersonality(answers)
 
     await prisma.profile.upsert({
       where: { userId },
