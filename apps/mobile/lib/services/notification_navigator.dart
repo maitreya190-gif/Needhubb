@@ -64,11 +64,22 @@ class NotificationNavigator {
       );
     }
 
-    // A. FRIEND_REQUEST_ACCEPTED or MESSAGE_RECEIVED -> Redirect directly to DM Conversation Screen!
-    if (type == 'FRIEND_REQUEST_ACCEPTED' ||
+    // A. FRIEND_REQUEST_ACCEPTED or MESSAGE_RECEIVED -> ALWAYS Redirect directly to DM Conversation Screen!
+    final isFriendAccepted = type == 'FRIEND_REQUEST_ACCEPTED' ||
+        type.contains('FRIEND_ACCEPTED') ||
+        notif.title.toLowerCase().contains('accepted') ||
+        notif.body.toLowerCase().contains('accepted your friend request');
+
+    final isDmOrChat = isFriendAccepted ||
         type == 'MESSAGE_RECEIVED' ||
         type.contains('MESSAGE') ||
-        type.contains('CHAT')) {
+        type.contains('CHAT');
+
+    if (isDmOrChat) {
+      final nameFromBody = notif.body.contains(' accepted')
+          ? notif.body.split(' accepted').first
+          : (notif.body.contains(' sent') ? notif.body.split(' sent').first : notif.title);
+
       if (refId != null && refId.isNotEmpty) {
         showLoading();
         try {
@@ -88,14 +99,12 @@ class NotificationNavigator {
           );
           return;
         } catch (_) {
-          // If refId is not a user ID, attempt opening ConversationScreen with refId as userId
           if (context.mounted) {
-            final fallbackName = notif.body.split(' accepted').first;
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => ConversationScreen(
-                  name: fallbackName.isNotEmpty ? fallbackName : 'Chat',
-                  initials: _initials(fallbackName),
+                  name: nameFromBody.isNotEmpty ? nameFromBody : 'Chat',
+                  initials: _initials(nameFromBody),
                   avatarColor: NeedHubTokens.forest,
                   userId: refId,
                 ),
@@ -104,10 +113,55 @@ class NotificationNavigator {
             return;
           }
         }
+      } else {
+        if (context.mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ConversationScreen(
+                name: nameFromBody.isNotEmpty ? nameFromBody : 'Chat',
+                initials: _initials(nameFromBody),
+                avatarColor: NeedHubTokens.forest,
+              ),
+            ),
+          );
+          return;
+        }
       }
     }
 
-    // B. FRIEND_REQUEST_RECEIVED -> Redirect to Person Profile Screen or Connect Tab
+    // B. NEED_RESPONSE_RECEIVED / NEED_UPDATE / NEED_COMPLETED / NEED_ACCEPTED -> Redirect to Need Detail Screen / Earn tab
+    final isNeedNotif = type == 'NEED_RESPONSE_RECEIVED' ||
+        type == 'NEED_UPDATE' ||
+        type == 'NEED_COMPLETED' ||
+        type == 'NEED_ACCEPTED' ||
+        type.contains('NEED') ||
+        refType == 'NEED' ||
+        refType == 'need';
+
+    if (isNeedNotif) {
+      if (refId != null && refId.isNotEmpty) {
+        showLoading();
+        try {
+          final needsApi = ref.read(needsApiProvider);
+          final need = await needsApi.getById(refId);
+          if (!context.mounted) return;
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
+          );
+          return;
+        } catch (_) {}
+      }
+      if (context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const FeedTab(initialSurface: 'earn'),
+          ),
+        );
+        return;
+      }
+    }
+
+    // C. FRIEND_REQUEST_RECEIVED -> Redirect to Person Profile Screen or Connect Tab
     if (type == 'FRIEND_REQUEST_RECEIVED' || type.contains('FRIEND')) {
       if (refId != null && refId.isNotEmpty) {
         showLoading();
@@ -131,33 +185,6 @@ class NotificationNavigator {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => const FeedTab(initialSurface: 'connect'),
-          ),
-        );
-        return;
-      }
-    }
-
-    // C. NEED_RESPONSE_RECEIVED / NEED_UPDATE / NEED_COMPLETED -> Redirect to Need Detail Screen
-    if (type == 'NEED_RESPONSE_RECEIVED' ||
-        type == 'NEED_UPDATE' ||
-        type == 'NEED_COMPLETED' ||
-        refType == 'NEED') {
-      if (refId != null && refId.isNotEmpty) {
-        showLoading();
-        try {
-          final needsApi = ref.read(needsApiProvider);
-          final need = await needsApi.getById(refId);
-          if (!context.mounted) return;
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
-          );
-          return;
-        } catch (_) {}
-      }
-      if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const FeedTab(initialSurface: 'earn'),
           ),
         );
         return;
