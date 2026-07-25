@@ -111,6 +111,44 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
     for (final n in list) {
       groups.putIfAbsent(_groupFor(n.type), () => []).add(n);
     }
+
+    // ── Coalesce chat notifications per sender on the client side ──────
+    if (groups.containsKey('Chat')) {
+      final chatNotifs = groups['Chat']!;
+      final bySender = <String, List<NhNotification>>{};
+      for (final n in chatNotifs) {
+        final key = n.refId ?? n.id; // group by sender (refId) 
+        bySender.putIfAbsent(key, () => []).add(n);
+      }
+      final coalesced = <NhNotification>[];
+      for (final entry in bySender.entries) {
+        final senderNotifs = entry.value;
+        // Sort newest first
+        senderNotifs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final newest = senderNotifs.first;
+        final count = senderNotifs.length;
+        final hasUnread = senderNotifs.any((n) => n.isUnread);
+
+        // Build a clean sender name (strip any existing count suffix)
+        final cleanTitle =
+            newest.title.replaceAll(RegExp(r'\s*\(\d+ messages?\)'), '');
+
+        coalesced.add(NhNotification(
+          id: newest.id,
+          type: newest.type,
+          title: count > 1 ? '$cleanTitle ($count messages)' : cleanTitle,
+          body: newest.body,
+          refType: newest.refType,
+          refId: newest.refId,
+          createdAt: newest.createdAt,
+          readAt: hasUnread ? null : newest.readAt,
+        ));
+      }
+      // Sort coalesced list newest first
+      coalesced.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      groups['Chat'] = coalesced;
+    }
+
     final groupOrder = ['Connect', 'Earn', 'Chat', 'Impact', 'Other'];
 
     return Scaffold(
