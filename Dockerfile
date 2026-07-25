@@ -17,4 +17,4 @@ RUN pnpm --filter @needhub/api build
 
 ENV NODE_ENV=production
 EXPOSE 3000
-CMD ["node", "apps/api/dist/index.js"]
+ENTRYPOINT ["node", "apps/api/dist/index.js"]
