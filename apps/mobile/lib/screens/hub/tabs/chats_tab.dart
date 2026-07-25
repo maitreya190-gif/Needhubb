@@ -788,19 +788,20 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
     final bottomPad = MediaQuery.of(context).padding.bottom;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: keyboardHeight),
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 150),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        margin: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 60),
+        // Sheet takes up most of the screen so results always have room
+        height: MediaQuery.of(context).size.height * 0.85,
+        margin: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 40),
         decoration: BoxDecoration(
           color: t.card,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             // Handle + header
             Padding(
@@ -871,31 +872,51 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
 
             // Results
             if (_query.trim().isEmpty)
-              Padding(
-                padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPad + 20),
-                child: Text(
-                  'Type a username or name to search',
-                  style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.person_search_rounded, size: 48, color: t.muted.withValues(alpha: 0.4)),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Type a username or name to find people',
+                        style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               )
             else if (_searching && _combinedResults.isEmpty)
-              Padding(
-                padding: EdgeInsets.fromLTRB(20, 12, 20, bottomPad + 20),
-                child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              const Expanded(
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
               )
             else if (_combinedResults.isEmpty)
-              Padding(
-                padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPad + 20),
-                child: Text(
-                  'No users found',
-                  style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.search_off_rounded, size: 48, color: t.muted.withValues(alpha: 0.4)),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No users found',
+                        style: GoogleFonts.hankenGrotesk(fontSize: 15, fontWeight: FontWeight.w700, color: t.ink),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Try a different name or username',
+                        style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
-              Flexible(
+              Expanded(
                 child: ListView.builder(
-                  shrinkWrap: true,
-                  padding: EdgeInsets.fromLTRB(20, 0, 20, bottomPad + 20),
+                  padding: EdgeInsets.fromLTRB(20, 4, 20, bottomPad + 20),
                   itemCount: _combinedResults.length,
                   itemBuilder: (_, i) {
                     final u = _combinedResults[i];
