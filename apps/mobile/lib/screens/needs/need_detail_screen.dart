@@ -996,26 +996,38 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
         });
       }
     } on DioException catch (e) {
-      final code = (e.response?.data as Map?)?['code'] as String? ?? '';
+      final data = e.response?.data;
+      final code = (data is Map ? data['code'] : null) as String? ?? '';
+      final status = e.response?.statusCode;
       if (mounted) {
-        if (e.response?.statusCode == 422 || code == 'MODERATION_HARD_BLOCK') {
+        if (status == 422 || code == 'MODERATION_HARD_BLOCK' || code == 'MODERATION_BLOCKED') {
           showDialog(
             context: context,
-            builder: (_) => AlertDialog(
+            builder: (ctx) => AlertDialog(
               title: const Text('Message blocked'),
               content: const Text(
                   'Your message contains content that violates community guidelines. Please revise it.'),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(_),
-                  child: const Text('OK'),
-                )
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
               ],
             ),
           );
-        } else {
+        } else if (status == 400 && code == 'SELF_RESPONSE') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not send offer. Please try again.')),
+            const SnackBar(content: Text("You can't apply to your own need.")),
+          );
+        } else if (status == 404) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('This need is no longer available.')),
+          );
+        } else if (status == 401) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Session expired. Please log in again.')),
+          );
+        } else {
+          final msg = (data is Map ? data['error'] : null) as String?;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(msg != null ? 'Error: $msg' : 'Could not send offer (${status ?? 'network error'}). Please try again.')),
           );
         }
       }
@@ -1557,9 +1569,11 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                               });
                             } on DioException catch (e) {
                               if (!mounted) return;
-                              final code = (e.response?.data as Map?)?['code'] as String? ?? '';
+                              final data = e.response?.data;
+                              final code = (data is Map ? data['code'] : null) as String? ?? '';
+                              final status = e.response?.statusCode;
                               setState(() => _sending = false);
-                              if (e.response?.statusCode == 422 || code == 'MODERATION_HARD_BLOCK') {
+                              if (status == 422 || code == 'MODERATION_HARD_BLOCK' || code == 'MODERATION_BLOCKED') {
                                 showDialog(
                                   context: context,
                                   builder: (ctx) => AlertDialog(
@@ -1567,16 +1581,26 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                                     content: const Text(
                                         'Your message contains content that violates community guidelines. Please revise it.'),
                                     actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(ctx),
-                                        child: const Text('OK'),
-                                      )
+                                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
                                     ],
                                   ),
                                 );
-                              } else {
+                              } else if (status == 400 && code == 'SELF_RESPONSE') {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Could not send message. Please try again.')),
+                                  const SnackBar(content: Text("You can't apply to your own need.")),
+                                );
+                              } else if (status == 404) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('This need is no longer available.')),
+                                );
+                              } else if (status == 401) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Session expired. Please log in again.')),
+                                );
+                              } else {
+                                final msg = (data is Map ? data['error'] : null) as String?;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(msg != null ? 'Error: $msg' : 'Could not send message (${status ?? 'network error'}). Please try again.')),
                                 );
                               }
                               return;
