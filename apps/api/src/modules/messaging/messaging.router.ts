@@ -100,6 +100,10 @@ messagingRouter.get('/:threadId/messages', authenticate, async (req, res, next) 
         replyTo: { select: { id: true, body: true, sender: { select: { id: true, displayName: true } } } }
       },
     })
+    
+    if (messages.length > 0) {
+      console.log('DEBUG reactions type:', typeof messages[0].reactions, messages[0].reactions);
+    }
 
     // Mark fetched messages as read
     await prisma.dmMessage.updateMany({

@@ -157,40 +157,45 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   Future<void> _tail() async {
     if (_resolvedThreadId == null || widget.userId == null) return;
     final api = ref.read(messagingApiProvider);
+    final myId = myProfileNotifier.value?.id;
     try {
       final newer = await api.messages(
         _resolvedThreadId!,
         limit: 30,
-        since: _lastRealMessageId,
       );
-      if (newer.isEmpty || !mounted) return;
-      final myId = myProfileNotifier.value?.id;
-      // Deduplicate: skip anything already in the list by remoteId.
-      final existingIds = _messages
-          .where((m) => m.remoteId != null)
-          .map((m) => m.remoteId!)
-          .toSet();
-      final incoming = newer.where((m) => !existingIds.contains(m.id)).toList();
-      if (incoming.isEmpty) return;
+
       setState(() {
-        for (final m in incoming) {
-          _messages.add(_Message(
-            text: m.body.isEmpty ? null : m.body,
-            imageUrl: m.imageUrl,
-            isMe: myId != null && m.senderId == myId,
-            time: m.createdAt,
-            reactions: m.reactions.values.map((e) => e.toString()).toList(),
-            replyTo: m.replyTo != null ? _Message(
-              text: m.replyTo!.body.isEmpty ? null : m.replyTo!.body,
-              isMe: myId != null && m.replyTo!.senderId == myId,
-              time: m.replyTo!.createdAt,
-              senderName: m.replyTo!.senderName,
-            ) : null,
-            isRead: m.readAt != null,
-            remoteId: m.id,
-          ));
+        for (final m in newer.reversed) {
+          final existingIdx = _messages.indexWhere((existing) => existing.remoteId == m.id);
+          if (existingIdx != -1) {
+            // Update existing message (e.g. for new reactions or read receipts)
+            _messages[existingIdx] = _messages[existingIdx].copyWith(
+              reactions: m.reactions.values.map((e) => e.toString()).toList(),
+              isRead: m.readAt != null,
+            );
+          } else {
+            // Add new message
+            _messages.add(_Message(
+              text: m.body.isEmpty ? null : m.body,
+              imageUrl: m.imageUrl,
+              isMe: myId != null && m.senderId == myId,
+              time: m.createdAt,
+              isRead: m.readAt != null,
+              remoteId: m.id,
+              senderName: m.sender.displayName,
+              reactions: m.reactions.values.map((e) => e.toString()).toList(),
+              replyTo: m.replyTo != null ? _Message(
+                text: m.replyTo!.body.isEmpty ? null : m.replyTo!.body,
+                isMe: myId != null && m.replyTo!.senderId == myId,
+                time: m.replyTo!.createdAt,
+                senderName: m.replyTo!.senderName,
+              ) : null,
+            ));
+          }
         }
-        _lastRealMessageId = incoming.last.id;
+        if (newer.isNotEmpty) {
+          _lastRealMessageId = newer.first.id;
+        }
       });
       _scrollToBottom();
     } catch (_) {/* keep last state */}
@@ -592,9 +597,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         initials: widget.initials, color: widget.avatarColor, t: t);
                   }
                   if (item is _IndexedMessage) {
-                    final bubbleStack = Stack(
-                      clipBehavior: Clip.none,
+                    final bubbleContent = Column(
+                      crossAxisAlignment: item.message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                       children: [
+                        if (_reactingIndex == item.index)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: _ReactionPicker(
+                              onPick: (emoji) => _addReaction(item.index, emoji),
+                              t: t,
+                            ),
+                          ),
                         _Bubble(
                           msg: item.message,
                           t: t,
@@ -602,19 +615,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           initials: widget.initials,
                           senderName: item.message.isMe ? 'You' : widget.name,
                         ),
-                        if (_reactingIndex == item.index)
-                          Positioned(
-                            top: -44,
-                            right: item.message.isMe ? 0 : null,
-                            left: item.message.isMe ? null : 36,
-                            child: _ReactionPicker(
-                              onPick: (emoji) => _addReaction(item.index, emoji),
-                              t: t,
-                            ),
-                          ),
                       ],
                     );
-                    
+
                     return GestureDetector(
                       onLongPress: () {
                         HapticFeedback.mediumImpact();
@@ -623,17 +626,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       child: Dismissible(
                         key: ValueKey('msg_${item.index}_${item.message.remoteId ?? item.message.time.millisecondsSinceEpoch}'),
                         direction: DismissDirection.endToStart,
-                        confirmDismiss: (_) async {
-                          HapticFeedback.lightImpact();
-                          setState(() => _replyingTo = item.message);
-                          return false; // Don't actually dismiss
+                        onUpdate: (details) {
+                          if (details.progress > 0.2) {
+                            HapticFeedback.selectionClick();
+                            setState(() => _replyingTo = item.message);
+                          }
                         },
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20),
-                          child: Icon(Icons.reply_rounded, color: t.muted2),
-                        ),
-                        child: bubbleStack,
+                        confirmDismiss: (direction) async {
+                          setState(() => _replyingTo = item.message);
+                          return false; // don't actually dismiss
+                        },
+                        child: bubbleContent,
                       ),
                     );
                   }
