@@ -672,26 +672,7 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
     final realChats = chatsListNotifier.value;
     final hasReal = realChats.isNotEmpty;
 
-    final mockFriends = [
-      (
-        name: 'Priya Sharma',
-        initials: 'PS',
-        color: NeedHubTokens.forest,
-        message: 'Hi! I can help with calculus'
-      ),
-      (
-        name: 'Rohan Mehta',
-        initials: 'RM',
-        color: NeedHubTokens.ochre,
-        message: 'Sounds good, share portfolio'
-      ),
-      (
-        name: 'Dev Pillai',
-        initials: 'DP',
-        color: NeedHubTokens.clay,
-        message: "Available this Sunday."
-      ),
-    ];
+    final mockFriends = <({String name, String initials, Color color, String message})>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

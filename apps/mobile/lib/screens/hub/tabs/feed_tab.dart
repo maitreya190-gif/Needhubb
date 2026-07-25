@@ -1276,12 +1276,7 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
     }
   }
 
-  static final _people = <({String initials, String name, String area, String interest, Color color})>[
-    (initials: 'AP', name: 'Anika Patel', area: 'Indiranagar', interest: 'DSA & Coffee', color: NeedHubTokens.forest),
-    (initials: 'KJ', name: 'Karan Joshi', area: 'Koramangala', interest: 'Flutter & UI', color: NeedHubTokens.clay),
-    (initials: 'RM', name: 'Rohan Mehta', area: 'HSR Layout', interest: 'Lifting & Fitness', color: NeedHubTokens.ochre),
-    (initials: 'PN', name: 'Priya Nair', area: 'Jayanagar', interest: 'Trekking & Movies', color: NeedHubTokens.forest),
-  ];
+  static final _people = <({String initials, String name, String area, String interest, Color color})>[];
 
   @override
   Widget build(BuildContext context) {
@@ -2144,26 +2139,7 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
     final hasReal = realChats.isNotEmpty;
 
 
-    final mockFriends = [
-      (
-        name: 'Priya Sharma',
-        initials: 'PS',
-        color: NeedHubTokens.forest,
-        message: 'Hi! I can help with calculus'
-      ),
-      (
-        name: 'Rohan Mehta',
-        initials: 'RM',
-        color: NeedHubTokens.ochre,
-        message: 'Sounds good, share portfolio'
-      ),
-      (
-        name: 'Dev Pillai',
-        initials: 'DP',
-        color: NeedHubTokens.clay,
-        message: "Available this Sunday."
-      ),
-    ];
+    final mockFriends = <({String name, String initials, Color color, String message})>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
