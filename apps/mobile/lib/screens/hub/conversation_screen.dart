@@ -377,6 +377,55 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     }
   }
 
+  Future<void> _deleteMessage(int idx) async {
+    final msg = _messages[idx];
+    setState(() {
+      _messages.removeAt(idx);
+      _reactingIndex = null;
+    });
+
+    if (msg.remoteId != null) {
+      try {
+        await ref.read(messagingApiProvider).deleteMessage(msg.remoteId!);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not delete message on server.')),
+          );
+        }
+      }
+    }
+  }
+
+  void _copyMessage(int idx) {
+    final msg = _messages[idx];
+    if (msg.text != null && msg.text!.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: msg.text!));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message copied to clipboard'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+    setState(() => _reactingIndex = null);
+  }
+
+  void _scrollToMessage(String? remoteId, DateTime? time) {
+    if (remoteId == null && time == null) return;
+    final idx = _messages.indexWhere((m) =>
+        (remoteId != null && m.remoteId == remoteId) ||
+        (time != null && m.time == time));
+    if (idx != -1 && _scrollController.hasClients) {
+      final target = (idx * 68.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   List<dynamic> get _listItems {
     final items = <dynamic>[];
     DateTime? lastDate;
@@ -601,15 +650,32 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           avatarColor: widget.avatarColor,
                           initials: widget.initials,
                           senderName: item.message.isMe ? 'You' : widget.name,
+                          onQuoteTap: () => _scrollToMessage(
+                              item.message.replyTo?.remoteId,
+                              item.message.replyTo?.time),
                         ),
                         if (_reactingIndex == item.index)
                           Positioned(
-                            top: -44,
+                            top: -50,
                             right: item.message.isMe ? 0 : null,
-                            left: item.message.isMe ? null : 36,
-                            child: _ReactionPicker(
-                              onPick: (emoji) => _addReaction(item.index, emoji),
+                            left: item.message.isMe ? null : 32,
+                            child: _AnimatedReactionPicker(
+                              isMe: item.message.isMe,
                               t: t,
+                              onPick: (emoji) => _addReaction(item.index, emoji),
+                              onReply: () {
+                                HapticFeedback.lightImpact();
+                                setState(() {
+                                  _replyingTo = item.message;
+                                  _reactingIndex = null;
+                                });
+                              },
+                              onCopy: item.message.text != null && item.message.text!.isNotEmpty
+                                  ? () => _copyMessage(item.index)
+                                  : null,
+                              onDelete: item.message.isMe
+                                  ? () => _deleteMessage(item.index)
+                                  : null,
                             ),
                           ),
                       ],
@@ -622,18 +688,35 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       },
                       child: Dismissible(
                         key: ValueKey('msg_${item.index}_${item.message.remoteId ?? item.message.time.millisecondsSinceEpoch}'),
-                        direction: DismissDirection.endToStart,
+                        direction: DismissDirection.startToEnd,
                         confirmDismiss: (_) async {
-                          HapticFeedback.lightImpact();
-                          setState(() => _replyingTo = item.message);
-                          return false; // Don't actually dismiss
+                          HapticFeedback.mediumImpact();
+                          setState(() {
+                            _replyingTo = item.message;
+                            _reactingIndex = null;
+                          });
+                          return false; // Don't dismiss bubble
                         },
                         background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20),
-                          child: Icon(Icons.reply_rounded, color: t.muted2),
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 20),
+                          child: Icon(Icons.reply_rounded, color: NeedHubTokens.clay, size: 22),
                         ),
-                        child: bubbleStack,
+                        child: Column(
+                          crossAxisAlignment: item.message.isMe
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
+                          children: [
+                            bubbleStack,
+                            if (item.message.reactions.isNotEmpty)
+                              _ReactionsBadgeBar(
+                                reactions: item.message.reactions,
+                                isMe: item.message.isMe,
+                                t: t,
+                                onToggleEmoji: (emoji) => _addReaction(item.index, emoji),
+                              ),
+                          ],
+                        ),
                       ),
                     );
                   }
@@ -646,7 +729,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             Column(
               children: [
                 if (_replyingTo != null)
-                  Container(
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
@@ -655,28 +740,53 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.reply_rounded, color: NeedHubTokens.forest, size: 20),
-                        const SizedBox(width: 8),
+                        Container(
+                          width: 3,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: NeedHubTokens.clay,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                _replyingTo!.isMe ? 'Replying to yourself' : 'Replying to ${widget.name}',
-                                style: GoogleFonts.hankenGrotesk(fontSize: 12, fontWeight: FontWeight.bold, color: NeedHubTokens.forest),
+                              Row(
+                                children: [
+                                  Icon(Icons.reply_rounded, color: NeedHubTokens.clay, size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _replyingTo!.isMe ? 'Replying to yourself' : 'Replying to ${widget.name}',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: NeedHubTokens.clay,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 2),
                               Text(
-                                _replyingTo!.text ?? 'Image',
+                                _replyingTo!.text ?? (_replyingTo!.imagePath != null || _replyingTo!.imageUrl != null ? '📷 Image' : 'Message'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
+                                style: GoogleFonts.hankenGrotesk(fontSize: 12.5, color: t.muted),
                               ),
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(Icons.close_rounded, color: t.muted2, size: 20),
-                          onPressed: () => setState(() => _replyingTo = null),
+                        GestureDetector(
+                          onTap: () => setState(() => _replyingTo = null),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: t.chip,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.close_rounded, color: t.muted2, size: 16),
+                          ),
                         ),
                       ],
                     ),
@@ -880,39 +990,323 @@ class _DateDivider extends StatelessWidget {
   }
 }
 
-class _ReactionPicker extends StatelessWidget {
+class _AnimatedReactionPicker extends StatefulWidget {
   final ValueChanged<String> onPick;
+  final VoidCallback? onReply;
+  final VoidCallback? onCopy;
+  final VoidCallback? onDelete;
+  final bool isMe;
   final NeedHubTokens t;
-  const _ReactionPicker({required this.onPick, required this.t});
 
-  static const _emojis = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
+  const _AnimatedReactionPicker({
+    required this.onPick,
+    this.onReply,
+    this.onCopy,
+    this.onDelete,
+    required this.isMe,
+    required this.t,
+  });
+
+  static const _emojis = ['❤️', '👍', '🔥', '😂', '😮', '😢', '🙏', '👏'];
+
+  @override
+  State<_AnimatedReactionPicker> createState() => _AnimatedReactionPickerState();
+}
+
+class _AnimatedReactionPickerState extends State<_AnimatedReactionPicker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animController;
+  late final Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _scaleAnim = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutBack,
+    );
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: t.card,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.14),
-              blurRadius: 14,
-              offset: const Offset(0, 4))
-        ],
-        border: Border.all(color: t.rail, width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: _emojis
-            .map((e) => GestureDetector(
-                  onTap: () => onPick(e),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(e, style: const TextStyle(fontSize: 22)),
+    final t = widget.t;
+    return ScaleTransition(
+      scale: _scaleAnim,
+      alignment: widget.isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Material(
+        color: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 16,
+                spreadRadius: 1,
+                offset: const Offset(0, 6),
+              ),
+            ],
+            border: Border.all(color: t.rail, width: 1.2),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ..._AnimatedReactionPicker._emojis.map(
+                (emoji) => _EmojiButton(
+                  emoji: emoji,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    widget.onPick(emoji);
+                  },
+                ),
+              ),
+              if (widget.onReply != null || widget.onCopy != null) ...[
+                Container(
+                  height: 20,
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  color: t.rail,
+                ),
+                if (widget.onReply != null)
+                  _ActionButton(
+                    icon: Icons.reply_rounded,
+                    tooltip: 'Reply',
+                    t: t,
+                    onTap: widget.onReply!,
                   ),
-                ))
-            .toList(),
+                if (widget.onCopy != null)
+                  _ActionButton(
+                    icon: Icons.copy_rounded,
+                    tooltip: 'Copy',
+                    t: t,
+                    onTap: widget.onCopy!,
+                  ),
+                if (widget.onDelete != null)
+                  _ActionButton(
+                    icon: Icons.delete_outline_rounded,
+                    tooltip: 'Delete',
+                    color: Colors.red,
+                    t: t,
+                    onTap: widget.onDelete!,
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmojiButton extends StatefulWidget {
+  final String emoji;
+  final VoidCallback onTap;
+
+  const _EmojiButton({required this.emoji, required this.onTap});
+
+  @override
+  State<_EmojiButton> createState() => _EmojiButtonState();
+}
+
+class _EmojiButtonState extends State<_EmojiButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 1.4 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutBack,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+          child: Text(
+            widget.emoji,
+            style: const TextStyle(fontSize: 21),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionButton extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final Color? color;
+  final NeedHubTokens t;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.tooltip,
+    this.color,
+    required this.t,
+    required this.onTap,
+  });
+
+  @override
+  State<_ActionButton> createState() => _ActionButtonState();
+}
+
+class _ActionButtonState extends State<_ActionButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = widget.color ?? widget.t.ink;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.85 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          padding: const EdgeInsets.all(5),
+          child: Icon(widget.icon, size: 18, color: iconColor),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReactionsBadgeBar extends StatelessWidget {
+  final List<String> reactions;
+  final ValueChanged<String> onToggleEmoji;
+  final NeedHubTokens t;
+  final bool isMe;
+
+  const _ReactionsBadgeBar({
+    required this.reactions,
+    required this.onToggleEmoji,
+    required this.t,
+    required this.isMe,
+  });
+
+  Map<String, int> get _counts {
+    final map = <String, int>{};
+    for (final r in reactions) {
+      map[r] = (map[r] ?? 0) + 1;
+    }
+    return map;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (reactions.isEmpty) return const SizedBox.shrink();
+    final counts = _counts;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        top: 3,
+        left: isMe ? 0 : 32,
+        right: isMe ? 4 : 0,
+      ),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: counts.entries.map((entry) {
+          return _ReactionBadgeChip(
+            emoji: entry.key,
+            count: entry.value,
+            onTap: () => onToggleEmoji(entry.key),
+            t: t,
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _ReactionBadgeChip extends StatefulWidget {
+  final String emoji;
+  final int count;
+  final VoidCallback onTap;
+  final NeedHubTokens t;
+
+  const _ReactionBadgeChip({
+    required this.emoji,
+    required this.count,
+    required this.onTap,
+    required this.t,
+  });
+
+  @override
+  State<_ReactionBadgeChip> createState() => _ReactionBadgeChipState();
+}
+
+class _ReactionBadgeChipState extends State<_ReactionBadgeChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _pressed ? 0.9 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: NeedHubTokens.clay.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.emoji, style: const TextStyle(fontSize: 13)),
+              if (widget.count > 1) ...[
+                const SizedBox(width: 3),
+                Text(
+                  '${widget.count}',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: t.ink,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1036,6 +1430,7 @@ class _Bubble extends StatelessWidget {
   final Color avatarColor;
   final String initials;
   final String senderName;
+  final VoidCallback? onQuoteTap;
 
   const _Bubble({
     required this.msg,
@@ -1043,6 +1438,7 @@ class _Bubble extends StatelessWidget {
     required this.avatarColor,
     required this.initials,
     this.senderName = '',
+    this.onQuoteTap,
   });
 
   @override
@@ -1106,28 +1502,31 @@ class _Bubble extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (msg.replyTo != null)
-                        Container(
-                          margin: EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border(left: BorderSide(color: NeedHubTokens.forest.withValues(alpha: 0.8), width: 3)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                msg.replyTo!.isMe ? 'You' : msg.replyTo!.senderName,
-                                style: GoogleFonts.hankenGrotesk(fontSize: 11, fontWeight: FontWeight.bold, color: msg.isMe ? Colors.white70 : t.muted2),
-                              ),
-                              Text(
-                                msg.replyTo!.text ?? 'Image',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.hankenGrotesk(fontSize: 12, color: msg.isMe ? Colors.white60 : t.muted),
-                              ),
-                            ],
+                        GestureDetector(
+                          onTap: onQuoteTap,
+                          child: Container(
+                            margin: EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border(left: BorderSide(color: NeedHubTokens.forest.withValues(alpha: 0.8), width: 3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  msg.replyTo!.isMe ? 'You' : msg.replyTo!.senderName,
+                                  style: GoogleFonts.hankenGrotesk(fontSize: 11, fontWeight: FontWeight.bold, color: msg.isMe ? Colors.white70 : t.muted2),
+                                ),
+                                Text(
+                                  msg.replyTo!.text ?? 'Image',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.hankenGrotesk(fontSize: 12, color: msg.isMe ? Colors.white60 : t.muted),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       if (isImage)
