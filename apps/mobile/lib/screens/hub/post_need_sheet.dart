@@ -371,16 +371,16 @@ class _NeedForm extends StatelessWidget {
           children: [
             _CatButton(
               label: 'Connect',
-              icon: Icons.hub_outlined,
+              icon: Icons.handshake_outlined,
               color: NeedHubTokens.forest,
               selected: category == 'connect',
               onTap: () => onCategoryChanged('connect'),
               t: t,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             _CatButton(
               label: 'Earn',
-              icon: Icons.monetization_on_outlined,
+              icon: Icons.currency_rupee_rounded,
               color: NeedHubTokens.ochre,
               selected: category == 'earn',
               onTap: () => onCategoryChanged('earn'),
