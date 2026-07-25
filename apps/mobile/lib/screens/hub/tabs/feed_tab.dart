@@ -226,16 +226,16 @@ class _FeedTabState extends ConsumerState<FeedTab> {
               ),
             ),
 
-            // Feed — Connect = free (no budget), Earn = paid (has budget)
+            // Feed — Connect = connect category, Earn = earn category
             Expanded(
               child: _surface == 'connect'
                   ? _ConnectFeed(
-                      needs: feedNeeds.where((n) => n.budgetMin == null).toList(),
+                      needs: feedNeeds.where((n) => n.category.toLowerCase() == 'connect').toList(),
                       t: t,
                       rankerLabel: rankerLabel)
                   : _surface == 'earn'
                       ? _EarnFeed(
-                          needs: feedNeeds.where((n) => n.budgetMin != null).toList(),
+                          needs: feedNeeds.where((n) => n.category.toLowerCase() == 'earn').toList(),
                           t: t,
                           rankerLabel: rankerLabel)
                       : _ChitChatFeedInline(t: t),
