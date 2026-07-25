@@ -1,0 +1,1526 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../models/user_state.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/api_client.dart';
+import '../../services/social_providers.dart';
+import '../../services/uploads_api.dart';
+import '../../theme/tokens.dart';
+import '../chitchat/chit_chat_screen.dart';
+import '../history/history_screen.dart';
+import '../redeem/redeem_screen.dart';
+import 'edit_profile_screen.dart';
+
+class YouScreen extends ConsumerWidget {
+  const YouScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authProvider);
+    final t = context.tokens;
+    final name = auth.displayName ?? auth.email ?? 'You';
+    final initials = _initials(name);
+
+    return Scaffold(
+      backgroundColor: t.paper,
+      body: CustomScrollView(
+        slivers: [
+          // Dark profile header
+          SliverToBoxAdapter(
+            child: SafeArea(
+              bottom: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: t.surfaceDark,
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(28),
+                  ),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Settings + Edit row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        GestureDetector(
+                          onTap: () => context.push('/settings'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.settings_outlined,
+                                    size: 14, color: t.onDark),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'Settings',
+                                  style: GoogleFonts.hankenGrotesk(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: t.onDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 13, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            child: Text(
+                              'Edit',
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: t.onDark,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Avatar + name row
+                    Row(
+                      children: [
+                        Container(
+                          width: 70,
+                          height: 70,
+                          decoration: BoxDecoration(
+                            color: NeedHubTokens.forest,
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            initials,
+                            style: GoogleFonts.bricolageGrotesque(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                auth.displayName ?? 'Welcome!',
+                                style: GoogleFonts.bricolageGrotesque(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: t.onDark,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                auth.email ?? '',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12.5,
+                                  color: t.onDarkMuted,
+                                ),
+                              ),
+                              ValueListenableBuilder<String>(
+                                valueListenable: locationNotifier,
+                                builder: (_, loc, __) =>
+                                    ValueListenableBuilder<String?>(
+                                  valueListenable: genderNotifier,
+                                  builder: (_, gender, __) => Text(
+                                    gender == null
+                                        ? loc
+                                        : '$loc · $gender',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 12,
+                                      color: t.onDarkMuted,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              ValueListenableBuilder<String>(
+                                valueListenable: bioNotifier,
+                                builder: (_, bio, __) => Padding(
+                                  padding:
+                                      const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    bio,
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 12.5,
+                                      color: t.onDark,
+                                      height: 1.35,
+                                    ),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // "People you've helped" link
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const HistoryScreen()),
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.people_outline_rounded,
+                                size: 16, color: t.onDarkMuted),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'People you\'ve helped — history & ratings',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: t.onDarkMuted,
+                                ),
+                              ),
+                            ),
+                            Icon(Icons.chevron_right_rounded,
+                                size: 18, color: t.onDarkMuted),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 120),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Impact section ───────────────────────────────────────
+                  Text(
+                    'IMPACT',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: t.muted2,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Balance card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: t.surfaceDark,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'RELIABILITY POINTS',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.9,
+                            color: t.onDarkMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        ValueListenableBuilder<int>(
+                          valueListenable: pointsNotifier,
+                          builder: (_, points, __) => TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: points.toDouble()),
+                            duration: const Duration(milliseconds: 900),
+                            curve: Curves.easeOutCubic,
+                            builder: (_, value, __) => Text(
+                              '${value.round()}',
+                              style: GoogleFonts.bricolageGrotesque(
+                                fontSize: 52,
+                                fontWeight: FontWeight.w800,
+                                color: NeedHubTokens.clay,
+                                height: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Breakdown pills
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: const [
+                            _BreakdownPill(
+                                label: 'Needs done', value: '+180'),
+                            _BreakdownPill(
+                                label: 'Reviews', value: '+90'),
+                            _BreakdownPill(
+                                label: 'Certificates', value: '+70'),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Redeem button
+                        GestureDetector(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  RedeemScreen(balance: pointsNotifier.value),
+                            ),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 11),
+                            decoration: BoxDecoration(
+                              color: NeedHubTokens.clay,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Redeem points',
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Sustainability Certificates ──────────────────────────
+                  Row(
+                    children: [
+                      Text(
+                        'SUSTAINABILITY CERTIFICATES',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: t.muted2,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => _showAddCertificateSheet(context, t),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: NeedHubTokens.forest.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: NeedHubTokens.forest
+                                    .withValues(alpha: 0.35),
+                                width: 1.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.add_rounded,
+                                  size: 15, color: NeedHubTokens.forest),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Add',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: NeedHubTokens.forest,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ValueListenableBuilder<List<MyCertificate>>(
+                    valueListenable: myCertificatesNotifier,
+                    builder: (_, certs, __) {
+                      if (certs.isEmpty) {
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: t.card,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: t.rail, width: 1),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.workspace_premium_outlined,
+                                  color: t.muted2, size: 22),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'No certificates yet — tap Add to upload one.',
+                                  style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 13, color: t.muted),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: certs.map((c) {
+                          final approved = c.status == 'APPROVED';
+                          final rejected = c.status == 'REJECTED';
+                          final status = approved
+                              ? 'Approved'
+                              : rejected
+                                  ? 'Rejected'
+                                  : 'Pending';
+                          final color = approved
+                              ? NeedHubTokens.forest
+                              : rejected
+                                  ? NeedHubTokens.clay
+                                  : NeedHubTokens.ochre;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _CertTile(
+                              title: c.title,
+                              org: c.subtitle.isNotEmpty
+                                  ? c.subtitle
+                                  : c.type.replaceAll('_', ' '),
+                              status: status,
+                              statusColor: color,
+                              t: t,
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Achievements ─────────────────────────────────────────
+                  Row(
+                    children: [
+                      Text(
+                        'ACHIEVEMENTS',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: t.muted2,
+                          letterSpacing: 0.7,
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => _showAddAchievementSheet(context, t),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: NeedHubTokens.clay.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: NeedHubTokens.clay
+                                    .withValues(alpha: 0.35),
+                                width: 1.5),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.add_rounded,
+                                  size: 15, color: NeedHubTokens.clay),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Add',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: NeedHubTokens.clay,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Earned through doing — not spendable.',
+                    style: GoogleFonts.hankenGrotesk(
+                        fontSize: 12.5, color: t.muted),
+                  ),
+                  const SizedBox(height: 14),
+                  _AchievementsRow(t: t),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Quick links ──────────────────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _QuickLink(
+                          icon: Icons.history_rounded,
+                          label: 'History',
+                          color: NeedHubTokens.forest,
+                          t: t,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const HistoryScreen()),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _QuickLink(
+                          icon: Icons.chat_bubble_outline_rounded,
+                          label: 'Chit-chat',
+                          color: NeedHubTokens.clay,
+                          t: t,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const ChitChatScreen()),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Interests ────────────────────────────────────────────
+                  Text(
+                    'INTERESTS',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: t.muted2,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ValueListenableBuilder<List<String>>(
+                    valueListenable: customInterestsNotifier,
+                    builder: (_, interests, __) {
+                      if (interests.isEmpty) {
+                        return Text(
+                          'No interests added yet — tap Edit to add some',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 13, color: t.muted2),
+                        );
+                      }
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: interests
+                            .map((i) => _Chip(
+                                label: i, color: NeedHubTokens.forest, t: t))
+                            .toList(),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── Skills ───────────────────────────────────────────────
+                  Text(
+                    'SKILLS',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: t.muted2,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ValueListenableBuilder<List<String>>(
+                    valueListenable: customSkillsNotifier,
+                    builder: (_, skills, __) {
+                      if (skills.isEmpty) {
+                        return Text(
+                          'No skills added yet — tap Edit to add some',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 13, color: t.muted2),
+                        );
+                      }
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: skills
+                            .map((s) => _Chip(
+                                label: s, color: NeedHubTokens.ochre, t: t))
+                            .toList(),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── About me prompts ─────────────────────────────────────
+                  Text(
+                    'ABOUT ME',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: t.muted2,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ValueListenableBuilder<String>(
+                    valueListenable: promptSkillNotifier,
+                    builder: (_, a, __) => _PromptCard(
+                      q: 'THE SKILL I\'D LOVE TO TEACH',
+                      a: a,
+                      t: t,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ValueListenableBuilder<String>(
+                    valueListenable: promptCollabNotifier,
+                    builder: (_, a, __) => _PromptCard(
+                      q: 'MY IDEAL COLLAB',
+                      a: a,
+                      t: t,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ValueListenableBuilder<String>(
+                    valueListenable: promptNeedNotifier,
+                    builder: (_, a, __) => _PromptCard(
+                      q: 'THE NEED I\'D POST RIGHT NOW',
+                      a: a,
+                      t: t,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Logout ───────────────────────────────────────────────
+                  OutlinedButton(
+                    onPressed: () async {
+                      await ref.read(authProvider.notifier).logout();
+                      if (context.mounted) context.go('/login');
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: t.muted2,
+                      minimumSize: const Size.fromHeight(48),
+                      side: BorderSide(color: t.rail, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Text(
+                      'Log out',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: t.muted2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) {
+      return parts[0].substring(0, parts[0].length.clamp(1, 2)).toUpperCase();
+    }
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+
+  void _showAddCertificateSheet(BuildContext context, NeedHubTokens t) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _AddCertificateSheet(),
+    );
+  }
+
+  void _showAddAchievementSheet(BuildContext context, NeedHubTokens t) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _AddAchievementSheet(),
+    );
+  }
+}
+
+// ── Achievement upload sheet ─────────────────────────────────────────────────
+
+class _AddAchievementSheet extends ConsumerStatefulWidget {
+  const _AddAchievementSheet();
+
+  @override
+  ConsumerState<_AddAchievementSheet> createState() =>
+      _AddAchievementSheetState();
+}
+
+class _AddAchievementSheetState extends ConsumerState<_AddAchievementSheet> {
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  String _category = 'COMPETITION';
+  String? _filePath;
+  bool _submitting = false;
+
+  static const _categories = [
+    'COMPETITION', 'HACKATHON', 'TOURNAMENT', 'AWARD',
+  ];
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+        source: ImageSource.gallery, imageQuality: 90);
+    if (file != null && mounted) setState(() => _filePath = file.path);
+  }
+
+  Future<void> _submit() async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final fields = <String, dynamic>{
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'category': _category,
+      };
+      if (_filePath != null) {
+        final form = FormData.fromMap({
+          ...fields.map((k, v) => MapEntry(k, v.toString())),
+          'file': await MultipartFile.fromFile(_filePath!,
+              filename: _filePath!.split('/').last),
+        });
+        await api.postForm('/achievements', form);
+      } else {
+        await api.post('/achievements', fields);
+      }
+      try {
+        final uploads = ref.read(uploadsApiProvider);
+        myAchievementsNotifier.value = await uploads.myAchievements();
+      } catch (_) {/* silent */}
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Achievement submitted for review')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e')),
+        );
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final canSubmit = _titleController.text.trim().isNotEmpty &&
+        _descriptionController.text.trim().isNotEmpty;
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: t.rail, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text('Add an achievement',
+                  style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 22, fontWeight: FontWeight.w800, color: t.ink)),
+              const SizedBox(height: 6),
+              Text(
+                  'Submit a competition win, hackathon finish, tournament placement, or award. Admin will review it.',
+                  style: GoogleFonts.hankenGrotesk(
+                      fontSize: 13.5, color: t.muted, height: 1.4)),
+              const SizedBox(height: 18),
+              _FieldLabel(label: 'CATEGORY', t: t),
+              Wrap(
+                spacing: 8,
+                children: _categories.map((c) {
+                  final selected = _category == c;
+                  return GestureDetector(
+                    onTap: () => setState(() => _category = c),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: selected ? NeedHubTokens.clay : t.paper,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: selected ? NeedHubTokens.clay : t.rail,
+                            width: 1.5),
+                      ),
+                      child: Text(c,
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: selected ? Colors.white : t.ink,
+                            letterSpacing: 0.4,
+                          )),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              _FieldLabel(label: 'TITLE', t: t),
+              _PlainField(
+                  controller: _titleController,
+                  hint: 'e.g. Runner-up, InovaHack 2026',
+                  onChanged: () => setState(() {}),
+                  t: t),
+              const SizedBox(height: 12),
+              _FieldLabel(label: 'DESCRIPTION', t: t),
+              _PlainField(
+                  controller: _descriptionController,
+                  hint: 'What did you achieve? (dates, org, placement)',
+                  onChanged: () => setState(() {}),
+                  t: t),
+              const SizedBox(height: 12),
+              _FieldLabel(label: 'IMAGE (OPTIONAL)', t: t),
+              GestureDetector(
+                onTap: _pickFile,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: t.paper,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: t.rail, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _filePath != null
+                            ? Icons.check_circle_rounded
+                            : Icons.upload_file_rounded,
+                        color: _filePath != null
+                            ? NeedHubTokens.forest
+                            : t.muted2,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _filePath != null
+                              ? _filePath!.split('/').last
+                              : 'Choose image (optional)',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: _filePath != null ? t.ink : t.muted,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: (canSubmit && !_submitting) ? _submit : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: NeedHubTokens.clay,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: t.rail,
+                    disabledForegroundColor: t.muted,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : Text('Submit for review',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddCertificateSheet extends ConsumerStatefulWidget {
+  const _AddCertificateSheet();
+
+  @override
+  ConsumerState<_AddCertificateSheet> createState() => _AddCertificateSheetState();
+}
+
+class _AddCertificateSheetState extends ConsumerState<_AddCertificateSheet> {
+  final _titleController = TextEditingController();
+  final _orgController = TextEditingController();
+  String? _filePath;
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _orgController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 90);
+    if (file != null && mounted) setState(() => _filePath = file.path);
+  }
+
+  Future<void> _submit() async {
+    if (_filePath == null) return;
+    setState(() => _submitting = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      final desc = '${_titleController.text.trim()} — ${_orgController.text.trim()}';
+      final form = FormData.fromMap({
+        'type': 'VOLUNTEERING',
+        'description': desc,
+        'file': await MultipartFile.fromFile(_filePath!, filename: _filePath!.split('/').last),
+      });
+      await api.postForm('/certificates', form);
+      // Refresh the certificates list so it appears immediately on the You screen.
+      try {
+        final uploads = ref.read(uploadsApiProvider);
+        myCertificatesNotifier.value = await uploads.myCertificates();
+      } catch (_) {/* silent */}
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Certificate submitted for review')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e')),
+        );
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final canSubmit = _titleController.text.trim().isNotEmpty &&
+        _orgController.text.trim().isNotEmpty &&
+        _filePath != null;
+    return Padding(
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: t.rail, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Add a certificate',
+                style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 22, fontWeight: FontWeight.w800, color: t.ink),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Upload proof of a completed sustainability or volunteer programme. Our team will review it.',
+                style: GoogleFonts.hankenGrotesk(
+                    fontSize: 13.5, color: t.muted, height: 1.4),
+              ),
+              const SizedBox(height: 18),
+              _FieldLabel(label: 'CERTIFICATE TITLE', t: t),
+              _PlainField(
+                controller: _titleController,
+                hint: 'e.g. Community Volunteer',
+                onChanged: () => setState(() {}),
+                t: t,
+              ),
+              const SizedBox(height: 12),
+              _FieldLabel(label: 'ISSUING ORGANISATION', t: t),
+              _PlainField(
+                controller: _orgController,
+                hint: 'e.g. Teach India',
+                onChanged: () => setState(() {}),
+                t: t,
+              ),
+              const SizedBox(height: 12),
+              _FieldLabel(label: 'ATTACHMENT (IMAGE)', t: t),
+              GestureDetector(
+                onTap: _pickFile,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: t.paper,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: t.rail, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _filePath != null
+                            ? Icons.check_circle_rounded
+                            : Icons.upload_file_rounded,
+                        color: _filePath != null
+                            ? NeedHubTokens.forest
+                            : t.muted2,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _filePath != null
+                              ? _filePath!.split('/').last
+                              : 'Choose image from gallery',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: _filePath != null ? t.ink : t.muted,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: (canSubmit && !_submitting) ? _submit : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: NeedHubTokens.forest,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: t.rail,
+                    disabledForegroundColor: t.muted,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text('Submit for review',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  final String label;
+  final NeedHubTokens t;
+  const _FieldLabel({required this.label, required this.t});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        label,
+        style: GoogleFonts.hankenGrotesk(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: t.muted2,
+          letterSpacing: 0.7,
+        ),
+      ),
+    );
+  }
+}
+
+class _PlainField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final VoidCallback onChanged;
+  final NeedHubTokens t;
+  const _PlainField({
+    required this.controller,
+    required this.hint,
+    required this.onChanged,
+    required this.t,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: t.paper,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: t.rail, width: 1.5),
+      ),
+      child: TextField(
+        controller: controller,
+        onChanged: (_) => onChanged(),
+        style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.ink),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle:
+              GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          filled: false,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Breakdown pill (inside impact card) ──────────────────────────────────────
+
+class _BreakdownPill extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _BreakdownPill({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            value,
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: NeedHubTokens.ochre,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.55),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Certificate tile ──────────────────────────────────────────────────────────
+
+class _CertTile extends StatelessWidget {
+  final String title;
+  final String org;
+  final String status;
+  final Color statusColor;
+  final NeedHubTokens t;
+
+  const _CertTile({
+    required this.title,
+    required this.org,
+    required this.status,
+    required this.statusColor,
+    required this.t,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: t.rail, width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              status == 'Approved'
+                  ? Icons.verified_rounded
+                  : Icons.hourglass_top_rounded,
+              color: statusColor,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: t.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  org,
+                  style: GoogleFonts.hankenGrotesk(
+                      fontSize: 12, color: t.muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              status,
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: statusColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Achievements row (seal-style) ─────────────────────────────────────────────
+
+class _AchievementsRow extends StatelessWidget {
+  final NeedHubTokens t;
+
+  const _AchievementsRow({required this.t});
+
+  static const _mockItems = [
+    (icon: Icons.handshake_outlined, label: 'First Help', earned: true),
+    (icon: Icons.star_rounded, label: '5-Star', earned: true),
+    (icon: Icons.bolt_rounded, label: 'Quick Reply', earned: true),
+    (icon: Icons.emoji_events_outlined, label: 'Top Helper', earned: false),
+    (icon: Icons.diversity_3_outlined, label: 'Connector', earned: false),
+  ];
+
+  static const _plum = Color(0xFF6B3FA0);
+
+  static IconData _iconFor(String category) {
+    switch (category) {
+      case 'HACKATHON': return Icons.rocket_launch_outlined;
+      case 'COMPETITION': return Icons.emoji_events_outlined;
+      case 'TOURNAMENT': return Icons.sports_esports_outlined;
+      case 'AWARD': return Icons.workspace_premium_outlined;
+      default: return Icons.star_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<List<MyAchievement>>(
+      valueListenable: myAchievementsNotifier,
+      builder: (_, real, __) {
+        // Build display list: real achievements first, then filler mocks.
+        final items = <({IconData icon, String label, bool earned})>[
+          ...real.map((a) => (
+                icon: _iconFor(a.category),
+                label: a.title.length > 12 ? a.title.substring(0, 12) : a.title,
+                earned: a.status == 'APPROVED',
+              )),
+          if (real.isEmpty) ..._mockItems,
+        ];
+        return SizedBox(
+          height: 90,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, i) {
+              final item = items[i];
+              final color = item.earned ? _plum : t.muted;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: item.earned
+                      ? _plum.withValues(alpha: 0.12)
+                      : t.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: item.earned
+                        ? _plum.withValues(alpha: 0.30)
+                        : t.rail,
+                    width: 1.5,
+                  ),
+                ),
+                child: Icon(item.icon, color: color, size: 24),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                width: 60,
+                child: Text(
+                  item.label,
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+        );
+      },
+    );
+  }
+}
+
+// ── Quick link card ───────────────────────────────────────────────────────────
+
+class _QuickLink extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final NeedHubTokens t;
+  final VoidCallback onTap;
+
+  const _QuickLink({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.t,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border:
+              Border.all(color: color.withValues(alpha: 0.20), width: 1.5),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Interest / skill chip ─────────────────────────────────────────────────────
+
+class _Chip extends StatelessWidget {
+  final String label;
+  final NeedHubTokens t;
+  final Color color;
+
+  const _Chip({required this.label, required this.t, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(20),
+        border:
+            Border.all(color: color.withValues(alpha: 0.25), width: 1.5),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.hankenGrotesk(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Prompt card ───────────────────────────────────────────────────────────────
+
+class _PromptCard extends StatelessWidget {
+  final String q;
+  final String a;
+  final NeedHubTokens t;
+
+  const _PromptCard({required this.q, required this.a, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            q,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: t.muted,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            a,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 14,
+              color: t.ink,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

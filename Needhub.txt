@@ -1,0 +1,327 @@
+# NeedHub — Build Specification (for Claude Code)
+
+This is a build brief. It tells you WHAT to build and in WHAT ORDER. Written to be handed directly to an AI coding agent. Read the whole thing before writing code, then build in the phase order in Section 9.
+
+---
+
+## 0. What NeedHub is (read this first, build the right thing)
+
+NeedHub is a **general, location-aware, needs-first marketplace**. A user posts a need in plain language. The system may break a complex need into smaller sub-needs. Other users BROWSE posted needs and people, ranked against their own profile (skills, interests, location), and choose who to approach.
+
+**Critical architectural facts — do not violate these:**
+
+- **NeedHub is NOT campus-specific.** It is a general marketplace for anyone, anywhere. Users are filtered and ranked by location, interests, and skills — not by belonging to a campus. (The team's first *recruitment push* happens at one college, PCCOE, to build early density — but that is a go-to-market tactic, NOT an architectural constraint. Never hardcode a campus, never gate signup on a college email domain. The app must work for any user in any location from day one.)
+
+- **There is no automatic matching or pairing.** The platform ranks and surfaces what each browsing user sees; the human always chooses who to contact. Build a ranking-and-visibility system, never a matching algorithm.
+
+- **Earn, Connect, and Impact are ALL first-class core features from day one.** Connect is not a "phase 2" or "lightweight" feature. It gets equal engineering weight, equal polish, and its safety layer from the start.
+
+The three surfaces on one shared core:
+- **Earn** — paid work and goods (tutoring, freelancing, secondhand, repair).
+- **Connect** — non-romantic companionship (study partner, gym partner, hobby buddy), paid or free.
+- **Impact** — a reputation system: on-platform points + verified sustainability activity + verified achievements/credentials.
+
+---
+
+## 1. Security is a first-class requirement, not an afterthought
+
+Two things make security core here, so treat it as a primary design constraint throughout, not a later hardening pass:
+
+1. **Connect involves strangers arranging to meet in person.** Identity verification, reporting, blocking, and safe-meeting defaults must be real and present from day one.
+2. **Impact points affect visibility**, which means people WILL try to game them (fake certificates, fake reviews, sockpuppet accounts, self-dealing). The points system must be auditable and abuse-resistant by design.
+
+Concrete security requirements (apply across the whole app):
+- Real identity verification before a user can post/respond, especially on Connect. Verify email at minimum; support phone verification; design so stronger verification (ID) can be added.
+- All authorization checked server-side on every request. Never trust the client for who-can-see/do-what.
+- Rate limiting on posting, messaging, interest-responses, and certificate uploads to blunt spam and gaming.
+- Append-only points ledger (Section 6) so any fraudulent points can be traced and reversed.
+- Report + block on every profile, need, and message thread, writing to a `Report` table an admin reviews.
+- Input validation and sanitization everywhere (stored content is user-generated and displayed to others → XSS risk).
+- Secrets (LLM keys, DB creds, storage creds) server-side only, never in the frontend bundle.
+- Store only what you need; treat location data as sensitive (see Section 5 note on proximity precision).
+
+---
+
+## 2. Scope: MVP vs. later
+
+### In scope for MVP (build all of this)
+1. Auth + real identity verification (email + phone; **no campus-domain gating**). Open to any user, any location.
+2. Onboarding profile: skills, interests, location, short bio.
+3. Post a need (title, description, category, optional budget, deadline, location).
+4. **Need-decomposition**: complex/vague needs get split into confirmable sub-needs (Section 4 — the signature feature).
+5. Browse + rank for **Earn** (ranked by skill overlap + interests + proximity).
+6. Browse + rank for **Connect** (ranked by interest overlap + proximity; never by appearance).
+7. Interest-response + in-app messaging between poster and responder.
+8. Reviews/ratings after an interaction.
+9. **Impact**, full: on-platform points (reliability), verified sustainability certificates, verified achievements/badges, and one redemption action (visibility boost).
+10. Connect safety layer: identity verification, public-place default, report/block.
+
+### Out of scope for MVP (do NOT build yet)
+- **Payments / escrow.** Money is settled between users off-platform. Do not integrate a payment gateway. Users agree a price in chat.
+- iOS build. Android ships first. iOS is added later via Codemagic cloud builds — zero code changes required, Flutter code is already cross-platform.
+- Web app. Mobile only. No browser version.
+- Full points-redemption store beyond the single "boost visibility" action.
+- Automated fraud ML. Manual admin review + ledger + rate limits for now.
+
+---
+
+## 3. Tech stack (decided)
+
+- **Mobile app:** Flutter (Dart). Single codebase, runs on Android now and iOS later. No web app.
+  - State management: Riverpod
+  - Navigation: go_router
+  - HTTP client: Dio
+  - Secure token storage: flutter_secure_storage
+  - File/image uploads: file_picker + image_picker
+  - Location: geolocator
+- **Backend:** Node.js + TypeScript (Express). REST API. All business logic, ranking, and LLM calls live here. Mobile app is a thin client.
+- **Database:** PostgreSQL + Prisma (type-safe, migrations). Postgres gives geospatial support (`earthdistance`) for proximity ranking.
+- **Auth + verification:** Clerk. Handles email + phone verification out of the box. Do not roll your own crypto.
+- **AI (decomposition):** Grok API by xAI (grok-3-mini — cheap and fast for JSON extraction). OpenAI-compatible API, base URL `https://api.x.ai/v1`. Called server-side only behind a single `decomposeNeed(text)` function. Key never leaves the backend.
+- **Object storage:** Cloudflare R2 (S3-compatible, free tier 10 GB) for certificate/achievement files. Store URLs in DB.
+- **Hosting:** backend + Postgres on Railway or Render. No frontend hosting needed (it's a mobile app).
+- **iOS builds (later):** Codemagic cloud CI — builds and signs the iOS app on their Mac servers, no Mac required by the team.
+
+---
+
+## 3a. Project structure (monorepo)
+
+```
+needhub/
+├── apps/
+│   ├── mobile/               # Flutter app (Dart)
+│   │   ├── lib/
+│   │   │   ├── main.dart
+│   │   │   ├── router/       # go_router config
+│   │   │   ├── theme/        # Material 3 theme
+│   │   │   ├── screens/      # auth, onboarding, earn, connect, needs,
+│   │   │   │                   profile, messages, impact, admin
+│   │   │   ├── widgets/      # reusable UI components
+│   │   │   ├── services/     # API client (Dio), auth service
+│   │   │   ├── models/       # Dart data classes matching API responses
+│   │   │   └── providers/    # Riverpod providers
+│   │   └── pubspec.yaml
+│   └── api/                  # Node.js + TypeScript backend
+│       ├── src/
+│       │   ├── modules/      # auth, users, profiles, needs, earn, connect,
+│       │   │                   messaging, impact, reviews, ranking, admin
+│       │   ├── middleware/   # authenticate.ts, rateLimiter.ts
+│       │   ├── lib/          # prisma.ts, llm.ts, storage.ts
+│       │   └── config/       # env-loaded constants (secrets never in app)
+│       └── prisma/
+│           ├── schema.prisma # full data model
+│           └── seed.ts       # 30-50 users + 40 needs
+└── packages/
+    └── shared/               # TypeScript types (API-only; Flutter has its own Dart models)
+```
+
+**Platform decision log:**
+- Mobile only (no web app). Decision date: 2026-07-16.
+- Flutter chosen over React Native (cross-platform, Dart) and native iOS/Android (two codebases).
+- Android ships first. iOS added later via Codemagic — no Mac required by the team.
+- The Flutter app is a thin client. All ranking, decomposition, and auth logic stays in the Node.js API.
+
+---
+
+## 4. Data model (core tables)
+
+```
+User
+  id
+  email (verified)
+  phone (verified, nullable)
+  display_name
+  verification_level     // email, phone, id  (higher = more trusted; gates Connect actions)
+  created_at
+
+Profile                  // 1:1 with User
+  user_id
+  bio
+  location_text          // area/neighbourhood label
+  lat, lng               // approximate; used for proximity ranking (see Section 5 privacy note)
+  skills                 // join -> Skill
+  interests              // join -> Interest
+  points_total           // cached sum; source of truth is PointsLedger
+
+Skill / Interest
+  id, label, type ('skill' | 'interest')
+
+Need
+  id
+  poster_id -> User
+  title
+  description
+  need_type              // 'earn' | 'connect'
+  category               // earn: tutoring, freelance, goods_buy, goods_sell, repair, other
+                         // connect: study_partner, activity_partner, hobby, mentor, other
+  is_paid                // connect needs may be paid or free; earn needs are paid
+  budget_min, budget_max // nullable
+  deadline               // nullable
+  location_text, lat, lng
+  status                 // open, in_progress, fulfilled, closed
+  parent_need_id         // nullable -> Need (set when produced by decomposition)
+  created_at
+
+Interest_Response        // a user expressing interest in a Need (NOT auto-matching)
+  id, need_id, responder_id, message, quoted_price (nullable), status, created_at
+
+Message
+  id, thread_id, sender_id, body, created_at
+
+Review
+  id, need_id, reviewer_id, reviewee_id, rating (1-5), comment, created_at
+
+Certificate              // verified sustainability proof -> awards points
+  id, user_id, type (nss|tree_plantation|cleanup|volunteering|other),
+  file_url, status (pending_review|approved|rejected), points_awarded, created_at
+
+Achievement              // verified credential (competition win, etc.) -> BADGE, not points
+  id, user_id, title, description, category (competition|hackathon|tournament|award|other),
+  file_url (proof), status (pending_review|approved|rejected), created_at
+
+PointsLedger             // append-only; every points change is a row (auditable, anti-gaming)
+  id, user_id, delta, reason, ref_id, created_at
+
+VisibilityBoost
+  id, user_id, target_type ('profile'|'need'), target_id, expires_at
+
+Report
+  id, reporter_id, target_type ('user'|'need'|'message'), target_id, reason, status, created_at
+```
+
+---
+
+## 5. Impact: points vs. achievements (important design decision — build it this way)
+
+Impact has **two separate systems that must NOT be blended**:
+
+**A) Points (drive ranking/visibility).** Points come ONLY from on-platform behavior and verified good deeds:
+- Completing needs reliably.
+- Receiving good reviews.
+- Approved sustainability **certificates**.
+Points are spendable on visibility boosts. Every change is an append-only `PointsLedger` row.
+
+**B) Achievements (profile badges, NOT points).** Verified accomplishments — winning a competition, hackathon, tournament, award — are shown as **verified badges on the user's profile**. They are a *credibility signal* (great for the Earn trust story: "this tutor actually won X"), but they do **NOT** convert into points and do **NOT** buy ranking position.
+
+Why the split (keep this rationale — it protects the core thesis):
+- If offline accomplishments bought visibility, the already-advantaged would compound their advantage and bury genuinely skilled-but-undecorated people — which breaks NeedHub's whole "make invisible capability visible" purpose.
+- Keeping points strictly to on-platform behavior + verified good deeds keeps ranking fair and much harder to game with external claims.
+- Clean anti-gaming story: **certificates/achievements are verified profile claims; points are platform behavior.** Two trust mechanisms, no muddy conversion.
+
+Both certificates and achievements go through admin verification before they show/count. Reject → no effect. Approve certificate → ledger row + points. Approve achievement → badge appears on profile.
+
+---
+
+## 6. Points & certificate/achievement flow
+
+1. User uploads a certificate (sustainability) or achievement (competition proof) → stored, `status = pending_review`.
+2. Admin (founders at launch) approves/rejects in an admin dashboard.
+3. Approved **certificate** → `PointsLedger` row (`reason='certificate_approved'`) + update `points_total`.
+4. Approved **achievement** → badge shown on profile. **No points.**
+5. Points also accrue from completed needs and received reviews (ledger rows).
+6. Redemption (MVP): spend points → create a `VisibilityBoost` (negative ledger delta, `reason='redeem_boost'`), expires after 24h.
+
+Anti-gaming for MVP: manual review + append-only ledger + rate limits. Comment in code where future automated checks (duplicate-file detection, velocity checks, sockpuppet detection) will go.
+
+---
+
+## 7. Need-decomposition (the signature feature)
+
+What makes NeedHub more than a plain reverse marketplace. Build in two stages.
+
+**Stage 1 (MVP):** On posting, send text to `decomposeNeed(text)` server-side. LLM returns EITHER a single cleaned/structured need OR a list of sub-needs when the request implies several tasks.
+- `"I want to propose to my girlfriend"` → sub-needs: photographer, florist, restaurant booking, ring (each with suggested category + title).
+- `"teach me java basics, 100 rupees a lesson"` → single need, category `tutoring`, budget ₹100.
+- `"make me a paper aeroplane"` → single need. **Do not over-split simple requests.**
+
+Rules:
+- User must SEE and CONFIRM the decomposition (edit/remove sub-needs) before anything posts. Never auto-post sub-needs.
+- LLM returns strict JSON only; parse safely server-side; classify into the fixed category enum; extract budget/deadline if present.
+- **Fail safe:** if the LLM errors or returns garbage, post the raw text as a single need. The app must work with the AI down.
+
+**Stage 2 (later):** better category accuracy, clarifying follow-up questions for under-specified needs, culturally-specific handling.
+
+---
+
+## 8. Ranking logic (no matching — only visibility)
+
+When a user browses (Earn or Connect), rank server-side by a transparent, tunable score. Never auto-pair.
+
+```
+score =
+    w1 * relevance(need, user)      // Earn: skill/category overlap; Connect: interest overlap
+  + w2 * proximity(need.location, user.location)   // closer = higher — the local-first promise
+  + w3 * freshness
+  + w4 * (active_visibility_boost ? boost_value : 0)
+  + w5 * small_reputation_tiebreaker   // keep small; must NOT let points bury new users
+```
+- Weights are config constants, tunable. Start e.g. w1=0.4, w2=0.3, w3=0.15, w4=0.1, w5=0.05.
+- **Proximity is a real input, not decoration** — it's the product promise and the environmental/local-first claim. If lat/lng missing, fall back to `location_text` match before global.
+- Connect uses interest overlap; there is NO appearance/photo signal anywhere.
+- Points affect ranking mainly via the boost term + a *small* reputation tiebreaker. New, unproven users must still be discoverable.
+- Where reasonable, tell the user why something ranked ("near you" / "matches your skills") — builds trust, matches the product philosophy.
+
+**Privacy note on proximity:** store/display approximate location (neighbourhood-level), not exact coordinates, especially for Connect. Compute proximity server-side without exposing precise coordinates to other users.
+
+---
+
+## 9. Build order (vertical slices; ship each before the next)
+
+1. **Auth + email/phone verification.** Any user, any location, can sign up and verify. No campus gating.
+2. **Onboarding + Profile** (skills, interests, location, bio).
+3. **Post a need (raw, no AI).** Solidify the `Need` model and create/read.
+4. **Browse + ranking — Earn.** Ranked by relevance + proximity. Core loop proven.
+5. **Browse + ranking — Connect** (co-equal, built right after Earn, not later) with interest-based ranking + the Connect safety layer (verification gate, public-place default, report/block).
+6. **Interest-response + messaging.** Marketplace loop complete on both surfaces.
+7. **Need-decomposition (Stage 1)** on top of the working post flow, with confirmation + fail-safe fallback.
+8. **Impact:** points ledger, certificate upload + admin review + points, achievement upload + admin review + badge, boost redemption.
+9. **Reviews/ratings** feeding reputation.
+10. **Security hardening pass, seed data, demo path.** Rate limits, report review, input sanitization audit; realistic seed data for demos.
+
+Build and test each slice end-to-end before moving on. Do not scaffold all tables/screens up front.
+
+---
+
+## 10. Seed data for demos
+
+Seed ~30–50 realistic users (varied skills/interests/locations) and ~40 needs across Earn and Connect, using authentic examples:
+- "Someone to write my assignment before 20th July, ~₹10 a page"
+- "Personalized phone case, someone who can draw on it, will pay for the work"
+- "Teach me Java basics, ₹100 a lesson"
+- "Selling my old textbooks"
+- "Fix my laptop fan"
+- "Make me a paper aeroplane" (the deliberately trivial one — no request too small)
+- Connect: "Gym partner, evenings, strength training" / "Study partner for DSA" / "Someone into chess, roughly my level" / "Hackathon teammate, frontend"
+
+Lets you demo ranking, decomposition, Earn, and Connect convincingly before a real user base exists.
+
+---
+
+## 11. Non-negotiables (must stay true in code and copy)
+
+- **Not campus-specific.** General marketplace, location + interest + skill filtered. No hardcoded campus, no college-email gating. PCCOE is recruitment focus only.
+- **Earn, Connect, Impact are co-equal from day one.** Connect is never deferred or "lite."
+- **No auto-matching.** Rank and surface; humans choose.
+- **Proximity is a real ranking input** and location is treated as sensitive (approximate, server-side).
+- **Points come only from on-platform behavior + verified certificates.** Achievements are badges, never points.
+- **Points never mutate directly** — append-only ledger always.
+- **Security is core:** verification, server-side authz, rate limits, report/block, sanitization — from the start.
+- **AI fails safe.** App works with decomposition down.
+- **No payments in MVP.** Settle off-platform.
+- **No appearance-based anything on Connect, ever.**
+- **Flutter app is a thin client.** No secrets, no ranking logic, no business logic in the app. Everything lives in the API.
+- **Android first.** Do not block Android development on iOS readiness. iOS is additive, not a prerequisite.
+
+---
+
+## 12. Open questions for the team (shape implementation; not all block start)
+
+1. Skills / interests / category controlled vocabularies — draft the initial lists.
+2. Verification: email + phone for MVP, or add ID verification before Connect launch? (Higher `verification_level` = more Connect trust.)
+3. Location precision: neighbourhood label only, or map-picker lat/lng? (Label is fine to start; keep it approximate.)
+4. LLM provider/model for `decomposeNeed`, and an API-call budget cap.
+5. Who are the admins reviewing certificates/achievements/reports at launch? (Likely the three founders.)
+
+---
+
+*Build the thin end-to-end loop first (steps 1–6): that alone is a working, demoable, general marketplace with both Earn and Connect. Steps 7–9 are what make it NeedHub specifically. Security (Section 1) and the points/achievements split (Section 5) are not optional polish — they are core to the product being trustworthy and fair.*

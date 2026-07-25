@@ -1,0 +1,44 @@
+# ── Node / API ─────────────────────────────────────────────────────────────
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# ── Environment (NEVER commit these) ───────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ── Flutter / Dart ──────────────────────────────────────────────────────────
+**/android/.gradle/
+**/android/local.properties
+**/android/captures/
+**/android/key.properties
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/build/
+**/*.g.dart
+**/*.freezed.dart
+
+# ── iOS (for when we add it later) ─────────────────────────────────────────
+**/ios/Pods/
+**/ios/.symlinks/
+
+# ── OS files ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Local file uploads (Cloudinary is used in prod; local dir is a fallback) ─
+apps/api/uploads/
+
+# ── One-off scripts / ad-hoc test files ────────────────────────────────────
+apps/api/apply.mjs
+apps/api/test_*.ts
+apps/api/create_test_users.mjs
+
+# ── Internal notes (not for the public repo) ───────────────────────────────
+apps/api/MIGRATION_NOTES.txt
+
+# ── Claude Code local state ────────────────────────────────────────────────
+.claude/
