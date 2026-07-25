@@ -76,11 +76,11 @@ class NotificationNavigator {
     if (isChatRouting) {
       String chatName = 'Chat';
       if (notif.body.toLowerCase().contains(' accepted')) {
-        chatName = notif.body.split(RegExp(r'(?i) accepted')).first.trim();
+        chatName = notif.body.split(RegExp(r' accepted', caseSensitive: false)).first.trim();
       } else if (notif.body.toLowerCase().contains(' sent')) {
-        chatName = notif.body.split(RegExp(r'(?i) sent')).first.trim();
+        chatName = notif.body.split(RegExp(r' sent', caseSensitive: false)).first.trim();
       } else if (notif.title.toLowerCase().contains('accepted')) {
-        chatName = notif.title.replaceFirst(RegExp(r'(?i)Your req has been '), '').replaceFirst(RegExp(r'(?i)accepted'), '').trim();
+        chatName = notif.title.replaceFirst(RegExp(r'Your req has been ', caseSensitive: false), '').replaceFirst(RegExp(r'accepted', caseSensitive: false), '').trim();
       }
       if (chatName.isEmpty) chatName = notif.title;
 
@@ -244,13 +244,23 @@ class NotificationNavigator {
           return;
         } catch (_) {}
       }
+
+      // If it's a review or points on our own profile and refId wasn't a User/Need
+      if (context.mounted) {
+        final myId = ref.read(currentUserProvider)?.id;
+        if (myId != null) {
+          Navigator.of(context).push(PersonScreen.route(
+            name: 'My Profile', initials: 'ME', avatarColor: NeedHubTokens.forest, userId: myId,
+          ));
+        }
+        return;
+      }
     }
 
     // F. Fallback
     if (refId != null && refId.isNotEmpty && context.mounted) {
-      Navigator.of(context).push(PersonScreen.route(
-        name: notif.title, initials: 'NH', avatarColor: NeedHubTokens.forest, userId: refId,
-      ));
+      // Don't arbitrarily push PersonScreen if we don't know it's a User ID.
+      // We will just do nothing, or we could show a toast.
     }
   }
 
