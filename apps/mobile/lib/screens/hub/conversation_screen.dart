@@ -382,6 +382,187 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     }
   }
 
+  Future<void> _deleteMessage(int idx) async {
+    final msg = _messages[idx];
+    setState(() {
+      _messages.removeAt(idx);
+      _reactingIndex = null;
+    });
+
+    if (msg.remoteId != null) {
+      try {
+        await ref.read(messagingApiProvider).deleteMessage(msg.remoteId!);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not delete message on server.')),
+          );
+        }
+      }
+    }
+  }
+
+  void _copyMessage(int idx) {
+    final msg = _messages[idx];
+    if (msg.text != null && msg.text!.isNotEmpty) {
+      Clipboard.setData(ClipboardData(text: msg.text!));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message copied to clipboard'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+    setState(() => _reactingIndex = null);
+  }
+
+  void _scrollToMessage(String? remoteId, DateTime? time) {
+    if (remoteId == null && time == null) return;
+    final idx = _messages.indexWhere((m) =>
+        (remoteId != null && m.remoteId == remoteId) ||
+        (time != null && m.time == time));
+    if (idx != -1 && _scrollController.hasClients) {
+      final target = (idx * 68.0).clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  void _showReactionMenu(int index, _Message message) {
+    HapticFeedback.mediumImpact();
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss Reactions',
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      transitionDuration: const Duration(milliseconds: 240),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim1, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: anim1, child: child),
+        );
+      },
+      pageBuilder: (context, anim1, anim2) {
+        final t = context.tokens;
+        return SafeArea(
+          child: Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: t.card,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 24,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                  border: Border.all(color: t.rail, width: 1.2),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: message.isMe ? NeedHubTokens.clay : t.chip,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              message.text ?? (message.imageUrl != null || message.imagePath != null ? '📷 Image' : 'Message'),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 13.5,
+                                color: message.isMe ? Colors.white : t.ink,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        '❤️', '👍', '🔥', '😂', '😮', '😢', '🙏', '👏', '🎉', '💡', '😍', '💯'
+                      ].map((emoji) {
+                        final isSelected = message.reactions.contains(emoji);
+                        return _PopUpEmojiButton(
+                          emoji: emoji,
+                          isSelected: isSelected,
+                          t: t,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            _addReaction(index, emoji);
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    Divider(color: t.rail, height: 1),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _QuickActionButton(
+                          icon: Icons.reply_rounded,
+                          label: 'Reply',
+                          color: NeedHubTokens.clay,
+                          t: t,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            HapticFeedback.lightImpact();
+                            setState(() => _replyingTo = message);
+                          },
+                        ),
+                        if (message.text != null && message.text!.isNotEmpty)
+                          _QuickActionButton(
+                            icon: Icons.copy_rounded,
+                            label: 'Copy',
+                            color: t.ink,
+                            t: t,
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              _copyMessage(index);
+                            },
+                          ),
+                        if (message.isMe)
+                          _QuickActionButton(
+                            icon: Icons.delete_outline_rounded,
+                            label: 'Delete',
+                            color: Colors.red,
+                            t: t,
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              _deleteMessage(index);
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   List<dynamic> get _listItems {
     final items = <dynamic>[];
     DateTime? lastDate;
@@ -597,46 +778,47 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         initials: widget.initials, color: widget.avatarColor, t: t);
                   }
                   if (item is _IndexedMessage) {
-                    final bubbleContent = Column(
-                      crossAxisAlignment: item.message.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                      children: [
-                        if (_reactingIndex == item.index)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: _ReactionPicker(
-                              onPick: (emoji) => _addReaction(item.index, emoji),
-                              t: t,
-                            ),
-                          ),
-                        _Bubble(
-                          msg: item.message,
-                          t: t,
-                          avatarColor: widget.avatarColor,
-                          initials: widget.initials,
-                          senderName: item.message.isMe ? 'You' : widget.name,
-                        ),
-                      ],
-                    );
-
                     return GestureDetector(
-                      onLongPress: () {
-                        HapticFeedback.mediumImpact();
-                        setState(() => _reactingIndex = item.index);
-                      },
+                      onLongPress: () => _showReactionMenu(item.index, item.message),
                       child: Dismissible(
                         key: ValueKey('msg_${item.index}_${item.message.remoteId ?? item.message.time.millisecondsSinceEpoch}'),
-                        direction: DismissDirection.endToStart,
-                        onUpdate: (details) {
-                          if (details.progress > 0.2) {
-                            HapticFeedback.selectionClick();
-                            setState(() => _replyingTo = item.message);
-                          }
+                        direction: DismissDirection.startToEnd,
+                        confirmDismiss: (_) async {
+                          HapticFeedback.mediumImpact();
+                          setState(() {
+                            _replyingTo = item.message;
+                          });
+                          return false; // Don't dismiss bubble
                         },
-                        confirmDismiss: (direction) async {
-                          setState(() => _replyingTo = item.message);
-                          return false; // don't actually dismiss
-                        },
-                        child: bubbleContent,
+                        background: Container(
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 20),
+                          child: Icon(Icons.reply_rounded, color: NeedHubTokens.clay, size: 22),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: item.message.isMe
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
+                          children: [
+                            _Bubble(
+                              msg: item.message,
+                              t: t,
+                              avatarColor: widget.avatarColor,
+                              initials: widget.initials,
+                              senderName: item.message.isMe ? 'You' : widget.name,
+                              onQuoteTap: () => _scrollToMessage(
+                                  item.message.replyTo?.remoteId,
+                                  item.message.replyTo?.time),
+                            ),
+                            if (item.message.reactions.isNotEmpty)
+                              _ReactionsBadgeBar(
+                                reactions: item.message.reactions,
+                                isMe: item.message.isMe,
+                                t: t,
+                                onToggleEmoji: (emoji) => _addReaction(item.index, emoji),
+                              ),
+                          ],
+                        ),
                       ),
                     );
                   }
@@ -649,7 +831,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             Column(
               children: [
                 if (_replyingTo != null)
-                  Container(
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
@@ -658,28 +842,53 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.reply_rounded, color: NeedHubTokens.forest, size: 20),
-                        const SizedBox(width: 8),
+                        Container(
+                          width: 3,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: NeedHubTokens.clay,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                _replyingTo!.isMe ? 'Replying to yourself' : 'Replying to ${widget.name}',
-                                style: GoogleFonts.hankenGrotesk(fontSize: 12, fontWeight: FontWeight.bold, color: NeedHubTokens.forest),
+                              Row(
+                                children: [
+                                  Icon(Icons.reply_rounded, color: NeedHubTokens.clay, size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _replyingTo!.isMe ? 'Replying to yourself' : 'Replying to ${widget.name}',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: NeedHubTokens.clay,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 2),
                               Text(
-                                _replyingTo!.text ?? 'Image',
+                                _replyingTo!.text ?? (_replyingTo!.imagePath != null || _replyingTo!.imageUrl != null ? '📷 Image' : 'Message'),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
+                                style: GoogleFonts.hankenGrotesk(fontSize: 12.5, color: t.muted),
                               ),
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(Icons.close_rounded, color: t.muted2, size: 20),
-                          onPressed: () => setState(() => _replyingTo = null),
+                        GestureDetector(
+                          onTap: () => setState(() => _replyingTo = null),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: t.chip,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.close_rounded, color: t.muted2, size: 16),
+                          ),
                         ),
                       ],
                     ),
@@ -883,39 +1092,239 @@ class _DateDivider extends StatelessWidget {
   }
 }
 
-class _ReactionPicker extends StatelessWidget {
-  final ValueChanged<String> onPick;
-  final NeedHubTokens t;
-  const _ReactionPicker({required this.onPick, required this.t});
 
-  static const _emojis = ['❤️', '👍', '😂', '😮', '😢', '🙏'];
+
+class _ReactionsBadgeBar extends StatelessWidget {
+  final List<String> reactions;
+  final ValueChanged<String> onToggleEmoji;
+  final NeedHubTokens t;
+  final bool isMe;
+
+  const _ReactionsBadgeBar({
+    required this.reactions,
+    required this.onToggleEmoji,
+    required this.t,
+    required this.isMe,
+  });
+
+  Map<String, int> get _counts {
+    final map = <String, int>{};
+    for (final r in reactions) {
+      map[r] = (map[r] ?? 0) + 1;
+    }
+    return map;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: t.card,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.14),
-              blurRadius: 14,
-              offset: const Offset(0, 4))
-        ],
-        border: Border.all(color: t.rail, width: 1),
+    if (reactions.isEmpty) return const SizedBox.shrink();
+    final counts = _counts;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        top: 3,
+        left: isMe ? 0 : 32,
+        right: isMe ? 4 : 0,
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: _emojis
-            .map((e) => GestureDetector(
-                  onTap: () => onPick(e),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Text(e, style: const TextStyle(fontSize: 22)),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: counts.entries.map((entry) {
+          return _ReactionBadgeChip(
+            emoji: entry.key,
+            count: entry.value,
+            onTap: () => onToggleEmoji(entry.key),
+            t: t,
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _ReactionBadgeChip extends StatefulWidget {
+  final String emoji;
+  final int count;
+  final VoidCallback onTap;
+  final NeedHubTokens t;
+
+  const _ReactionBadgeChip({
+    required this.emoji,
+    required this.count,
+    required this.onTap,
+    required this.t,
+  });
+
+  @override
+  State<_ReactionBadgeChip> createState() => _ReactionBadgeChipState();
+}
+
+class _ReactionBadgeChipState extends State<_ReactionBadgeChip> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _pressed ? 0.9 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: NeedHubTokens.clay.withValues(alpha: 0.35),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(widget.emoji, style: const TextStyle(fontSize: 13)),
+              if (widget.count > 1) ...[
+                const SizedBox(width: 3),
+                Text(
+                  '${widget.count}',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: t.ink,
                   ),
-                ))
-            .toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PopUpEmojiButton extends StatefulWidget {
+  final String emoji;
+  final bool isSelected;
+  final NeedHubTokens t;
+  final VoidCallback onTap;
+
+  const _PopUpEmojiButton({
+    required this.emoji,
+    required this.isSelected,
+    required this.t,
+    required this.onTap,
+  });
+
+  @override
+  State<_PopUpEmojiButton> createState() => _PopUpEmojiButtonState();
+}
+
+class _PopUpEmojiButtonState extends State<_PopUpEmojiButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 1.35 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOutBack,
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? NeedHubTokens.clay.withValues(alpha: 0.18)
+                : widget.t.chip,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: widget.isSelected
+                  ? NeedHubTokens.clay
+                  : widget.t.rail,
+              width: widget.isSelected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Text(
+            widget.emoji,
+            style: const TextStyle(fontSize: 24),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final NeedHubTokens t;
+  final VoidCallback onTap;
+
+  const _QuickActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.t,
+    required this.onTap,
+  });
+
+  @override
+  State<_QuickActionButton> createState() => _QuickActionButtonState();
+}
+
+class _QuickActionButtonState extends State<_QuickActionButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.9 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: widget.color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(widget.icon, color: widget.color, size: 20),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.label,
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: widget.t.muted2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1039,6 +1448,7 @@ class _Bubble extends StatelessWidget {
   final Color avatarColor;
   final String initials;
   final String senderName;
+  final VoidCallback? onQuoteTap;
 
   const _Bubble({
     required this.msg,
@@ -1046,6 +1456,7 @@ class _Bubble extends StatelessWidget {
     required this.avatarColor,
     required this.initials,
     this.senderName = '',
+    this.onQuoteTap,
   });
 
   @override
@@ -1109,28 +1520,31 @@ class _Bubble extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (msg.replyTo != null)
-                        Container(
-                          margin: EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border(left: BorderSide(color: NeedHubTokens.forest.withValues(alpha: 0.8), width: 3)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                msg.replyTo!.isMe ? 'You' : msg.replyTo!.senderName,
-                                style: GoogleFonts.hankenGrotesk(fontSize: 11, fontWeight: FontWeight.bold, color: msg.isMe ? Colors.white70 : t.muted2),
-                              ),
-                              Text(
-                                msg.replyTo!.text ?? 'Image',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.hankenGrotesk(fontSize: 12, color: msg.isMe ? Colors.white60 : t.muted),
-                              ),
-                            ],
+                        GestureDetector(
+                          onTap: onQuoteTap,
+                          child: Container(
+                            margin: EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border(left: BorderSide(color: NeedHubTokens.forest.withValues(alpha: 0.8), width: 3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  msg.replyTo!.isMe ? 'You' : msg.replyTo!.senderName,
+                                  style: GoogleFonts.hankenGrotesk(fontSize: 11, fontWeight: FontWeight.bold, color: msg.isMe ? Colors.white70 : t.muted2),
+                                ),
+                                Text(
+                                  msg.replyTo!.text ?? 'Image',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.hankenGrotesk(fontSize: 12, color: msg.isMe ? Colors.white60 : t.muted),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       if (isImage)
