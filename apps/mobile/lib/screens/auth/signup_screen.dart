@@ -132,11 +132,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         return;
       }
       // Try last-known first (instant); fall back to a fresh fix with a 10s cap.
-      // Using LocationAccuracy.medium so the emulator's network provider can respond.
+      // Using LocationAccuracy.lowest helps avoid GPS lock requirements on emulators.
       Position? pos = await Geolocator.getLastKnownPosition();
       pos ??= await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 20),
+        desiredAccuracy: LocationAccuracy.lowest,
+        timeLimit: const Duration(seconds: 5),
       );
       if (!mounted) return;
 
@@ -188,11 +188,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     } catch (e) {
       if (mounted) {
         String msg = 'Could not fetch location: $e';
-        if (e.toString().contains('TimeoutException')) {
-          msg = 'Location fetch timed out. Try picking on the map instead.';
+        bool isTimeout = e.toString().contains('TimeoutException');
+        if (isTimeout) {
+          msg = 'Location fetch timed out. Opening map picker...';
         }
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(msg)));
+            
+        if (isTimeout) {
+          Future.delayed(const Duration(milliseconds: 500), _openMapPicker);
+        }
       }
     } finally {
       if (mounted) setState(() => _locating = false);
