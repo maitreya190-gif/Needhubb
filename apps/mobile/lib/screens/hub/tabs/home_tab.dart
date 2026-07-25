@@ -37,7 +37,9 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   }
 
   List<Need> get _filtered {
-    var needs = List<Need>.from(mockNeeds);
+    var needs = List<Need>.from(mockNeeds)
+        .where((n) => n.authorName != 'You' && n.authorInitials != 'ME')
+        .toList();
     if (_selectedCategory != 'all') {
       needs = needs.where((n) => n.category == _selectedCategory).toList();
     }

@@ -22,7 +22,49 @@ class NeedOffer {
 }
 
 // needId → list of offers submitted for that need
-final Map<String, List<NeedOffer>> mockOffers = {};
+final Map<String, List<NeedOffer>> mockOffers = {
+  'earn_1': [
+    const NeedOffer(
+      name: 'Aarav Kumar',
+      initials: 'AK',
+      note: 'I can deliver this laptop charger within 20 minutes.',
+      amount: '₹400',
+      color: Color(0xFF2E6B4E),
+    ),
+    const NeedOffer(
+      name: 'Rohan Verma',
+      initials: 'RV',
+      note: 'Available right away! I live 200m away.',
+      amount: '₹350',
+      color: Color(0xFFB85D19),
+    ),
+  ],
+  'earn_2': [
+    const NeedOffer(
+      name: 'Priya Nair',
+      initials: 'PN',
+      note: 'I am a senior frontend engineer and can teach Flutter state management.',
+      amount: '₹800',
+      color: Color(0xFFC88719),
+    ),
+    const NeedOffer(
+      name: 'Meera Kulkarni',
+      initials: 'MK',
+      note: 'I have 4 years experience with Flutter & Riverpod.',
+      amount: '₹1,000',
+      color: Color(0xFF2E6B4E),
+    ),
+  ],
+  'connect_1': [
+    const NeedOffer(
+      name: 'Sneha Rao',
+      initials: 'SR',
+      note: 'Would love to study system design and practice mock interviews together!',
+      amount: 'Free',
+      color: Color(0xFF2E6B4E),
+    ),
+  ],
+};
 
 class Need {
   final String id;
@@ -69,9 +111,7 @@ class Need {
   }
 
   int get totalOfferCount {
-    final userOffersCount = (mockOffers[id] ?? []).length;
-    final base = category == 'earn' ? 2 : 0;
-    return base + userOffersCount;
+    return (mockOffers[id] ?? []).length;
   }
 
   NeedOffer? get myOffer {
@@ -143,5 +183,56 @@ final List<Need> mockNeeds = [
     budgetMax: 800,
     tags: ['moving', 'help', 'manual labor'],
     posterGender: 'Female',
+  ),
+  Need(
+    id: 'earn_1',
+    title: 'Need someone to drop off my laptop charger in HSR Sector 2',
+    description: 'Left my Type-C charger at cafe, urgent drop off needed at HSR Sector 2 office.',
+    category: 'earn',
+    authorName: 'Vikram Seth',
+    authorInitials: 'VS',
+    location: 'HSR Layout · 0.8km',
+    distanceKm: 0.8,
+    createdAt: DateTime.now().subtract(const Duration(minutes: 35)),
+    budgetMin: 350,
+    budgetMax: 500,
+    tags: ['delivery', 'urgent', 'tech'],
+  ),
+  Need(
+    id: 'earn_2',
+    title: 'Looking for a tutor for Flutter state management & Riverpod',
+    description: 'Need 2 hours of 1-on-1 practical hands-on guidance on Riverpod state management and architecture.',
+    category: 'earn',
+    authorName: 'Ananya Sharma',
+    authorInitials: 'AS',
+    location: 'Koramangala · 1.2km',
+    distanceKm: 1.2,
+    createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+    budgetMin: 800,
+    budgetMax: 1200,
+    tags: ['flutter', 'tutor', 'coding'],
+  ),
+  Need(
+    id: 'connect_1',
+    title: 'Study buddy for System Design & Leetcode prep',
+    description: 'Preparing for tech interviews. Looking for someone to solve graph & DP problems with every evening.',
+    category: 'connect',
+    authorName: 'Rahul Patel',
+    authorInitials: 'RP',
+    location: 'Indiranagar · 1.5km',
+    distanceKm: 1.5,
+    createdAt: DateTime.now().subtract(const Duration(hours: 4)),
+    tags: ['study', 'coding', 'leetcode'],
+  ),
+  Need(
+    id: 'my_posted_1',
+    title: 'Looking for Flutter developer to collaborate on social open-source project',
+    description: 'Building a community app. Looking for interested Flutter developers to brainstorm & build features.',
+    category: 'connect',
+    authorName: 'You',
+    authorInitials: 'ME',
+    location: 'Nearby',
+    createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+    tags: ['flutter', 'open-source', 'community'],
   ),
 ];

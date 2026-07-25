@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../models/need.dart';
+import '../models/user_state.dart';
 import '../screens/hub/conversation_screen.dart';
 import '../screens/hub/tabs/feed_tab.dart';
 import '../screens/needs/need_detail_screen.dart';
@@ -127,34 +129,69 @@ class NotificationNavigator {
       }
     }
 
-    // B. NEED_RESPONSE_RECEIVED / NEED_UPDATE / NEED_COMPLETED / NEED_ACCEPTED -> Redirect to Need Detail Screen / Earn tab
+    // B. NEED_RESPONSE_RECEIVED / NEED_UPDATE / NEED_OFFER / NEED_COMPLETED / NEED_ACCEPTED -> ALWAYS Redirect directly to NeedDetailScreen for exact target need!
     final isNeedNotif = type == 'NEED_RESPONSE_RECEIVED' ||
         type == 'NEED_UPDATE' ||
         type == 'NEED_COMPLETED' ||
         type == 'NEED_ACCEPTED' ||
+        type == 'NEED_OFFER' ||
         type.contains('NEED') ||
+        type.contains('OFFER') ||
         refType == 'NEED' ||
         refType == 'need';
 
     if (isNeedNotif) {
+      Need? targetNeed;
+
+      // 1. Check local mockNeeds for matching id or title
+      if (refId != null && refId.isNotEmpty) {
+        for (final n in mockNeeds) {
+          if (n.id == refId) {
+            targetNeed = n;
+            break;
+          }
+        }
+      }
+
+      if (targetNeed == null) {
+        for (final n in mockNeeds) {
+          if (notif.body.toLowerCase().contains(n.title.toLowerCase()) ||
+              notif.title.toLowerCase().contains(n.title.toLowerCase())) {
+            targetNeed = n;
+            break;
+          }
+        }
+      }
+
+      if (targetNeed != null && context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => NeedDetailScreen(need: targetNeed!)),
+        );
+        return;
+      }
+
+      // 2. Fetch from API if refId is provided
       if (refId != null && refId.isNotEmpty) {
         showLoading();
         try {
           final needsApi = ref.read(needsApiProvider);
-          final need = await needsApi.getById(refId);
+          final fetched = await needsApi.getById(refId);
           if (!context.mounted) return;
           Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
+            MaterialPageRoute(builder: (_) => NeedDetailScreen(need: fetched)),
           );
           return;
         } catch (_) {}
       }
+
+      // 3. Fallback: Open first need in mockNeeds directly
       if (context.mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const FeedTab(initialSurface: 'earn'),
-          ),
-        );
+        final fallback = mockNeeds.isNotEmpty ? mockNeeds.first : null;
+        if (fallback != null) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => NeedDetailScreen(need: fallback)),
+          );
+        }
         return;
       }
     }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../models/need.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
@@ -13,6 +14,7 @@ import '../../services/uploads_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../history/history_screen.dart';
+import '../needs/need_detail_screen.dart';
 import '../redeem/redeem_screen.dart';
 import 'edit_profile_screen.dart';
 
@@ -267,6 +269,12 @@ class YouScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ── My Posted Needs & History ──────────────────────────────
+                  _MyPostedNeedsSection(t: t),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
                   // ── Impact section ───────────────────────────────────────
                   Text(
                     'IMPACT',
@@ -1564,6 +1572,378 @@ class _PromptCard extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── My Posted Needs & History Section ─────────────────────────────────────────
+
+class _MyPostedNeedsSection extends ConsumerStatefulWidget {
+  final NeedHubTokens t;
+  const _MyPostedNeedsSection({required this.t});
+
+  @override
+  ConsumerState<_MyPostedNeedsSection> createState() => _MyPostedNeedsSectionState();
+}
+
+class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
+  String _filter = 'all'; // 'all' | 'connect' | 'earn'
+  List<Need> _apiPostedNeeds = [];
+
+  @override
+  void initState() {
+    super.initState();
+    needsNotifier.addListener(_rebuild);
+    ratingsGivenNotifier.addListener(_rebuild);
+    Future.microtask(_fetchMine);
+  }
+
+  @override
+  void dispose() {
+    needsNotifier.removeListener(_rebuild);
+    ratingsGivenNotifier.removeListener(_rebuild);
+    super.dispose();
+  }
+
+  void _rebuild() => setState(() {});
+
+  Future<void> _fetchMine() async {
+    try {
+      final api = ref.read(apiClientProvider);
+      final res = await api.get('/needs/mine/list');
+      final list = ((res['needs'] as List?) ?? const []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() {
+        _apiPostedNeeds = list.map((j) {
+          final needType = (j['needType'] as String? ?? 'CONNECT').toLowerCase();
+          final category = needType == 'earn' ? 'earn' : 'connect';
+          final createdIso = j['createdAt'] as String?;
+          return Need(
+            id: j['id'] as String,
+            title: j['title'] as String? ?? '',
+            description: j['description'] as String? ?? '',
+            category: category,
+            authorName: 'You',
+            authorInitials: 'ME',
+            location: j['locationText'] as String? ?? 'Nearby',
+            createdAt: createdIso != null ? (DateTime.tryParse(createdIso) ?? DateTime.now()) : DateTime.now(),
+            budgetMin: (j['budgetMin'] as num?)?.toInt(),
+            budgetMax: (j['budgetMax'] as num?)?.toInt(),
+          );
+        }).toList();
+      });
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final localMine = mockNeeds.where((n) => n.authorName == 'You' || n.authorInitials == 'ME').toList();
+
+    // Merge API posted needs + local mine
+    final Map<String, Need> map = {};
+    for (final n in _apiPostedNeeds) {
+      map[n.id] = n;
+    }
+    for (final n in localMine) {
+      if (!map.containsKey(n.id)) {
+        map[n.id] = n;
+      }
+    }
+    final allMine = map.values.toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    final filtered = _filter == 'all'
+        ? allMine
+        : allMine.where((n) => n.category.toLowerCase() == _filter).toList();
+
+    final connectCount = allMine.where((n) => n.category.toLowerCase() == 'connect').length;
+    final earnCount = allMine.where((n) => n.category.toLowerCase() == 'earn').length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'MY POSTED NEEDS & HISTORY',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: t.muted2,
+                letterSpacing: 0.7,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${allMine.length} Total',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: NeedHubTokens.clay,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Filter chips: All, Connect, Earn
+        Row(
+          children: [
+            _HistoryChip(
+              label: 'All (${allMine.length})',
+              selected: _filter == 'all',
+              onTap: () => setState(() => _filter = 'all'),
+              t: t,
+            ),
+            const SizedBox(width: 8),
+            _HistoryChip(
+              label: 'Connect ($connectCount)',
+              selected: _filter == 'connect',
+              onTap: () => setState(() => _filter = 'connect'),
+              t: t,
+              color: NeedHubTokens.forest,
+            ),
+            const SizedBox(width: 8),
+            _HistoryChip(
+              label: 'Earn ($earnCount)',
+              selected: _filter == 'earn',
+              onTap: () => setState(() => _filter = 'earn'),
+              t: t,
+              color: NeedHubTokens.ochre,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (filtered.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: t.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: t.rail, width: 1),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.assignment_outlined, size: 24, color: t.muted2),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'No posted needs in this category',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: t.ink,
+                        ),
+                      ),
+                      Text(
+                        'Needs you post will appear here with status, offers & feedback',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11.5,
+                          color: t.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Column(
+            children: filtered.map((n) => _PostedNeedCard(need: n, t: t)).toList(),
+          ),
+      ],
+    );
+  }
+}
+
+class _HistoryChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final NeedHubTokens t;
+  final Color? color;
+
+  const _HistoryChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.t,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = color ?? NeedHubTokens.clay;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? activeColor.withValues(alpha: 0.14) : t.card,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? activeColor : t.rail,
+            width: selected ? 1.6 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            color: selected ? activeColor : t.muted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PostedNeedCard extends StatelessWidget {
+  final Need need;
+  final NeedHubTokens t;
+
+  const _PostedNeedCard({required this.need, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    final isEarn = need.category.toLowerCase() == 'earn';
+    final catColor = isEarn ? NeedHubTokens.ochre : NeedHubTokens.forest;
+    final offersCount = need.totalOfferCount;
+    final rating = ratingsGivenNotifier.value[need.title] ?? ratingsGivenNotifier.value[need.id];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: t.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: t.rail, width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                offset: const Offset(0, 2),
+                blurRadius: 6,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: catColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      isEarn ? 'EARN' : 'CONNECT',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: catColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: NeedHubTokens.forest.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'ACTIVE',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: NeedHubTokens.forest,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    need.timeAgo,
+                    style: GoogleFonts.hankenGrotesk(fontSize: 11, color: t.muted),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                need.title,
+                style: GoogleFonts.bricolageGrotesque(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: t.ink,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                need.description,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 12.5,
+                  color: t.muted,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(Icons.local_offer_outlined, size: 14, color: catColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$offersCount ${offersCount == 1 ? 'offer received' : 'offers received'}',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: catColor,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (rating != null) ...[
+                    const Icon(Icons.star_rounded, size: 15, color: Colors.amber),
+                    const SizedBox(width: 2),
+                    Text(
+                      '$rating.0 / 5.0 Rating',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: t.ink,
+                      ),
+                    ),
+                  ] else ...[
+                    Text(
+                      'Tap to view details →',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: t.muted2,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

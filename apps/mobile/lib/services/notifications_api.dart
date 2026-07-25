@@ -63,8 +63,34 @@ class NotificationsApi {
       _api.post('/notifications/read-all', const {});
 }
 
-// ── Global notifiers ─────────────────────────────────────────────────────────
+final notificationsListNotifier = ValueNotifier<List<NhNotification>>([
+  NhNotification(
+    id: 'seed_notif_1',
+    type: 'NEED_RESPONSE_RECEIVED',
+    title: 'New Offer Received!',
+    body: 'Aarav Kumar submitted an offer for "Need someone to drop off my laptop charger in HSR Sector 2"',
+    refType: 'NEED',
+    refId: 'earn_1',
+    createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
+  ),
+  NhNotification(
+    id: 'seed_notif_2',
+    type: 'NEED_RESPONSE_RECEIVED',
+    title: 'New Offer Received!',
+    body: 'Priya Nair submitted an offer for "Looking for a tutor for Flutter state management & Riverpod"',
+    refType: 'NEED',
+    refId: 'earn_2',
+    createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+  ),
+  NhNotification(
+    id: 'seed_notif_3',
+    type: 'FRIEND_REQUEST_RECEIVED',
+    title: 'Friend Request',
+    body: 'Rohan Verma sent you a friend request.',
+    refType: 'USER',
+    refId: 'user_rohan',
+    createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+  ),
+]);
 
-final notificationsListNotifier =
-    ValueNotifier<List<NhNotification>>(const []);
-final unreadCountNotifier = ValueNotifier<int>(0);
+final unreadCountNotifier = ValueNotifier<int>(3);

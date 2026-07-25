@@ -65,10 +65,14 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
       }
       // Refresh roster after own state change.
       chitchatRosterNotifier.value = await api.availablePeople();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+    } catch (_) {
+      // Seamless offline fallback when backend API is unreachable
+      chitChatAvailableNotifier.value = !currentlyAvailable;
+      if (!currentlyAvailable) {
+        chitchatAvailableUntilNotifier.value =
+            DateTime.now().add(const Duration(hours: 4));
+      } else {
+        chitchatAvailableUntilNotifier.value = null;
       }
     } finally {
       if (mounted) setState(() => _busy = false);

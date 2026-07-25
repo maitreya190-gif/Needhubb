@@ -89,9 +89,7 @@ class _NHFullScreenImageViewerState extends State<NHFullScreenImageViewer> {
       final double x = -position.dx * (scale - 1);
       final double y = -position.dy * (scale - 1);
       _transformationController.value = Matrix4.identity()
-        // ignore: deprecated_member_use
         ..translate(x, y)
-        // ignore: deprecated_member_use
         ..scale(scale);
     }
   }
