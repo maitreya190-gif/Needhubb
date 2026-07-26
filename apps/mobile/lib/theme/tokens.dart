@@ -354,5 +354,5 @@ class NeedHubThemes {
 // BuildContext extension for convenient token access
 extension NeedHubTokensX on BuildContext {
   NeedHubTokens get tokens =>
-      Theme.of(this).extension<NeedHubTokens>() ?? NeedHubThemes.paper;
+      Theme.of(this).extension<NeedHubTokens>() ?? NeedHubThemes.blush;
 }

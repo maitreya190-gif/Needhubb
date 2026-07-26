@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/tokens.dart';
 
 class ThemeNotifier extends StateNotifier<NeedHubTokens> {
-  ThemeNotifier() : super(NeedHubThemes.paper) {
+  ThemeNotifier() : super(NeedHubThemes.blush) {
     _loadSavedTheme();
   }
 
@@ -12,10 +12,10 @@ class ThemeNotifier extends StateNotifier<NeedHubTokens> {
   Future<void> _loadSavedTheme() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final key = prefs.getString(_prefKey) ?? 'paper';
+      final key = prefs.getString(_prefKey) ?? 'blush';
       state = NeedHubThemes.fromKey(key);
     } catch (_) {
-      state = NeedHubThemes.paper;
+      state = NeedHubThemes.blush;
     }
   }
 
