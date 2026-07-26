@@ -13,6 +13,7 @@ import '../../widgets/nh_report_sheet.dart';
 import '../hub/conversation_screen.dart';
 import '../../widgets/nh_full_screen_image_viewer.dart';
 import '../../services/social_providers.dart';
+import '../../services/needs_api.dart';
 
 class _OfferRevisionData {
   final String note;
