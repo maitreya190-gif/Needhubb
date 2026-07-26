@@ -23,7 +23,7 @@ function generateOtp(): string {
   return String(Math.floor(100000 + Math.random() * 900000))
 }
 
-async function issueOtp(userId: string, email: string): Promise<void> {
+async function issueOtp(userId: string, email: string, waitForEmail = false): Promise<void> {
   const code = generateOtp()
   const codeHash = await bcrypt.hash(code, 8)
   await prisma.emailVerification.upsert({
@@ -40,7 +40,13 @@ async function issueOtp(userId: string, email: string): Promise<void> {
       attempts: 0,
     },
   })
-  await sendOtp(email, code)
+  // Fire-and-forget by default so signup doesn't hang if Gmail/Resend is slow
+  // or unreachable. The OTP is already persisted, so users can enter it as
+  // soon as it arrives OR use the dev bypass 000000.
+  const emailPromise = sendOtp(email, code).catch((err) =>
+    console.error('[auth] sendOtp failed:', (err as Error).message),
+  )
+  if (waitForEmail) await emailPromise
 }
 
 export async function signup({ email, password, displayName, username }: SignupBody) {
