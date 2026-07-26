@@ -39,6 +39,57 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
+// Diagnostic: test Brevo HTTPS API. Returns exact error text.
+// Usage: GET /admin/email-diag-brevo?to=friend@gmail.com  (needs x-admin-secret)
+app.get('/admin/email-diag-brevo', adminAuth, async (req, res) => {
+  try {
+    const to = String(req.query.to || '')
+    if (!to) return res.status(400).json({ error: 'pass ?to=someone@gmail.com' })
+
+    const stripEnv = (v: string | undefined) =>
+      (v ?? '').trim().replace(/^["']|["']$/g, '').trim()
+
+    const key = stripEnv(process.env.BREVO_API_KEY)
+    const fromRaw = stripEnv(process.env.EMAIL_FROM) || 'NeedHub <onboarding@needhub.app>'
+    const match = fromRaw.match(/^\s*(.*?)\s*<([^>]+)>\s*$/)
+    const senderName = match ? match[1] : 'NeedHub'
+    const senderEmail = match ? match[2] : fromRaw
+
+    if (!key) return res.json({ ok: false, error: 'BREVO_API_KEY not set' })
+
+    const start = Date.now()
+    try {
+      const r = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': key,
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
+        body: JSON.stringify({
+          sender: { name: senderName, email: senderEmail },
+          to: [{ email: to }],
+          subject: 'NeedHub Brevo diagnostic',
+          textContent: 'If you got this, Brevo delivery works from Railway.',
+        }),
+      })
+      const body = await r.text()
+      res.json({
+        ok: r.ok,
+        elapsed: Date.now() - start,
+        status: r.status,
+        from: `${senderName} <${senderEmail}>`,
+        to,
+        response: body.slice(0, 500),
+      })
+    } catch (err: any) {
+      res.json({ ok: false, elapsed: Date.now() - start, error: err?.message ?? String(err) })
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? 'unknown' })
+  }
+})
+
 // Diagnostic: test Resend HTTPS API delivery. Returns exact error text.
 // Usage: GET /admin/email-diag-resend?to=friend@gmail.com  (needs x-admin-secret)
 app.get('/admin/email-diag-resend', adminAuth, async (req, res) => {

@@ -1,45 +1,47 @@
 import nodemailer, { type Transporter } from 'nodemailer'
 import { Resend } from 'resend'
 
-const FROM = (process.env.EMAIL_FROM || 'NeedHub <noreply@needhub.app>')
-  .trim()
-  .replace(/^["']|["']$/g, '')
-  .trim()
+const stripEnv = (v: string | undefined) =>
+  (v ?? '').trim().replace(/^["']|["']$/g, '').trim()
 
-// Provider priority: Gmail SMTP → Resend → console.log dev fallback.
-// Gmail wins because its free tier delivers to ANY recipient (Resend's sandbox
-// only delivers to the account owner). Resend stays as a hot backup so if Gmail's
-// app password rotates or 2FA breaks, we keep sending.
-type Provider = 'gmail' | 'resend' | 'dev'
+const FROM = stripEnv(process.env.EMAIL_FROM) || 'NeedHub <noreply@needhub.app>'
 
-let cached: { provider: Provider; transporter?: Transporter; resend?: Resend } | null = null
+// Provider priority (highest to lowest):
+//   1. Brevo  — HTTPS, 300/day free, sender verification only (recommended)
+//   2. Resend — HTTPS, 100/day free, sandbox unless domain verified
+//   3. Gmail SMTP — blocked by most cloud providers on port 587
+//   4. Dev fallback — console.log the code
+type Provider = 'brevo' | 'gmail' | 'resend' | 'dev'
 
-function pickProvider(): { provider: Provider; transporter?: Transporter; resend?: Resend } {
+let cached: { provider: Provider; transporter?: Transporter; resend?: Resend; brevoKey?: string } | null = null
+
+function pickProvider(): { provider: Provider; transporter?: Transporter; resend?: Resend; brevoKey?: string } {
   if (cached) return cached
 
-  // Strip surrounding single/double quotes AND all whitespace.
-  const stripEnv = (v: string | undefined) =>
-    (v ?? '').trim().replace(/^["']|["']$/g, '').trim()
+  // 1. Brevo (Sendinblue) — best free tier for arbitrary recipients.
+  const brevoKey = stripEnv(process.env.BREVO_API_KEY)
+  if (brevoKey) {
+    cached = { provider: 'brevo', brevoKey }
+    return cached
+  }
 
-  // Provider priority: Resend FIRST since Railway (and most cloud providers)
-  // block outbound SMTP on port 587 — Gmail SMTP will time out. Resend uses
-  // HTTPS so it always works.
-  // Gmail stays as a fallback for local dev or environments that allow SMTP.
+  // 2. Resend — HTTPS-based, works from cloud but has sandbox limit.
   const resendKey = stripEnv(process.env.RESEND_API_KEY)
   if (resendKey) {
     cached = { provider: 'resend', resend: new Resend(resendKey) }
     return cached
   }
 
+  // 3. Gmail SMTP — usually blocked on cloud (Railway, Render, Vercel...).
   const gmailUser = stripEnv(process.env.GMAIL_USER)
   const gmailPass = stripEnv(process.env.GMAIL_APP_PASSWORD).replace(/\s+/g, '')
   if (gmailUser && gmailPass) {
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
-      secure: false,           // STARTTLS on 587
+      secure: false,
       auth: { user: gmailUser, pass: gmailPass },
-      connectionTimeout: 8000, // Fail fast so signup doesn't hang on cloud SMTP blocks
+      connectionTimeout: 8000,
       greetingTimeout: 8000,
       socketTimeout: 8000,
     })
@@ -75,6 +77,12 @@ export async function sendOtp(email: string, code: string): Promise<void> {
   }
 
   try {
+    if (picked.provider === 'brevo' && picked.brevoKey) {
+      await sendViaBrevo(picked.brevoKey, email, subject, html, text)
+      console.log(`[email:brevo] sent to ${email}`)
+      return
+    }
+
     if (picked.provider === 'gmail' && picked.transporter) {
       const info = await picked.transporter.sendMail({ from: FROM, to: email, subject, html, text })
       console.log(`[email:gmail] sent to ${email}, messageId=${info.messageId}`)
@@ -92,5 +100,38 @@ export async function sendOtp(email: string, code: string): Promise<void> {
     // transient email issues; the user can hit resend, and dev code `000000`
     // always passes as a last resort.
     console.error(`[email:${picked.provider}] failed for ${email}:`, (err as Error).message)
+  }
+}
+
+async function sendViaBrevo(
+  apiKey: string,
+  to: string,
+  subject: string,
+  html: string,
+  text: string,
+): Promise<void> {
+  // Parse "NeedHub <verified@sender.com>" into { name, email } that Brevo needs.
+  const match = FROM.match(/^\s*(.*?)\s*<([^>]+)>\s*$/)
+  const senderName = match ? match[1] : 'NeedHub'
+  const senderEmail = match ? match[2] : FROM.trim()
+
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': apiKey,
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({
+      sender: { name: senderName, email: senderEmail },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text,
+    }),
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Brevo ${res.status}: ${body.slice(0, 300)}`)
   }
 }
