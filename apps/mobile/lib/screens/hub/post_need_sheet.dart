@@ -165,11 +165,21 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
           budgetMax: (parent['budgetMax'] as num?)?.toInt(),
         );
       }
+    } on DioException catch (e) {
+      final code = e.response?.data?['code'] as String?;
+      if (code == 'MODERATION_BLOCKED') {
+        if (mounted) {
+          setState(() { _posting = false; _error = 'moderation'; });
+        }
+        return;
+      }
+      // Network/server error — fall through to optimistic local Need so user isn't stuck
     } catch (_) {
-      // Backend request failed or offline — fall back to optimistic local Need
+      // Unexpected error — fall through to optimistic
     }
 
-    // Fallback: If API did not return parent, create optimistic local Need
+    // Only reach here if the API succeeded or had a non-moderation network error.
+    // Fallback: If API did not return parent (e.g. offline), create optimistic local Need.
     postedNeed ??= Need(
       id: 'posted_${DateTime.now().millisecondsSinceEpoch}',
       posterId: ref.read(authProvider).userId ?? '',
