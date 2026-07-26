@@ -1849,19 +1849,32 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
   @override
   void initState() {
     super.initState();
-    needsNotifier.addListener(_rebuild);
+    needsNotifier.addListener(_onNeedsChanged);
     ratingsGivenNotifier.addListener(_rebuild);
+    feedNeedsNotifier.addListener(_onNeedsChanged);
+    Future.microtask(_fetchMine);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refetch every time the You tab becomes visible again.
     Future.microtask(_fetchMine);
   }
 
   @override
   void dispose() {
-    needsNotifier.removeListener(_rebuild);
+    needsNotifier.removeListener(_onNeedsChanged);
     ratingsGivenNotifier.removeListener(_rebuild);
+    feedNeedsNotifier.removeListener(_onNeedsChanged);
     super.dispose();
   }
 
   void _rebuild() => setState(() {});
+  void _onNeedsChanged() {
+    _fetchMine();
+    if (mounted) setState(() {});
+  }
 
   Future<void> _fetchMine() async {
     try {
