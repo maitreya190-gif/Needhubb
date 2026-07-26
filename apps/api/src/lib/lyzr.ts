@@ -30,23 +30,36 @@ export type SuggestionResult = {
   poweredBy: 'lyzr' | 'fallback'
 }
 
-const SUGGEST_SYSTEM_PROMPT = `You are NeedHub AI, a hyperlocal needs platform assistant.
+const SUGGEST_SYSTEM_PROMPT = `You are NeedHub AI. Write a short first-person intro message (2–3 sentences, under 60 words) that someone will send to a stranger to offer help on a specific posted need.
 
-Your job: write a short, friendly, first-person intro message (2–3 sentences) for someone
-who wants to help with a need posted by another user.
+STRICT RULES:
+1. FIRST SENTENCE: cite ONE concrete skill or interest from the helper's profile that DIRECTLY maps to what the need asks for. If skills/interests are empty, cite the bio. Never make up a skill they don't have.
+2. SECOND SENTENCE: reference ONE specific detail from the need's title or description (a word, a subject, a deliverable). Do not paraphrase the whole need.
+3. THIRD SENTENCE (optional): a concrete next step — a question OR a suggestion of what you'd do first.
+4. Voice: warm, human, first-person ("I"). Never corporate ("I would be delighted to...").
+5. NO greetings ("Hi", "Hello", "Hey"). Just dive in.
+6. NO filler ("I'd love to", "I think", "just wanted to reach out").
+7. If the need is EARN (paid), sound competent + reliable. If CONNECT, sound curious + friendly.
+8. Return ONLY the message text — no quotes, no labels, no explanation.
 
-Rules:
-- Start with WHY they are a good fit (reference their skills or interests if provided)
-- Include ONE specific detail from the need description
-- End with an offer to help or a relevant question
-- Keep it under 60 words
-- Natural, warm tone — not corporate or formal
-- Do NOT include greetings like "Hi!" or "Hello!"
-- Return ONLY the message text, nothing else`
+EXAMPLES:
+
+Need: "Need a Flutter dev to fix an animation bug"
+Helper skills: Flutter, UI Design
+→ "I've shipped a handful of Flutter apps and animation bugs are usually a state or curve issue — happy to take a look. Could you share the widget code or a repro? I can probably scope it in under an hour."
+
+Need: "Looking for a chess partner on Saturday evenings"
+Helper interests: Chess, Coffee
+→ "Chess is my go-to weekend thing — currently around 1500 ELO on Lichess. Saturday evenings work great for me. Want to meet at a café or play a few games online first?"
+
+Need: "Need help moving a couch this weekend"
+Helper skills: (empty), Helper bio: "Gym regular, can lift"
+→ "I lift regularly at the gym and moving a couch is well within what I can help with. Which day works best and roughly how many floors? I can bring straps if you don't have any."`
 
 /**
  * Generate a personalized intro message suggestion for someone applying to a need.
- * Uses Lyzr Agent API if configured, falls back to Grok/Groq otherwise.
+ * 3-tier fallback: Lyzr agent → Groq/LLM → local deterministic template.
+ * Never throws. The demo cannot break because Lyzr broke.
  */
 export async function suggestResponse(args: SuggestResponseArgs): Promise<SuggestionResult> {
   const lyzrKey = process.env.LYZR_API_KEY
@@ -56,24 +69,81 @@ export async function suggestResponse(args: SuggestResponseArgs): Promise<Sugges
 
   if (lyzrKey && lyzrAgentId) {
     try {
-      return {
-        suggestion: await callLyzr(lyzrKey, lyzrAgentId, userMessage),
-        poweredBy: 'lyzr',
+      const raw = await callLyzr(lyzrKey, lyzrAgentId, userMessage)
+      const cleaned = polishSuggestion(raw)
+      if (cleaned && cleaned.length >= 20) {
+        return { suggestion: cleaned, poweredBy: 'lyzr' }
       }
+      console.warn('[lyzr] returned too-short suggestion, falling back')
     } catch (err) {
-      console.warn('[lyzr] Lyzr call failed, falling back to Grok:', (err as Error).message)
+      console.warn('[lyzr] Lyzr call failed, falling back to Groq:', (err as Error).message)
     }
   }
 
-  // Fallback: use existing Grok/Groq LLM (same pattern as llm.ts)
   try {
-    return {
-      suggestion: await callFallbackLlm(userMessage),
-      poweredBy: 'fallback',
+    const raw = await callFallbackLlm(userMessage)
+    const cleaned = polishSuggestion(raw)
+    if (cleaned && cleaned.length >= 20) {
+      return { suggestion: cleaned, poweredBy: 'fallback' }
     }
   } catch (err) {
-    throw new Error(`Suggestion unavailable: ${(err as Error).message}`)
+    console.warn('[lyzr] Groq fallback failed, using local template:', (err as Error).message)
   }
+
+  // Final tier: local deterministic template. Always produces a reasonable
+  // suggestion that references the helper's actual skills/interests + a
+  // specific detail from the need.
+  return { suggestion: buildLocalSuggestion(args), poweredBy: 'fallback' }
+}
+
+/**
+ * Strip greetings, quotes, and filler that Lyzr/Groq sometimes prepend even
+ * though the system prompt forbids them.
+ */
+function polishSuggestion(text: string): string {
+  let s = text.trim()
+  // Strip surrounding quotes
+  s = s.replace(/^["'`]|["'`]$/g, '').trim()
+  // Strip common greeting openers
+  s = s.replace(/^(hi|hey|hello|greetings)[\s,!.]+/i, '')
+  // Strip filler openers
+  s = s.replace(/^(just\s+)?(wanted\s+to\s+)?(reach(ing)?\s+out|say\s+hi|check\s+in)[\s,!.]+/i, '')
+  // Collapse whitespace
+  s = s.replace(/\s+/g, ' ').trim()
+  return s
+}
+
+/**
+ * Deterministic local suggestion generator. No network needed. Uses the
+ * helper's top skill/interest and one keyword from the need to build a
+ * plausible message. Guaranteed to be personalized and demo-safe.
+ */
+function buildLocalSuggestion(args: SuggestResponseArgs): string {
+  const skill = args.responderSkills?.[0]
+  const interest = args.responderInterests?.[0]
+  const anchor = skill ?? interest ?? (args.responderBio?.split(/[.,;]/)[0]?.trim() ?? '')
+  const need = args.needTitle.trim()
+  const isEarn = args.category === 'EARN'
+
+  if (anchor) {
+    const opener = skill
+      ? `I work with ${skill} regularly and this fits my wheelhouse.`
+      : interest
+        ? `${interest} is something I actively spend time on, so this caught my eye.`
+        : `Based on what I usually help with, this looks like a good fit.`
+    const middle = need.length > 10
+      ? `Your post on "${need}" is clear enough that I can start today.`
+      : `Happy to jump in on this.`
+    const closer = isEarn
+      ? `What's the ideal turnaround for you? I can send a quick scope.`
+      : `Want to trade a couple messages to see if the vibe fits?`
+    return `${opener} ${middle} ${closer}`
+  }
+
+  // No profile data at all — still produce something specific.
+  return isEarn
+    ? `I saw your post on "${need}" and can take this on. Could you share the scope and timing so I can quote it accurately?`
+    : `Your post on "${need}" caught my eye — happy to connect and see if we align. What made you post this today?`
 }
 
 async function callLyzr(apiKey: string, agentId: string, message: string): Promise<string> {
