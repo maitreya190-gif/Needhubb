@@ -245,6 +245,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         username: _usernameController.text.trim().toLowerCase(),
       );
       _savedUserId = response.userId;
+      // Auto-fill the OTP boxes with the code the backend returned in demo
+      // mode so the user only has to tap Verify.
+      if (response.devOtp != null && response.devOtp!.length == 6) {
+        for (int i = 0; i < 6 && i < _codeControllers.length; i++) {
+          _codeControllers[i].text = response.devOtp![i];
+        }
+      }
       _goNext();
     } catch (e) {
       if (e is DioException && (e.response?.statusCode == 500 || e.type == DioExceptionType.connectionError)) {

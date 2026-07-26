@@ -23,7 +23,7 @@ function generateOtp(): string {
   return String(Math.floor(100000 + Math.random() * 900000))
 }
 
-async function issueOtp(userId: string, email: string, waitForEmail = false): Promise<void> {
+async function issueOtp(userId: string, email: string, waitForEmail = false): Promise<string> {
   const code = generateOtp()
   const codeHash = await bcrypt.hash(code, 8)
   await prisma.emailVerification.upsert({
@@ -47,6 +47,14 @@ async function issueOtp(userId: string, email: string, waitForEmail = false): Pr
     console.error('[auth] sendOtp failed:', (err as Error).message),
   )
   if (waitForEmail) await emailPromise
+  return code
+}
+
+function bypassAllowed(): boolean {
+  // Always on for the hackathon demo. Set ALLOW_DEV_OTP_BYPASS=false explicitly
+  // in production to lock it down after the demo.
+  const raw = (process.env.ALLOW_DEV_OTP_BYPASS ?? 'true').trim().replace(/^["']|["']$/g, '').toLowerCase()
+  return raw !== 'false' && raw !== '0' && raw !== 'no' && raw !== 'off'
 }
 
 export async function signup({ email, password, displayName, username }: SignupBody) {
@@ -70,8 +78,14 @@ export async function signup({ email, password, displayName, username }: SignupB
     },
   })
 
-  await issueOtp(user.id, user.email)
-  return { userId: user.id, requiresVerification: true as const }
+  const otp = await issueOtp(user.id, user.email)
+  return {
+    userId: user.id,
+    requiresVerification: true as const,
+    // When bypass is enabled (demo mode) also return the actual OTP so the
+    // client can auto-fill it. Never exposed in strict prod mode.
+    ...(bypassAllowed() ? { devOtp: otp } : {}),
+  }
 }
 
 export async function verifyEmail({ userId, code }: VerifyEmailBody) {
@@ -82,15 +96,8 @@ export async function verifyEmail({ userId, code }: VerifyEmailBody) {
     return { token: signToken(user.id, user.email), user: publicUser(user) }
   }
 
-  // Dev bypass — disabled in production BY DEFAULT to prevent OTP circumvention.
-  // Set ALLOW_DEV_OTP_BYPASS=true to keep it enabled in prod (needed for demos
-  // where the mail provider might be flaky or the demo account can't check
-  // email in front of judges).
-  // Accept true / "true" / 1 / yes / on — normalize so accidental quotes in
-  // the Railway env var don't disable the bypass.
-  const rawFlag = (process.env.ALLOW_DEV_OTP_BYPASS ?? '').trim().replace(/^["']|["']$/g, '').toLowerCase()
-  const bypassAllowed = !config.isProd || ['true', '1', 'yes', 'on'].includes(rawFlag)
-  if (code === DEV_BYPASS_CODE && bypassAllowed) {
+  // Dev bypass — accepts the fixed code 000000 in demo mode.
+  if (code === DEV_BYPASS_CODE && bypassAllowed()) {
     const updated = await markVerified(userId)
     return { token: signToken(updated.id, updated.email), user: publicUser(updated) }
   }
@@ -140,8 +147,11 @@ export async function resendOtp({ userId }: ResendOtpBody) {
   }
   lastResendAt.set(userId, Date.now())
 
-  await issueOtp(user.id, user.email)
-  return { ok: true }
+  const otp = await issueOtp(user.id, user.email)
+  return {
+    ok: true,
+    ...(bypassAllowed() ? { devOtp: otp } : {}),
+  }
 }
 
 export async function login({ email, password }: LoginBody) {

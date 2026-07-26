@@ -1,12 +1,20 @@
 class SignupResponse {
   final String userId;
   final bool requiresVerification;
+  /// Auto-fill OTP code returned in demo mode (ALLOW_DEV_OTP_BYPASS=true).
+  /// Null in strict production mode.
+  final String? devOtp;
 
-  const SignupResponse({required this.userId, required this.requiresVerification});
+  const SignupResponse({
+    required this.userId,
+    required this.requiresVerification,
+    this.devOtp,
+  });
 
   factory SignupResponse.fromJson(Map<String, dynamic> json) => SignupResponse(
         userId: json['userId'] as String,
         requiresVerification: json['requiresVerification'] as bool? ?? true,
+        devOtp: json['devOtp'] as String?,
       );
 }
 
