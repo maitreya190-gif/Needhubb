@@ -1,6 +1,11 @@
 import 'package:dio/dio.dart';
 
-const _baseUrl = 'http://10.0.2.2:3000';
+// Same --dart-define=API_URL used by api_client.dart. Falls back to the
+// Android emulator alias for local dev.
+const _baseUrl = String.fromEnvironment(
+  'API_URL',
+  defaultValue: 'http://10.0.2.2:3000',
+);
 
 class AdminApi {
   static final AdminApi instance = AdminApi._();

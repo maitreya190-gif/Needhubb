@@ -3,6 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+// Same --dart-define=API_URL used by api_client.dart. Falls back to the
+// Android emulator alias for local dev.
+const _apiBaseUrl = String.fromEnvironment(
+  'API_URL',
+  defaultValue: 'http://10.0.2.2:3000',
+);
+
 String? resolveAvatarUrl(String? rawUrl) {
   if (rawUrl == null) return null;
   final url = rawUrl.trim();
@@ -16,21 +23,22 @@ String? resolveAvatarUrl(String? rawUrl) {
     return url;
   }
 
-  // Rewrite localhost / 127.0.0.1 for Android emulator
-  if (!kIsWeb && Platform.isAndroid) {
-    if (url.contains('localhost:3000')) {
-      return url.replaceAll('localhost:3000', '10.0.2.2:3000');
-    }
-    if (url.contains('127.0.0.1:3000')) {
-      return url.replaceAll('127.0.0.1:3000', '10.0.2.2:3000');
-    }
+  // Rewrite legacy localhost hosts to whatever API_URL is configured
+  if (url.contains('localhost:3000')) {
+    return url.replaceAll('http://localhost:3000', _apiBaseUrl);
+  }
+  if (url.contains('127.0.0.1:3000')) {
+    return url.replaceAll('http://127.0.0.1:3000', _apiBaseUrl);
+  }
+  // Emulator-only host — rewrite to configured API_URL when running elsewhere
+  if (url.contains('10.0.2.2:3000') && _apiBaseUrl != 'http://10.0.2.2:3000') {
+    return url.replaceAll('http://10.0.2.2:3000', _apiBaseUrl);
   }
 
-  // Relative upload path
+  // Relative upload path — prepend the configured API base
   if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
     final path = url.startsWith('/') ? url : '/$url';
-    final host = (!kIsWeb && Platform.isAndroid) ? 'http://10.0.2.2:3000' : 'http://localhost:3000';
-    return '$host$path';
+    return '$_apiBaseUrl$path';
   }
 
   return url;

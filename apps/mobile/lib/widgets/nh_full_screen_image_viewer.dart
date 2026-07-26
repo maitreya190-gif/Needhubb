@@ -2,6 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+const _apiBaseUrl = String.fromEnvironment(
+  'API_URL',
+  defaultValue: 'http://10.0.2.2:3000',
+);
+
 class NHFullScreenImageViewer extends StatefulWidget {
   final String? imageUrl;
   final String? imagePath;
@@ -68,10 +73,13 @@ class _NHFullScreenImageViewerState extends State<NHFullScreenImageViewer> {
     if (url.startsWith('http://localhost:3000') ||
         url.startsWith('http://127.0.0.1:3000')) {
       return url.replaceAll(
-          RegExp(r'http://(localhost|127\.0\.0\.1):3000'), 'http://10.0.2.2:3000');
+          RegExp(r'http://(localhost|127\.0\.0\.1):3000'), _apiBaseUrl);
+    }
+    if (url.contains('10.0.2.2:3000') && _apiBaseUrl != 'http://10.0.2.2:3000') {
+      return url.replaceAll('http://10.0.2.2:3000', _apiBaseUrl);
     }
     if (url.startsWith('/')) {
-      return 'http://10.0.2.2:3000$url';
+      return '$_apiBaseUrl$url';
     }
     return url;
   }
