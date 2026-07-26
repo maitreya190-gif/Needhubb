@@ -27,25 +27,58 @@ class NeedHubApp extends ConsumerStatefulWidget {
   ConsumerState<NeedHubApp> createState() => _NeedHubAppState();
 }
 
-class _NeedHubAppState extends ConsumerState<NeedHubApp> {
+class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObserver {
   Timer? _socialPoller;
   Timer? _chitchatPoller;
   Timer? _notifPoller;
+  Timer? _feedPoller;
+  Timer? _uploadsPoller;
   String? _lastHydratedUserId;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Restore persisted auth session on startup.
     Future.microtask(() => ref.read(authProvider.notifier).init());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _socialPoller?.cancel();
     _chitchatPoller?.cancel();
     _notifPoller?.cancel();
+    _feedPoller?.cancel();
+    _uploadsPoller?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When the app comes back to the foreground, refresh everything so users
+    // see the latest data without needing to logout/login.
+    if (state == AppLifecycleState.resumed && _lastHydratedUserId != null) {
+      _hydrateEverything();
+    }
+  }
+
+  Future<void> _hydrateEverything() async {
+    final friendsApi = ref.read(friendsApiProvider);
+    final chitchatApi = ref.read(chitchatApiProvider);
+    final needsApi = ref.read(needsApiProvider);
+    final notificationsApi = ref.read(notificationsApiProvider);
+    final profilesApi = ref.read(profilesApiProvider);
+    final reviewsApi = ref.read(reviewsApiProvider);
+    final uploadsApi = ref.read(uploadsApiProvider);
+
+    unawaited(hydrateSocialState(friendsApi));
+    unawaited(_hydrateChitchat(chitchatApi));
+    unawaited(_hydrateFeed(needsApi));
+    unawaited(_hydrateNotifications(notificationsApi));
+    unawaited(_hydrateProfile(profilesApi));
+    unawaited(_hydratePendingReviews(reviewsApi));
+    unawaited(_hydrateUploads(uploadsApi));
   }
 
   void _onAuthChanged(AuthState next) {
@@ -60,9 +93,13 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> {
       _socialPoller?.cancel();
       _chitchatPoller?.cancel();
       _notifPoller?.cancel();
+      _feedPoller?.cancel();
+      _uploadsPoller?.cancel();
       _socialPoller = null;
       _chitchatPoller = null;
       _notifPoller = null;
+      _feedPoller = null;
+      _uploadsPoller = null;
       resetAllUserNotifiersOnLogout();
     }
   }
@@ -84,25 +121,37 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> {
     unawaited(_hydratePendingReviews(reviewsApi));
     unawaited(_hydrateUploads(ref.read(uploadsApiProvider)));
 
-    // Social polling — friend requests inbox refreshes every 30s.
+    // Social polling — friend requests inbox refreshes every 15s.
     _socialPoller?.cancel();
-    _socialPoller = Timer.periodic(const Duration(seconds: 30), (_) {
+    _socialPoller = Timer.periodic(const Duration(seconds: 15), (_) {
       hydrateSocialState(friendsApi);
     });
 
     // ChitChat polling — roster + own status every 15s while foregrounded.
-    // Roster is only relevant when user is on the ChitChat surface, but
-    // polling globally keeps `chitchatRosterNotifier` warm without extra
-    // per-screen boilerplate.
     _chitchatPoller?.cancel();
     _chitchatPoller = Timer.periodic(const Duration(seconds: 15), (_) {
       _hydrateChitchat(chitchatApi);
     });
 
-    // Notifications: unread count refreshes every 30s while foregrounded.
+    // Notifications: unread count + list refresh every 8s so offer-accept
+    // notifs surface almost immediately.
     _notifPoller?.cancel();
-    _notifPoller = Timer.periodic(const Duration(seconds: 30), (_) {
+    _notifPoller = Timer.periodic(const Duration(seconds: 8), (_) {
       _hydrateNotifications(notificationsApi);
+    });
+
+    // Feed: refresh every 30s so newly-posted needs from others surface.
+    _feedPoller?.cancel();
+    _feedPoller = Timer.periodic(const Duration(seconds: 30), (_) {
+      _hydrateFeed(needsApi);
+      _hydrateProfile(profilesApi);
+      _hydratePendingReviews(reviewsApi);
+    });
+
+    // Uploads: certificate/achievement admin decisions refresh every 60s.
+    _uploadsPoller?.cancel();
+    _uploadsPoller = Timer.periodic(const Duration(seconds: 60), (_) {
+      _hydrateUploads(ref.read(uploadsApiProvider));
     });
   }
 

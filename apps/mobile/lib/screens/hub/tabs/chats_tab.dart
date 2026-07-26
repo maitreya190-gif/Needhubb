@@ -116,8 +116,15 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
       ]);
       if (mounted) setState(() => _loading = false);
     });
-    // Refresh chat list every 15s while tab is mounted.
-    _poller = Timer.periodic(const Duration(seconds: 15), (_) => _refreshChats());
+    // Refresh chat list every 8s while tab is mounted (faster than before).
+    _poller = Timer.periodic(const Duration(seconds: 8), (_) => _refreshChats());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh whenever tab is re-focused.
+    Future.microtask(_refreshChats);
   }
 
   @override

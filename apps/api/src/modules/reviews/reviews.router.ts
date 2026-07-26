@@ -180,11 +180,25 @@ reviewsRouter.get('/by-me', authenticate, async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// GET /reviews/for/:userId — public reviews of a user + avg + count.
+// GET /reviews/for/:userId — reviews of a user + avg + count.
+// Written comment is visible ONLY to the reviewee (this profile owner) and the
+// reviewer who wrote it. Public callers get rating + reviewer name but no text.
 reviewsRouter.get('/for/:userId', async (req, res, next) => {
   try {
+    const authHeader = req.headers.authorization
+    let me: string | null = null
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7)
+        const jwt = require('jsonwebtoken')
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as { userId?: string }
+        me = decoded.userId ?? null
+      } catch (_) {}
+    }
+
+    const revieweeId = req.params.userId
     const rows = await prisma.review.findMany({
-      where: { revieweeId: req.params.userId },
+      where: { revieweeId },
       include: {
         reviewer: { select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } } },
         need: { select: { id: true, title: true } },
@@ -193,7 +207,16 @@ reviewsRouter.get('/for/:userId', async (req, res, next) => {
     })
     const count = rows.length
     const avg = count === 0 ? 0 : rows.reduce((s, r) => s + r.rating, 0) / count
-    res.json({ reviews: rows, avg: Math.round(avg * 10) / 10, count })
+
+    const sanitized = rows.map((r) => {
+      const canSeeComment = me != null && (me === revieweeId || me === r.reviewerId)
+      return {
+        ...r,
+        comment: canSeeComment ? r.comment : null,
+      }
+    })
+
+    res.json({ reviews: sanitized, avg: Math.round(avg * 10) / 10, count })
   } catch (err) { next(err) }
 })
 

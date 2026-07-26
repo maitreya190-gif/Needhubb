@@ -23,16 +23,24 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
     super.initState();
     notificationsListNotifier.addListener(_bump);
     unreadCountNotifier.addListener(_bump);
-    // Immediate refresh on tab open.
-    Future.microtask(() async {
-      final api = ref.read(notificationsApiProvider);
-      try {
-        notificationsListNotifier.value = await api.list();
-      } catch (_) {/* swallow */}
-      try {
-        unreadCountNotifier.value = await api.unreadCount();
-      } catch (_) {/* swallow */}
-    });
+    _refresh();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-fetch every time the tab regains focus.
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final api = ref.read(notificationsApiProvider);
+    try {
+      notificationsListNotifier.value = await api.list();
+    } catch (_) {/* swallow */}
+    try {
+      unreadCountNotifier.value = await api.unreadCount();
+    } catch (_) {/* swallow */}
   }
 
   @override

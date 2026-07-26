@@ -59,6 +59,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     }
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refetch on every re-focus so newly-received ratings appear without
+    // needing to logout/login.
+    if (widget.userId != null) {
+      _fetchRealReviews();
+    }
+  }
+
   Future<void> _fetchRealReviews() async {
     if (widget.userId == null) return;
     setState(() => _loading = true);
