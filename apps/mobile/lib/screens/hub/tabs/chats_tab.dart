@@ -110,7 +110,10 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     super.initState();
     chatsListNotifier.addListener(_bump);
     Future.microtask(() async {
-      await _refreshChats();
+      await Future.any([
+        _refreshChats(),
+        Future.delayed(const Duration(seconds: 4)),
+      ]);
       if (mounted) setState(() => _loading = false);
     });
     // Refresh chat list every 15s while tab is mounted.

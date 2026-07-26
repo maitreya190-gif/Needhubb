@@ -182,6 +182,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           skills: _selectedSkills.toList(),
         );
         myProfileNotifier.value = updated;
+        if (updated.displayName != null && updated.displayName!.isNotEmpty) {
+          await ref.read(authProvider.notifier).updateDisplayName(updated.displayName!);
+        }
         if (updated.interestLabels.isNotEmpty) {
           customInterestsNotifier.value = updated.interestLabels;
         }

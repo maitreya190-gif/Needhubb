@@ -9,6 +9,7 @@ import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/needs_api.dart';
+import '../../services/personality_api.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../services/uploads_api.dart';
@@ -17,6 +18,7 @@ import '../../widgets/nh_avatar.dart';
 import '../history/history_screen.dart';
 import '../hub/tabs/feed_tab.dart';
 import '../needs/need_detail_screen.dart';
+import '../personality/personality_test_screen.dart';
 import '../redeem/redeem_screen.dart';
 import 'edit_profile_screen.dart';
 
@@ -711,6 +713,12 @@ class YouScreen extends ConsumerWidget {
                       t: t,
                     ),
                   ),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Personality ──────────────────────────────────────────
+                  _PersonalitySection(t: t),
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
@@ -1646,7 +1654,7 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
     if (_verifying) return;
     final picker = ImagePicker();
     final file = await picker.pickImage(
-      source: ImageSource.gallery,
+      source: ImageSource.camera,
       imageQuality: 85,
     );
     if (file == null || !mounted) return;
@@ -1798,11 +1806,11 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.photo_library_rounded,
+                                  const Icon(Icons.camera_alt_rounded,
                                       size: 14, color: Colors.white),
                                   const SizedBox(width: 5),
                                   Text(
-                                    'Verify',
+                                    'Take selfie',
                                     style: GoogleFonts.hankenGrotesk(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -2409,6 +2417,218 @@ class _UserReviewsSheet extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Personality Section ───────────────────────────────────────────────────────
+
+class _PersonalitySection extends StatelessWidget {
+  final NeedHubTokens t;
+  const _PersonalitySection({required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'PERSONALITY',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: t.muted2,
+                letterSpacing: 0.7,
+              ),
+            ),
+            const Spacer(),
+            ValueListenableBuilder<PersonalityProfile?>(
+              valueListenable: myPersonalityNotifier,
+              builder: (_, p, __) => p != null
+                  ? GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => PersonalityResultScreen(profile: p),
+                        ),
+                      ),
+                      child: Text(
+                        'View full results →',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: NeedHubTokens.clay,
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ValueListenableBuilder<PersonalityProfile?>(
+          valueListenable: myPersonalityNotifier,
+          builder: (_, profile, __) {
+            if (profile == null) {
+              return GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PersonalityTestScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: NeedHubTokens.clay.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: NeedHubTokens.clay.withValues(alpha: 0.25),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: NeedHubTokens.clay.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.psychology_outlined,
+                          color: NeedHubTokens.clay,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Take the personality test',
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: t.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Powered by Lyzr AI · ~2 min',
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 12,
+                                color: t.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.arrow_forward_ios_rounded,
+                          size: 14, color: t.muted2),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => PersonalityResultScreen(profile: profile),
+                ),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      NeedHubTokens.clay,
+                      NeedHubTokens.clay.withValues(alpha: 0.78),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'YOU ARE',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                profile.nickname,
+                                style: GoogleFonts.bricolageGrotesque(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.arrow_forward_ios_rounded,
+                            size: 14,
+                            color: Colors.white.withValues(alpha: 0.7)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      profile.summary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 13,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        height: 1.4,
+                      ),
+                    ),
+                    if (profile.vibeTags.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: profile.vibeTags.take(4).map((tag) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 9, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              tag,
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }

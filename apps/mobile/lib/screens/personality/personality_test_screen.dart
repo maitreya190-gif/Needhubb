@@ -431,15 +431,18 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                     child: ElevatedButton(
                       onPressed: _submitting
                           ? null
-                          : (isLast || _answers[_step] != null)
-                              ? () {
-                                  if (isLast) {
-                                    _submit();
-                                  } else {
-                                    setState(() => _step++);
-                                  }
-                                }
-                              : null,
+                          : () {
+                              if (isLast) {
+                                _submit();
+                              } else if (_answers[_step] == null) {
+                                setState(() => _error = 'Pick an answer to continue.');
+                              } else {
+                                setState(() {
+                                  _error = null;
+                                  _step++;
+                                });
+                              }
+                            },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: NeedHubTokens.clay,
                         foregroundColor: Colors.white,

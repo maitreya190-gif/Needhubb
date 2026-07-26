@@ -943,10 +943,11 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
               ),
             ),
 
-            // CTA button
+            // CTA button — hidden entirely for the poster of the need
             ValueListenableBuilder<int>(
               valueListenable: offersNotifier,
               builder: (context, _, __) {
+                if (_isPoster) return const SizedBox.shrink();
                 if (_isNeedFrozen) {
                   return Container(
                     padding: EdgeInsets.fromLTRB(

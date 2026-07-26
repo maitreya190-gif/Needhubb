@@ -112,6 +112,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
+  /// Update the stored display name (called after profile save).
+  Future<void> updateDisplayName(String name) async {
+    await _storage.write(key: _displayNameKey, value: name);
+    state = state.copyWith(displayName: name);
+  }
+
   /// Clear all auth data and return to the logged-out state.
   Future<void> logout() async {
     await _storage.deleteAll();

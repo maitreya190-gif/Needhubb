@@ -5,9 +5,10 @@
     <!-- Geolocator: current location -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <!-- image_picker: gallery access -->
+    <!-- image_picker: gallery + camera access -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.CAMERA" />
     <application
         android:label="needhub"
         android:name="${applicationName}"
