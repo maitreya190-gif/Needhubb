@@ -1,7 +1,10 @@
 import nodemailer, { type Transporter } from 'nodemailer'
 import { Resend } from 'resend'
 
-const FROM = process.env.EMAIL_FROM || 'NeedHub <noreply@needhub.app>'
+const FROM = (process.env.EMAIL_FROM || 'NeedHub <noreply@needhub.app>')
+  .trim()
+  .replace(/^["']|["']$/g, '')
+  .trim()
 
 // Provider priority: Gmail SMTP → Resend → console.log dev fallback.
 // Gmail wins because its free tier delivers to ANY recipient (Resend's sandbox
@@ -14,20 +17,26 @@ let cached: { provider: Provider; transporter?: Transporter; resend?: Resend } |
 function pickProvider(): { provider: Provider; transporter?: Transporter; resend?: Resend } {
   if (cached) return cached
 
-  const gmailUser = process.env.GMAIL_USER
-  const gmailPass = process.env.GMAIL_APP_PASSWORD
+  // Strip surrounding single/double quotes AND all whitespace — Railway's UI
+  // sometimes keeps pasted quotes in env values, and Gmail app passwords have
+  // spaces that must be removed.
+  const stripEnv = (v: string | undefined) =>
+    (v ?? '').trim().replace(/^["']|["']$/g, '').trim()
+
+  const gmailUser = stripEnv(process.env.GMAIL_USER)
+  const gmailPass = stripEnv(process.env.GMAIL_APP_PASSWORD).replace(/\s+/g, '')
   if (gmailUser && gmailPass) {
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
       secure: false,           // STARTTLS on 587
-      auth: { user: gmailUser, pass: gmailPass.replace(/\s+/g, '') },
+      auth: { user: gmailUser, pass: gmailPass },
     })
     cached = { provider: 'gmail', transporter }
     return cached
   }
 
-  const resendKey = process.env.RESEND_API_KEY
+  const resendKey = stripEnv(process.env.RESEND_API_KEY)
   if (resendKey) {
     cached = { provider: 'resend', resend: new Resend(resendKey) }
     return cached
