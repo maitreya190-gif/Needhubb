@@ -39,6 +39,86 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
+// Diagnostic: admin-only. Attempts a raw Gmail SMTP send and returns the
+// actual error text so we can debug delivery failures without Railway shell.
+// Usage: GET /admin/email-diag?to=friend@gmail.com  (needs x-admin-secret)
+app.get('/admin/email-diag', adminAuth, async (req, res) => {
+  try {
+    const nodemailer = await import('nodemailer')
+    const to = String(req.query.to || '')
+    if (!to) return res.status(400).json({ error: 'pass ?to=someone@gmail.com' })
+
+    const stripEnv = (v: string | undefined) =>
+      (v ?? '').trim().replace(/^["']|["']$/g, '').trim()
+
+    const gmailUser = stripEnv(process.env.GMAIL_USER)
+    const gmailPass = stripEnv(process.env.GMAIL_APP_PASSWORD).replace(/\s+/g, '')
+    const from = stripEnv(process.env.EMAIL_FROM) || `NeedHub <${gmailUser}>`
+
+    const outcome: any = { attempted: true, from, to }
+    const start = Date.now()
+
+    if (!gmailUser || !gmailPass) {
+      return res.json({
+        outcome: { ok: false, error: 'GMAIL_USER or GMAIL_APP_PASSWORD not set' },
+        envSnapshot: envSnapshot(process.env),
+      })
+    }
+
+    try {
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: { user: gmailUser, pass: gmailPass },
+      })
+      // Verify connection first — this catches auth errors cleanly
+      await transporter.verify()
+      const info = await transporter.sendMail({
+        from,
+        to,
+        subject: 'NeedHub email diagnostic',
+        text: 'If you got this, Gmail SMTP is working. This was triggered from /admin/email-diag.',
+      })
+      Object.assign(outcome, {
+        ok: true,
+        elapsed: Date.now() - start,
+        messageId: info.messageId,
+        accepted: info.accepted,
+        rejected: info.rejected,
+        response: info.response,
+      })
+    } catch (err: any) {
+      Object.assign(outcome, {
+        ok: false,
+        elapsed: Date.now() - start,
+        error: err?.message ?? String(err),
+        code: err?.code,
+        responseCode: err?.responseCode,
+        command: err?.command,
+      })
+    }
+    res.json({ outcome, envSnapshot: envSnapshot(process.env) })
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? 'unknown' })
+  }
+})
+
+function envSnapshot(env: NodeJS.ProcessEnv) {
+  const u = env.GMAIL_USER ?? null
+  const p = env.GMAIL_APP_PASSWORD ?? null
+  return {
+    GMAIL_USER_len: u?.length ?? 0,
+    GMAIL_USER_hasQuotes: /^["']|["']$/.test(u ?? ''),
+    GMAIL_USER_preview: u ? `${u.slice(0, 3)}***${u.slice(-8)}` : null,
+    GMAIL_APP_PASSWORD_len: p?.length ?? 0,
+    GMAIL_APP_PASSWORD_hasQuotes: /^["']|["']$/.test(p ?? ''),
+    GMAIL_APP_PASSWORD_hasSpaces: /\s/.test(p ?? ''),
+    EMAIL_FROM: env.EMAIL_FROM ?? null,
+    RESEND_API_KEY_present: !!env.RESEND_API_KEY,
+  }
+}
+
 app.use('/auth', authLimiter, authRouter)
 // tighter limit on OTP resend specifically
 app.use('/auth/resend-otp', otpLimiter)
