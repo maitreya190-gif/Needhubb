@@ -17,11 +17,19 @@ let cached: { provider: Provider; transporter?: Transporter; resend?: Resend } |
 function pickProvider(): { provider: Provider; transporter?: Transporter; resend?: Resend } {
   if (cached) return cached
 
-  // Strip surrounding single/double quotes AND all whitespace — Railway's UI
-  // sometimes keeps pasted quotes in env values, and Gmail app passwords have
-  // spaces that must be removed.
+  // Strip surrounding single/double quotes AND all whitespace.
   const stripEnv = (v: string | undefined) =>
     (v ?? '').trim().replace(/^["']|["']$/g, '').trim()
+
+  // Provider priority: Resend FIRST since Railway (and most cloud providers)
+  // block outbound SMTP on port 587 — Gmail SMTP will time out. Resend uses
+  // HTTPS so it always works.
+  // Gmail stays as a fallback for local dev or environments that allow SMTP.
+  const resendKey = stripEnv(process.env.RESEND_API_KEY)
+  if (resendKey) {
+    cached = { provider: 'resend', resend: new Resend(resendKey) }
+    return cached
+  }
 
   const gmailUser = stripEnv(process.env.GMAIL_USER)
   const gmailPass = stripEnv(process.env.GMAIL_APP_PASSWORD).replace(/\s+/g, '')
@@ -31,14 +39,11 @@ function pickProvider(): { provider: Provider; transporter?: Transporter; resend
       port: 587,
       secure: false,           // STARTTLS on 587
       auth: { user: gmailUser, pass: gmailPass },
+      connectionTimeout: 8000, // Fail fast so signup doesn't hang on cloud SMTP blocks
+      greetingTimeout: 8000,
+      socketTimeout: 8000,
     })
     cached = { provider: 'gmail', transporter }
-    return cached
-  }
-
-  const resendKey = stripEnv(process.env.RESEND_API_KEY)
-  if (resendKey) {
-    cached = { provider: 'resend', resend: new Resend(resendKey) }
     return cached
   }
 

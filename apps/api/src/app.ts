@@ -39,6 +39,64 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
+// Diagnostic: test Resend HTTPS API delivery. Returns exact error text.
+// Usage: GET /admin/email-diag-resend?to=friend@gmail.com  (needs x-admin-secret)
+app.get('/admin/email-diag-resend', adminAuth, async (req, res) => {
+  try {
+    const { Resend } = await import('resend')
+    const to = String(req.query.to || '')
+    if (!to) return res.status(400).json({ error: 'pass ?to=someone@gmail.com' })
+
+    const stripEnv = (v: string | undefined) =>
+      (v ?? '').trim().replace(/^["']|["']$/g, '').trim()
+
+    const resendKey = stripEnv(process.env.RESEND_API_KEY)
+    const from = stripEnv(process.env.EMAIL_FROM) || 'NeedHub <onboarding@resend.dev>'
+
+    if (!resendKey) {
+      return res.json({ ok: false, error: 'RESEND_API_KEY not set' })
+    }
+
+    const resend = new Resend(resendKey)
+    const start = Date.now()
+    try {
+      const { data, error } = await resend.emails.send({
+        from,
+        to,
+        subject: 'NeedHub Resend diagnostic',
+        text: 'If you got this, Resend HTTPS delivery is working.',
+      })
+      if (error) {
+        return res.json({
+          ok: false,
+          elapsed: Date.now() - start,
+          from,
+          to,
+          error: JSON.stringify(error),
+          hint: 'If sandbox — you can only send to the email that owns the Resend account, OR verify a domain in resend.com dashboard.',
+        })
+      }
+      res.json({
+        ok: true,
+        elapsed: Date.now() - start,
+        from,
+        to,
+        id: data?.id,
+      })
+    } catch (err: any) {
+      res.json({
+        ok: false,
+        elapsed: Date.now() - start,
+        from,
+        to,
+        error: err?.message ?? String(err),
+      })
+    }
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? 'unknown' })
+  }
+})
+
 // Diagnostic: admin-only. Attempts a raw Gmail SMTP send and returns the
 // actual error text so we can debug delivery failures without Railway shell.
 // Usage: GET /admin/email-diag?to=friend@gmail.com  (needs x-admin-secret)
