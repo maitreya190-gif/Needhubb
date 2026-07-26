@@ -13,6 +13,7 @@ import '../../widgets/nh_report_sheet.dart';
 import '../hub/conversation_screen.dart';
 import '../../widgets/nh_full_screen_image_viewer.dart';
 import '../../services/social_providers.dart';
+import '../../services/needs_api.dart';
 
 class _OfferRevisionData {
   final String note;
@@ -540,6 +541,18 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                           TextButton(
                                             onPressed: () async {
                                               Navigator.pop(ctx);
+                                              // Temp-ID needs were never saved to the server — just remove locally
+                                              if (need.id.startsWith('posted_')) {
+                                                mockNeeds.removeWhere((n) => n.id == need.id);
+                                                feedNeedsNotifier.value = feedNeedsNotifier.value.where((n) => n.id != need.id).toList();
+                                                if (mounted) {
+                                                  Navigator.of(context).pop();
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Need removed.')),
+                                                  );
+                                                }
+                                                return;
+                                              }
                                               try {
                                                 await ref.read(needsApiProvider).deleteNeed(need.id);
                                                 if (!mounted) return;
@@ -3406,6 +3419,13 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                             _saving = true;
                             _error = null;
                           });
+                          if (widget.need.id.startsWith('posted_')) {
+                            setState(() {
+                              _error = 'This need was not saved to the server. Please delete it and repost.';
+                              _saving = false;
+                            });
+                            return;
+                          }
                           try {
                             final api = ref.read(needsApiProvider);
                             await api.updateNeed(

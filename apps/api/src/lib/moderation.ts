@@ -47,8 +47,38 @@ const BLOCKLIST: { pattern: RegExp; category: string }[] = [
   { pattern: /\bcrip+les?\b/i, category: 'ableist-slur' },
   { pattern: /\bspa(?:sti?c|z)s?\b/i, category: 'ableist-slur' },
 
-  // Harassment intensifiers — profanity aimed at a target, not just casual usage.
-  // "piece of shit", "go kill yourself" etc. Bare "fuck" / "shit" stay allowed.
+  // General profanity
+  { pattern: /\bf+u+c+k+(?:e[rd]|ing|ers?|s|ed)?\b/i, category: 'profanity' },
+  { pattern: /\bsh[i1]t+(?:ty|head|hole|bag|s)?\b/i, category: 'profanity' },
+  { pattern: /\bb[i1]tch(?:es|ing|y)?\b/i, category: 'profanity' },
+  { pattern: /\bass+(?:hole|hat|wipe|face|head|clown|bag|es)?\b/i, category: 'profanity' },
+  { pattern: /\bb[a4]st[a4]rds?\b/i, category: 'profanity' },
+  { pattern: /\bm[o0]th[e3]rf+u+c+k(?:er|ing)?\b/i, category: 'profanity' },
+  { pattern: /\bs[o0]n\s+of\s+a\s+b[i1]tch\b/i, category: 'profanity' },
+  { pattern: /\bd[i1]+ck(?:head|s)?\b/i, category: 'profanity' },
+  { pattern: /\bc[o0]+ck(?:sucker|head|s)?\b/i, category: 'profanity' },
+  { pattern: /\bp[u0]ss+[yi](?:es?)?\b/i, category: 'profanity' },
+  { pattern: /\bbull+?sh[i1]t\b/i, category: 'profanity' },
+  { pattern: /\bwank(?:er|ing|s)?\b/i, category: 'profanity' },
+  { pattern: /\bprick(?:s)?\b/i, category: 'profanity' },
+
+  // Indian-language profanity (transliterated)
+  { pattern: /\bm(?:a|aa)d[a4]rch[o0]d\b/i, category: 'profanity-hi' },
+  { pattern: /\bmc\b/i, category: 'profanity-hi' },
+  { pattern: /\bbh[e3]nch[o0]d\b/i, category: 'profanity-hi' },
+  { pattern: /\bbc\b/i, category: 'profanity-hi' },
+  { pattern: /\bch[u0][t7][i1]y[a4]\b/i, category: 'profanity-hi' },
+  { pattern: /\br[a4]nd[i1]\b/i, category: 'profanity-hi' },
+  { pattern: /\bg[a4]{2}nd\b/i, category: 'profanity-hi' },
+  { pattern: /\bh[a4]r[a4]m[i1]\b/i, category: 'profanity-hi' },
+  { pattern: /\bb[e3]hench[o0]d\b/i, category: 'profanity-hi' },
+
+  // Hate speech targeting any group
+  { pattern: /\bi\s+hate\s+(?:men|women|girls|boys|muslims?|hindus?|christians?|sikhs?|jews?|blacks?|whites?|indians?|pakistanis?|gays?|lesbians?|trans)\b/i, category: 'hate-speech' },
+  { pattern: /\b(?:all|every)\s+(?:men|women|muslims?|hindus?|christians?|sikhs?|jews?|blacks?|whites?)\s+(?:are|should)\b/i, category: 'hate-speech' },
+  { pattern: /\b(?:men|women|muslims?|hindus?|christians?|blacks?|whites?)\s+(?:are\s+)?(?:trash|disgusting|evil|inferior|stupid|animals?|dogs?)\b/i, category: 'hate-speech' },
+
+  // Harassment intensifiers
   { pattern: /\bpiece\s+of\s+shit\b/i, category: 'harassment' },
   { pattern: /\bgo\s+(?:die|kys|kill\s+your?self)\b/i, category: 'harassment' },
   { pattern: /\bfuck(?:ing)?\s+(?:you|u|off|die)\b/i, category: 'harassment' },
@@ -74,11 +104,13 @@ const BLOCKLIST: { pattern: RegExp; category: string }[] = [
   { pattern: /\bshoot\s+up\s+(?:the|a|your)?\s*\w+/i, category: 'threat' },
   { pattern: /\bbomb\s+(?:the|a|your|this)\s+\w+/i, category: 'threat' },
 
-  // Self-harm cues (surfaced to admins so they can offer help resources)
-  { pattern: /\bkill\s+my ?self\b/i, category: 'self-harm' },
+  // Self-harm / suicide cues
+  { pattern: /\bkill\s+(?:my|your|him|her|them)?s?e?l?f?\b/i, category: 'self-harm' },
   { pattern: /\bkms\b/i, category: 'self-harm' },
   { pattern: /\bcommit\s+suicide\b/i, category: 'self-harm' },
   { pattern: /\bhow\s+to\s+(?:kill\s+myself|die|overdose)\b/i, category: 'self-harm' },
+  { pattern: /\bkill\s+yourself\b/i, category: 'self-harm' },
+  { pattern: /\bend\s+(?:your|my)\s+life\b/i, category: 'self-harm' },
 
   // Doxxing signals
   { pattern: /\bs[o0]cial\s+security\s+number\b/i, category: 'pii-request' },
