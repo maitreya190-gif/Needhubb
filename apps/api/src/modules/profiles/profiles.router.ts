@@ -184,7 +184,24 @@ profilesRouter.post('/me/face-verify', authenticate, upload.single('selfie'), as
     if (!req.file) return next(badRequest('No image uploaded', 'NO_IMAGE'))
 
     // Process in memory only — image is never written to disk
-    const result = await verifyFace(req.file.buffer, req.file.mimetype)
+    let result
+    try {
+      result = await verifyFace(req.file.buffer, req.file.mimetype)
+    } catch (verifyErr: any) {
+      const msg = verifyErr?.message ?? 'Face verification service unavailable'
+      console.error('[face-verify] service error:', msg)
+      // Surface a specific reason instead of 500 so the client shows a useful message
+      return res.status(400).json({
+        verified: false,
+        reason: msg.includes('Face++ not configured')
+          ? 'Face verification is not configured on the server.'
+          : msg.includes('CONCURRENCY_LIMIT') || msg.includes('rate')
+            ? 'Verification service is busy — try again in a few seconds.'
+            : msg.includes('INVALID_IMAGE_SIZE') || msg.includes('too large')
+              ? 'Photo is too large. Try a lower-quality selfie.'
+              : 'Verification service error — please try again.',
+      })
+    }
 
     if (!result.verified) {
       return res.status(400).json({ verified: false, reason: result.reason })

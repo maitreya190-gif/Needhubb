@@ -1655,7 +1655,10 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
     final picker = ImagePicker();
     final file = await picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 85,
+      imageQuality: 70,
+      maxWidth: 1280,
+      maxHeight: 1280,
+      preferredCameraDevice: CameraDevice.front,
     );
     if (file == null || !mounted) return;
 
