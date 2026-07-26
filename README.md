@@ -1,66 +1,117 @@
 # NeedHub
 
-Location-aware, needs-first marketplace for Earn, Connect, and Impact. See [Needhub.txt](Needhub.txt) for the full spec.
+A community platform that connects people with needs to people who can help — built for InovaHack 2026.
 
-## Stack
+---
 
-- **Mobile**: Flutter (Android first, iOS via Codemagic later)
-- **API**: Node.js + TypeScript (Express), Prisma 7 with Neon HTTP adapter
-- **DB**: Neon Postgres (serverless)
-- **Auth**: Clerk
-- **AI**: Grok API (server-side only)
-- **Storage**: Cloudflare R2
+## Admin Access
 
-## Prerequisites
+The admin panel is available at:
 
-- Node.js **20+**
-- pnpm **10+** (`npm i -g pnpm`)
-- Git
-
-## Setup
-
-```bash
-# 1. Clone and install
-git clone <repo-url>
-cd needhub
-pnpm install
-
-# 2. Configure env
-cp .env.example apps/api/.env
-# Ask the team lead for the shared DATABASE_URL and other secrets
-# Paste them into apps/api/.env
-
-# 3. Run the API
-pnpm dev:api
+```
+https://needhub-admin-production.up.railway.app
 ```
 
-## Secrets
+**Admin Secret Key:** `admin-dev-secret`
 
-Nothing sensitive lives in git. Ask a team member (currently: Maitreya) for:
+Enter this code on the admin login screen. From the dashboard you can:
+- View and manage all posted needs
+- Review and approve / reject certificates
+- Handle user reports and flagged content
+- See auto-blocked content from the profanity filter
+- Manage registered users
 
-- `DATABASE_URL` — shared Neon Postgres URL
-- `CLERK_SECRET_KEY` — Clerk auth
-- `LLM_API_KEY` — Grok API key
-- `STORAGE_*` — Cloudflare R2 keys
+---
 
-## Database
+## Live API
 
-- Shared Neon project. All contributors use the same DB, so **don't run destructive queries** without asking.
-- Schema lives in [apps/api/prisma/schema.prisma](apps/api/prisma/schema.prisma).
-- Bootstrap SQL (if setting up a fresh DB) is at [apps/api/prisma/init.sql](apps/api/prisma/init.sql).
-- Prisma connects via Neon's HTTPS driver, so no ISP-level Postgres port blocks apply.
+```
+https://needhubapi-production.up.railway.app
+```
 
-## Repo layout
+Health check: `GET /health` → `{ "ok": true }`
+
+---
+
+## Mobile App — Device Requirements
+
+For the best experience, install the APK on a device that meets these specs:
+
+| Requirement | Minimum | Recommended |
+|-------------|---------|-------------|
+| OS | Android 8.0 (API 26) | Android 11+ (API 30+) |
+| RAM | 2 GB | 4 GB+ |
+| Storage | 100 MB free | 500 MB free |
+| Internet | Mobile data or WiFi | Stable WiFi or 4G / 5G |
+| Camera | Any rear camera | Front + rear camera |
+
+> The app requires an active internet connection to the live API. It will **not** work on restricted networks that block external domains (some college / office Wi-Fi).
+
+### Installing the APK
+
+1. Download the APK file to your Android device
+2. Go to **Settings → Security → Install unknown apps** and allow installation from your file manager or browser
+3. Open the APK and tap **Install**
+4. Launch **NeedHub** from your home screen
+
+> If the app crashes immediately on launch, you may have the wrong architecture build. Use the universal `app-release.apk` instead of the split-per-abi variants.
+
+---
+
+## Demo Credentials
+
+These accounts are pre-loaded via the seed and ready to use:
+
+| Email | Password |
+|-------|----------|
+| `aarav.kumar@needhub.demo` | `Demo1234!` |
+| `meera.kulkarni@needhub.demo` | `Demo1234!` |
+| `rohan.verma@needhub.demo` | `Demo1234!` |
+| `priya.nair@needhub.demo` | `Demo1234!` |
+
+> OTP verification is bypassed in demo mode — the app auto-fills the code after signup so you can skip straight to step 2 of onboarding.
+
+---
+
+## Re-seeding Demo Data
+
+To wipe and re-populate all demo data (users, needs, chats, certificates, notifications, etc.) without shell access:
+
+```bash
+curl -X POST \
+  -H "x-admin-secret: admin-dev-secret" \
+  https://needhubapi-production.up.railway.app/admin/seed
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Mobile | Flutter (Dart) |
+| Backend | Node.js + Express + TypeScript |
+| Database | PostgreSQL via Prisma ORM |
+| AI Decomposition | Grok (xAI) — `grok-3-mini` |
+| Hosting | Railway |
+| File Storage | Cloudflare R2 |
+
+---
+
+## Repo Layout
 
 ```
 needhub/
 ├── apps/
-│   ├── mobile/   # Flutter app (WIP)
-│   └── api/      # Node + Express + Prisma
+│   ├── mobile/        # Flutter Android app
+│   ├── api/           # Express + Prisma backend
+│   └── admin/         # Next.js admin panel
 └── packages/
-    └── shared/   # Shared TS types
+    └── shared/        # Shared TypeScript types
 ```
 
-## Build order
+---
 
-See [Needhub.txt §9](Needhub.txt) for the vertical-slice build order. Current phase: DB scaffolding complete, moving to Auth + verification.
+## Team
+
+Built for InovaHack 2026.
