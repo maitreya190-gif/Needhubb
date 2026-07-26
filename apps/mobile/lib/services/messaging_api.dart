@@ -16,6 +16,8 @@ class ChatSummary {
   final String otherUserId;
   final String otherDisplayName;
   final String? otherAvatarUrl;
+  final String? otherBio;
+  final String? otherPersonalityNickname;
   final String? lastMessageBody;
   final String? lastMessageImageUrl;
   final String? lastMessageSenderId;
@@ -27,6 +29,8 @@ class ChatSummary {
     required this.otherUserId,
     required this.otherDisplayName,
     this.otherAvatarUrl,
+    this.otherBio,
+    this.otherPersonalityNickname,
     this.lastMessageBody,
     this.lastMessageImageUrl,
     this.lastMessageSenderId,
@@ -38,11 +42,18 @@ class ChatSummary {
     final other = j['otherUser'] as Map<String, dynamic>? ?? const {};
     final profile = other['profile'] as Map<String, dynamic>?;
     final last = j['lastMessage'] as Map<String, dynamic>?;
+    final rawName = (other['displayName'] as String?)?.trim();
+    final name = (rawName != null && rawName.isNotEmpty && rawName != 'Unknown')
+        ? rawName
+        : 'NeedHub Member';
+
     return ChatSummary(
       threadId: j['threadId'] as String,
       otherUserId: other['id'] as String? ?? '',
-      otherDisplayName: other['displayName'] as String? ?? 'Unknown',
+      otherDisplayName: name,
       otherAvatarUrl: profile?['avatarUrl'] as String?,
+      otherBio: profile?['bio'] as String?,
+      otherPersonalityNickname: profile?['personalityNickname'] as String?,
       lastMessageBody: last?['body'] as String?,
       lastMessageImageUrl: last?['imageUrl'] as String?,
       lastMessageSenderId: last?['senderId'] as String?,

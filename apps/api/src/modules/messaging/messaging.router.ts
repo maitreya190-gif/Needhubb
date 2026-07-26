@@ -41,26 +41,44 @@ messagingRouter.get('/', authenticate, async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
     })
 
-    const result = await Promise.all(
-      threads.map(async (t) => {
-        const otherId = t.userAId === userId ? t.userBId : t.userAId
-        const other = await prisma.user.findUnique({
-          where: { id: otherId },
-          select: { id: true, displayName: true, profile: { select: { avatarUrl: true } } },
-        })
-        const unread = await prisma.dmMessage.count({
-          where: { threadId: t.id, senderId: { not: userId }, readAt: null },
-        })
-        return {
-          threadId: t.id,
-          kind: 'dm',
-          otherUser: other,
-          lastMessage: t.messages[0] ?? null,
-          unreadCount: unread,
-          updatedAt: t.messages[0]?.createdAt ?? t.createdAt,
-        }
-      }),
-    )
+    const result = (
+      await Promise.all(
+        threads.map(async (t) => {
+          const otherId = t.userAId === userId ? t.userBId : t.userAId
+          const other = await prisma.user.findUnique({
+            where: { id: otherId },
+            select: {
+              id: true,
+              displayName: true,
+              username: true,
+              profile: {
+                select: {
+                  avatarUrl: true,
+                  bio: true,
+                  personalityNickname: true,
+                  personalitySummary: true,
+                  personalityVibeTags: true,
+                  personalityTraits: true,
+                },
+              },
+            },
+          })
+          if (!other || !other.displayName) return null
+
+          const unread = await prisma.dmMessage.count({
+            where: { threadId: t.id, senderId: { not: userId }, readAt: null },
+          })
+          return {
+            threadId: t.id,
+            kind: 'dm',
+            otherUser: other,
+            lastMessage: t.messages[0] ?? null,
+            unreadCount: unread,
+            updatedAt: t.messages[0]?.createdAt ?? t.createdAt,
+          }
+        }),
+      )
+    ).filter((x): x is NonNullable<typeof x> => x !== null)
 
     res.json(result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()))
   } catch (err) { next(err) }

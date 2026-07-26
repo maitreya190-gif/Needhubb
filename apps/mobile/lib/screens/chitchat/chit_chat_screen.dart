@@ -6,7 +6,6 @@ import '../../services/chitchat_api.dart';
 import '../../services/messaging_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
-import '../../widgets/nh_report_sheet.dart';
 import '../hub/conversation_screen.dart';
 
 class ChitChatScreen extends ConsumerStatefulWidget {
