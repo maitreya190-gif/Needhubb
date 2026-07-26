@@ -810,6 +810,104 @@ async function createResponseRevisionBestEffort(
   }
 }
 
+// ── POST /needs/:id/boost — spend Impact Points to boost a need's visibility ──
+// Body: { "tier": "6h" | "24h" | "72h" }
+// Costs: 6h = 50 pts | 24h = 100 pts | 72h = 200 pts
+
+const BOOST_TIERS: Record<string, { hours: number; cost: number }> = {
+  '6h':  { hours: 6,  cost: 50  },
+  '24h': { hours: 24, cost: 100 },
+  '72h': { hours: 72, cost: 200 },
+}
+
+needsRouter.post('/:id/boost', authenticate, async (req, res, next) => {
+  const userId = (req as AuthedRequest).userId
+  const needId = req.params.id
+  const tier = (req.body.tier as string | undefined)?.toLowerCase()
+
+  if (!tier || !BOOST_TIERS[tier]) {
+    return next(badRequest('tier must be "6h", "24h", or "72h"', 'INVALID_TIER'))
+  }
+  const { hours, cost } = BOOST_TIERS[tier]
+
+  try {
+    // 1. Verify the need exists and belongs to the caller
+    const need = await prisma.need.findUnique({ where: { id: needId } })
+    if (!need) return next(notFound('Need not found'))
+    if (need.posterId !== userId) return next(forbidden('You can only boost your own needs'))
+    if (need.status !== 'OPEN') return next(badRequest('Only open needs can be boosted', 'NEED_NOT_OPEN'))
+
+    // 2. Check if need is already boosted
+    const existingBoost = await prisma.visibilityBoost.findFirst({
+      where: { targetId: needId, targetType: 'NEED', expiresAt: { gt: new Date() } },
+    })
+    if (existingBoost) {
+      return next(badRequest(
+        `This need is already boosted until ${existingBoost.expiresAt.toISOString()}`,
+        'ALREADY_BOOSTED',
+      ))
+    }
+
+    // 3. Check user's points balance
+    const profile = await prisma.profile.findUnique({ where: { userId } })
+    if (!profile) return next(notFound('Profile not found'))
+    if (profile.pointsTotal < cost) {
+      return next(badRequest(
+        `Not enough Impact Points. You have ${profile.pointsTotal} pts but need ${cost} pts.`,
+        'INSUFFICIENT_POINTS',
+      ))
+    }
+
+    // 4. Deduct points + create boost in a transaction
+    const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000)
+    const [boost] = await prisma.$transaction([
+      prisma.visibilityBoost.create({
+        data: { userId, targetType: 'NEED', targetId: needId, expiresAt },
+      }),
+      prisma.profile.update({
+        where: { userId },
+        data: { pointsTotal: { decrement: cost } },
+      }),
+      prisma.pointsLedger.create({
+        data: {
+          userId,
+          delta: -cost,
+          reason: `Boost need "${need.title}" for ${hours}h`,
+          refId: needId,
+        },
+      }),
+    ])
+
+    res.json({
+      ok: true,
+      boost: { id: boost.id, expiresAt: boost.expiresAt, tier, cost },
+      newBalance: profile.pointsTotal - cost,
+    })
+  } catch (err) { next(err) }
+})
+
+// ── GET /needs/:id/boost — check active boost status ──────────────────────────
+
+needsRouter.get('/:id/boost', authenticate, async (req, res, next) => {
+  const userId = (req as AuthedRequest).userId
+  const needId = req.params.id
+
+  try {
+    const need = await prisma.need.findUnique({ where: { id: needId } })
+    if (!need) return next(notFound('Need not found'))
+    if (need.posterId !== userId) return next(forbidden('Forbidden'))
+
+    const boost = await prisma.visibilityBoost.findFirst({
+      where: { targetId: needId, targetType: 'NEED', expiresAt: { gt: new Date() } },
+    })
+
+    res.json({
+      boosted: !!boost,
+      expiresAt: boost?.expiresAt ?? null,
+    })
+  } catch (err) { next(err) }
+})
+
 function tryGetUserId(req: unknown): string | null {
   try {
     const auth = (req as { headers?: Record<string, string> }).headers?.authorization

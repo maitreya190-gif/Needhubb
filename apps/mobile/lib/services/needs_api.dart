@@ -89,6 +89,20 @@ class NeedsApi {
   Future<void> withdrawResponse(String needId, String responseId) async {
     await _api.delete('/needs/$needId/responses/$responseId');
   }
+
+  /// Spend Impact Points to boost a need's visibility.
+  /// [tier] must be '6h', '24h', or '72h'.
+  /// Returns the new points balance.
+  Future<Map<String, dynamic>> boostNeed(String needId, String tier) async {
+    final res = await _api.post('/needs/$needId/boost', {'tier': tier});
+    return res;
+  }
+
+  /// Check if a need currently has an active boost.
+  Future<Map<String, dynamic>> getNeedBoostStatus(String needId) async {
+    final res = await _api.get('/needs/$needId/boost');
+    return res;
+  }
 }
 
 String _qs(Map<String, dynamic> params) {
