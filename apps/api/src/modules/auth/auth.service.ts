@@ -76,8 +76,12 @@ export async function verifyEmail({ userId, code }: VerifyEmailBody) {
     return { token: signToken(user.id, user.email), user: publicUser(user) }
   }
 
-  // Dev bypass — disabled in production to prevent OTP circumvention.
-  if (code === DEV_BYPASS_CODE && !config.isProd) {
+  // Dev bypass — disabled in production BY DEFAULT to prevent OTP circumvention.
+  // Set ALLOW_DEV_OTP_BYPASS=true to keep it enabled in prod (needed for demos
+  // where the mail provider might be flaky or the demo account can't check
+  // email in front of judges).
+  const bypassAllowed = !config.isProd || process.env.ALLOW_DEV_OTP_BYPASS === 'true'
+  if (code === DEV_BYPASS_CODE && bypassAllowed) {
     const updated = await markVerified(userId)
     return { token: signToken(updated.id, updated.email), user: publicUser(updated) }
   }
