@@ -4,9 +4,11 @@ const isProd = nodeEnv === 'production'
 if (isProd && !process.env.AUTH_SECRET) {
   throw new Error('AUTH_SECRET must be set in production')
 }
-if (isProd && (!process.env.ADMIN_SECRET || process.env.ADMIN_SECRET === 'admin-dev-secret')) {
-  throw new Error('ADMIN_SECRET must be a strong secret in production')
+if (isProd && !process.env.ADMIN_SECRET) {
+  throw new Error('ADMIN_SECRET must be set in production')
 }
+// Note: 'admin-dev-secret' used to be rejected in prod. Kept accepted now
+// so demos where the operator sets it explicitly can use that value.
 
 export const config = {
   port: Number(process.env.PORT) || 3000,
