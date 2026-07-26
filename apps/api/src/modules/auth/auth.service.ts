@@ -86,7 +86,10 @@ export async function verifyEmail({ userId, code }: VerifyEmailBody) {
   // Set ALLOW_DEV_OTP_BYPASS=true to keep it enabled in prod (needed for demos
   // where the mail provider might be flaky or the demo account can't check
   // email in front of judges).
-  const bypassAllowed = !config.isProd || process.env.ALLOW_DEV_OTP_BYPASS === 'true'
+  // Accept true / "true" / 1 / yes / on — normalize so accidental quotes in
+  // the Railway env var don't disable the bypass.
+  const rawFlag = (process.env.ALLOW_DEV_OTP_BYPASS ?? '').trim().replace(/^["']|["']$/g, '').toLowerCase()
+  const bypassAllowed = !config.isProd || ['true', '1', 'yes', 'on'].includes(rawFlag)
   if (code === DEV_BYPASS_CODE && bypassAllowed) {
     const updated = await markVerified(userId)
     return { token: signToken(updated.id, updated.email), user: publicUser(updated) }
