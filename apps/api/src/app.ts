@@ -39,6 +39,20 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')))
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
+// Admin: run demo seed. Wipes the demo posters' needs and re-seeds users +
+// needs + certs + notifications. Idempotent (upserts).
+// Usage: POST /admin/seed  (needs x-admin-secret)
+app.post('/admin/seed', adminAuth, async (_req, res) => {
+  try {
+    const { runSeed } = await import('./lib/demo-seed')
+    await runSeed()
+    res.json({ ok: true, message: 'Seed complete. Refresh the admin panel.' })
+  } catch (err: any) {
+    console.error('[seed] error:', err)
+    res.status(500).json({ ok: false, error: err?.message ?? String(err) })
+  }
+})
+
 // Diagnostic: test Brevo HTTPS API. Returns exact error text.
 // Usage: GET /admin/email-diag-brevo?to=friend@gmail.com  (needs x-admin-secret)
 app.get('/admin/email-diag-brevo', adminAuth, async (req, res) => {
