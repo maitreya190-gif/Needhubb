@@ -197,6 +197,128 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
     }
   }
 
+  /// Shows a freeze-warning dialog before accepting. The poster must
+  /// explicitly confirm — accepting an offer permanently freezes the need.
+  Future<void> _confirmAndAcceptOffer(String responseId, String offerName) async {
+    final t = context.tokens;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: t.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: NeedHubTokens.clay.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.lock_rounded,
+                  color: NeedHubTokens.clay, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text('Accept & Freeze Need?',
+                  style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: t.ink)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            RichText(
+              text: TextSpan(
+                style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14, color: t.muted2, height: 1.5),
+                children: [
+                  const TextSpan(text: 'You are about to accept '),
+                  TextSpan(
+                    text: offerName,
+                    style: GoogleFonts.hankenGrotesk(
+                        fontWeight: FontWeight.w700, color: t.ink),
+                  ),
+                  const TextSpan(text: "'s offer."),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: NeedHubTokens.clay.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: NeedHubTokens.clay.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      color: NeedHubTokens.clay, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'This will permanently freeze your need. '  
+                      'No other applicants can respond, and '  
+                      'this action cannot be undone.',
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13,
+                          color: NeedHubTokens.clay,
+                          height: 1.45,
+                          fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            child: Text('Cancel',
+                style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: t.muted)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: NeedHubTokens.forest,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: Text('Yes, accept & freeze',
+                style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _acceptOffer(responseId);
+    }
+  }
+
   Future<void> _acceptOffer(String responseId) async {
     try {
       final api = ref.read(apiClientProvider);
@@ -917,7 +1039,8 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                       revisions: o.revisions,
                                       onAccept: (_isPoster &&
                                               o.responseId != null)
-                                          ? () => _acceptOffer(o.responseId!)
+                                          ? () => _confirmAndAcceptOffer(
+                                                o.responseId!, o.name)
                                           : null,
                                       onDecline: (_isPoster &&
                                               o.responseId != null)
