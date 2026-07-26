@@ -171,7 +171,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: "People you've helped",
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                              builder: (_) => const HistoryScreen()),
+                              builder: (_) => HistoryScreen(
+                                    userId: ref.read(authProvider).userId,
+                                  )),
                         ),
                       ),
                       Divider(color: t.rail, height: 1),

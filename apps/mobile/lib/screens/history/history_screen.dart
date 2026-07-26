@@ -266,7 +266,11 @@ class _HistoryTileState extends State<_HistoryTile> {
     final item = widget.item;
     final rated = item.rating > 0;
     final hasComment = item.comment != null && item.comment!.trim().isNotEmpty;
-    final canExpand = widget.isOwnProfile && hasComment;
+    // Backend already gates the comment field to only include it for the
+    // reviewer + reviewee. If the comment is present in the response, the
+    // caller is allowed to see it, so trust the backend regardless of
+    // isOwnProfile.
+    final canExpand = hasComment;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -412,8 +416,9 @@ class _HistoryTileState extends State<_HistoryTile> {
                   ],
                 ),
 
-                // Expanded feedback container (visible ONLY for profile owner when expanded)
-                if (widget.isOwnProfile && hasComment && _isExpanded) ...[
+                // Expanded feedback container (visible to reviewer + reviewee only —
+                // backend redacts the comment for everyone else)
+                if (hasComment && _isExpanded) ...[
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/person.dart';
 import '../../models/user_state.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/friends_api.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
@@ -516,11 +517,19 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                           children: [
                             GestureDetector(
                               onTap: person != null && person.reviewCount > 0
-                                  ? () => Navigator.of(context).push(
+                                  ? () {
+                                      final myId = ref.read(authProvider).userId;
+                                      final isOwn = widget.userId != null && widget.userId == myId;
+                                      Navigator.of(context).push(
                                         MaterialPageRoute(
-                                          builder: (_) => HistoryScreen(userId: widget.userId),
+                                          builder: (_) => HistoryScreen(
+                                            userId: widget.userId,
+                                            isOwnProfile: isOwn,
+                                            personName: widget.name,
+                                          ),
                                         ),
-                                      )
+                                      );
+                                    }
                                   : null,
                               child: _MiniStat(
                                 label: 'reviews',

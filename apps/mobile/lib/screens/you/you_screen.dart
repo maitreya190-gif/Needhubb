@@ -270,7 +270,9 @@ class YouScreen extends ConsumerWidget {
                     GestureDetector(
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
-                            builder: (_) => const HistoryScreen()),
+                            builder: (_) => HistoryScreen(
+                                  userId: ref.read(authProvider).userId,
+                                )),
                       ),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
