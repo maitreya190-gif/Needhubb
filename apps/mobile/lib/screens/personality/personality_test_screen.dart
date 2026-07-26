@@ -352,133 +352,91 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                         ),
                       ),
                     ],
-                    // Big inline submit button on the last question so it
-                    // can never be hidden by device chrome or a broken
-                    // bottom bar layout. Always tappable — _submit()
-                    // handles missing answers itself.
-                    if (isLast) ...[
-                      const SizedBox(height: 24),
+                    // Big inline Next/Submit button INSIDE the scroll area.
+                    // This is the primary CTA — always visible on every question
+                    // regardless of device chrome, keyboard, or nav bar issues.
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: _submitting
+                            ? null
+                            : () {
+                                if (isLast) {
+                                  _submit();
+                                } else if (_answers[_step] == null) {
+                                  setState(() => _error = 'Pick an answer to continue.');
+                                } else {
+                                  setState(() {
+                                    _error = null;
+                                    _step++;
+                                  });
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: NeedHubTokens.clay,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: _submitting
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (isLast)
+                                    const Icon(Icons.check_rounded,
+                                        size: 20, color: Colors.white),
+                                  if (isLast) const SizedBox(width: 8),
+                                  Text(
+                                    isLast ? 'Submit test' : 'Next',
+                                    style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white),
+                                  ),
+                                  if (!isLast) const SizedBox(width: 8),
+                                  if (!isLast)
+                                    const Icon(Icons.arrow_forward_rounded,
+                                        size: 18, color: Colors.white),
+                                ],
+                              ),
+                      ),
+                    ),
+                    if (_step > 0) ...[
+                      const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton(
-                          onPressed: _submitting ? null : _submit,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: NeedHubTokens.clay,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: _submitting
+                              ? null
+                              : () => setState(() => _step--),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: t.ink,
+                            side: BorderSide(color: t.rail, width: 1.5),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14)),
                           ),
-                          child: _submitting
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white))
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.check_rounded,
-                                        size: 20, color: Colors.white),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Submit test',
-                                      style: GoogleFonts.hankenGrotesk(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white),
-                                    ),
-                                  ],
-                                ),
+                          child: Text('Back',
+                              style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700)),
                         ),
                       ),
-                      const SizedBox(height: 20),
                     ],
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
             ),
 
-            // Navigation bar
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: t.paper,
-                border: Border(top: BorderSide(color: t.rail, width: 1)),
-              ),
-              child: Row(
-                children: [
-                  if (_step > 0)
-                    OutlinedButton(
-                      onPressed: _submitting
-                          ? null
-                          : () => setState(() => _step--),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: t.ink,
-                        side: BorderSide(color: t.rail),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
-                      ),
-                      child: Text('Back',
-                          style: GoogleFonts.hankenGrotesk(
-                              fontSize: 14, fontWeight: FontWeight.w700)),
-                    ),
-                  if (_step > 0) const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _submitting
-                          ? null
-                          : () {
-                              if (isLast) {
-                                _submit();
-                              } else if (_answers[_step] == null) {
-                                setState(() => _error = 'Pick an answer to continue.');
-                              } else {
-                                setState(() {
-                                  _error = null;
-                                  _step++;
-                                });
-                              }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: NeedHubTokens.clay,
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: t.chip,
-                        disabledForegroundColor: t.muted,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 15),
-                      ),
-                      child: _submitting
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  isLast ? 'Submit test' : 'Next',
-                                  style: GoogleFonts.hankenGrotesk(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w800),
-                                ),
-                                if (isLast) ...[
-                                  const SizedBox(width: 6),
-                                  const Icon(Icons.check_rounded, size: 18),
-                                ],
-                              ],
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
