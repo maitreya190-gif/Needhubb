@@ -9,6 +9,9 @@ export function initSocket(httpServer: HttpServer): Server {
   _io = new Server(httpServer, {
     cors: { origin: '*', methods: ['GET', 'POST'] },
     transports: ['websocket', 'polling'],
+    allowUpgrades: true,
+    pingTimeout: 60000,
+    pingInterval: 25000,
   })
 
   _io.use((socket, next) => {
