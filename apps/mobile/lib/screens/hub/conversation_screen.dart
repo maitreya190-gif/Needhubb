@@ -19,6 +19,8 @@ import '../../widgets/nh_full_screen_image_viewer.dart';
 import '../../widgets/nh_report_sheet.dart';
 import '../person/person_screen.dart';
 
+final Map<String, List<_Message>> _threadMessageCache = {};
+
 class ConversationScreen extends ConsumerStatefulWidget {
   final String name;
   final String initials;
@@ -77,8 +79,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     _resolvedThreadId = widget.threadId;
 
     if (_hasRealApi) {
-      // Start empty when using the real API; hydrate from the server.
-      _messages = [];
+      // Seed from cache so messages appear instantly on reopen.
+      final cacheKey = widget.threadId ?? widget.userId ?? '';
+      _messages = List.from(_threadMessageCache[cacheKey] ?? []);
       Future.microtask(_hydrateReal);
     } else {
       // Mock conversation demo data for legacy screens.
@@ -120,8 +123,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         final msgs = await api.messages(_resolvedThreadId!, limit: 50);
         if (!mounted) return;
         final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
-        setState(() {
-          _messages = msgs
+        final loaded = msgs
               .map((m) => _Message(
                     text: m.body.isEmpty ? null : m.body,
                     imageUrl: m.imageUrl,
@@ -138,7 +140,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     remoteId: m.id,
                   ))
               .toList();
-        });
+        final cacheKey = _resolvedThreadId ?? widget.userId ?? '';
+        _threadMessageCache[cacheKey] = loaded;
+        setState(() => _messages = loaded);
         _scrollToBottom();
       } catch (_) {/* keep empty */}
     } else {
@@ -169,6 +173,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           remoteId: msgId,
         );
         setState(() => _messages.add(newMsg));
+        final ck = _resolvedThreadId ?? widget.userId ?? '';
+        _threadMessageCache[ck] = List.from(_messages);
         Future.microtask(_scrollToBottom);
       });
     }
