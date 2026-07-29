@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
@@ -19,7 +21,42 @@ import '../../widgets/nh_full_screen_image_viewer.dart';
 import '../../widgets/nh_report_sheet.dart';
 import '../person/person_screen.dart';
 
+// In-memory cache (fast path, lives for the app session)
 final Map<String, List<_Message>> _threadMessageCache = {};
+
+Future<void> _persistMessages(String key, List<_Message> messages) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(messages.map((m) => {
+      'text': m.text,
+      'imageUrl': m.imageUrl,
+      'isMe': m.isMe,
+      'time': m.time.toIso8601String(),
+      'remoteId': m.remoteId,
+      'senderName': m.senderName,
+      'isRead': m.isRead,
+    }).toList());
+    await prefs.setString('msg_cache_$key', encoded);
+  } catch (_) {}
+}
+
+Future<List<_Message>> _loadPersistedMessages(String key) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('msg_cache_$key');
+    if (raw == null) return [];
+    final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+    return list.map((m) => _Message(
+      text: m['text'] as String?,
+      imageUrl: m['imageUrl'] as String?,
+      isMe: m['isMe'] as bool? ?? false,
+      time: DateTime.tryParse(m['time'] as String? ?? '') ?? DateTime.now(),
+      remoteId: m['remoteId'] as String?,
+      senderName: m['senderName'] as String? ?? '',
+      isRead: m['isRead'] as bool? ?? false,
+    )).toList();
+  } catch (_) { return []; }
+}
 
 class ConversationScreen extends ConsumerStatefulWidget {
   final String name;
@@ -80,10 +117,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     _resolvedThreadId = widget.threadId;
 
     if (_hasRealApi) {
-      // Seed from cache so messages appear instantly on reopen.
       final cacheKey = widget.threadId ?? widget.userId ?? '';
+      // Seed from in-memory cache instantly (same session)
       _messages = List.from(_threadMessageCache[cacheKey] ?? []);
-      _loading = _messages.isEmpty; // only show spinner if no cached messages
+      _loading = _messages.isEmpty;
+      if (_messages.isEmpty) {
+        // Load from disk cache before API call so messages show instantly
+        _loadPersistedMessages(cacheKey).then((persisted) {
+          if (!mounted) return;
+          if (persisted.isNotEmpty) {
+            _threadMessageCache[cacheKey] = persisted;
+            setState(() { _messages = persisted; _loading = false; });
+            _scrollToBottom();
+          }
+        });
+      }
       Future.microtask(_hydrateReal);
     } else {
       // Mock conversation demo data for legacy screens.
@@ -144,6 +192,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               .toList();
         final cacheKey = _resolvedThreadId ?? widget.userId ?? '';
         _threadMessageCache[cacheKey] = loaded;
+        _persistMessages(cacheKey, loaded);
         setState(() { _messages = loaded; _loading = false; });
         _scrollToBottom();
       } catch (_) {/* keep empty */}
@@ -177,6 +226,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         setState(() => _messages.add(newMsg));
         final ck = _resolvedThreadId ?? widget.userId ?? '';
         _threadMessageCache[ck] = List.from(_messages);
+        _persistMessages(ck, _messages);
         Future.microtask(_scrollToBottom);
       });
     }
