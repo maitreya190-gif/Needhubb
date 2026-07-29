@@ -7,7 +7,7 @@ import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router/router.dart';
 import 'services/chitchat_api.dart';
-import 'services/needs_api.dart';
+import 'services/needs_api.dart' show NeedsApi, FeedResult, feedNeedsNotifier, feedRankerNotifier, needFromSocketData;
 import 'services/notifications_api.dart';
 import 'services/profiles_api.dart';
 import 'services/reviews_api.dart';
@@ -134,9 +134,33 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
       _hydrateChitchat(chitchatApi);
     });
 
-    // Socket: increment badge instantly on new notification
-    SocketService().onNewNotification((data) {
-      unreadCountNotifier.value = (unreadCountNotifier.value) + 1;
+    final socket = SocketService();
+
+    // Increment badge instantly on any new notification
+    socket.onNewNotification((data) {
+      unreadCountNotifier.value = unreadCountNotifier.value + 1;
+    });
+
+    // New need posted — prepend to feed instantly
+    socket.onNewNeed((data) {
+      try {
+        final need = needFromSocketData(data);
+        if (need == null) return;
+        final current = feedNeedsNotifier.value;
+        // Don't duplicate our own just-posted need
+        if (current.any((n) => n.id == need.id)) return;
+        feedNeedsNotifier.value = [need, ...current];
+      } catch (_) {}
+    });
+
+    // Someone responded to my need — refresh notification badge
+    socket.onNewResponse((_) {
+      unreadCountNotifier.value = unreadCountNotifier.value + 1;
+    });
+
+    // My offer was accepted/declined — refresh notification badge
+    socket.onResponseDecision((_) {
+      unreadCountNotifier.value = unreadCountNotifier.value + 1;
     });
 
     // Notifications: poll every 30s as fallback (socket handles real-time)

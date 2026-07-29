@@ -9,6 +9,7 @@ import {
   embedBatch, cosineSimilarity, needSignalText, userSignalText, embeddingsAvailable,
 } from '../../lib/embeddings'
 import { pushNotification } from '../../lib/notifications'
+import { getIo, emitToUser } from '../../lib/socket'
 import { getSystemUserId } from '../../lib/system-user'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { isBlockedBetween } from '../friends/friends.service'
@@ -154,6 +155,9 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
       ))
       return { parent, subs }
     })
+
+    // Broadcast new need to all connected users so feeds update instantly
+    try { getIo()?.emit('new_need', created.parent) } catch {}
 
     res.status(201).json({
       parent: created.parent,
@@ -550,6 +554,7 @@ needsRouter.post('/:id/responses', authenticate, upload.single('workSample'), as
         refType: 'need',
         refId: need.id,
       })
+      emitToUser(need.posterId, 'new_response', { needId: need.id })
       return created
     })
 
@@ -707,6 +712,7 @@ needsRouter.patch('/:id/responses/:respId', authenticate, async (req, res, next)
         refType: 'need',
         refId: resp.needId,
       })
+      emitToUser(resp.responderId, 'response_decision', { needId: resp.needId, status: parsed.data.status })
       return { r, dmThreadId }
     })
 

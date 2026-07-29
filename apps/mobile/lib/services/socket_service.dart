@@ -91,6 +91,27 @@ class SocketService {
     });
   }
 
+  /// New need posted — broadcast to all users
+  void onNewNeed(void Function(Map<String, dynamic> data) handler) {
+    _socket?.on('new_need', (data) {
+      if (data is Map<String, dynamic>) handler(data);
+    });
+  }
+
+  /// Someone responded to my need
+  void onNewResponse(void Function(Map<String, dynamic> data) handler) {
+    _socket?.on('new_response', (data) {
+      if (data is Map<String, dynamic>) handler(data);
+    });
+  }
+
+  /// My offer was accepted or declined
+  void onResponseDecision(void Function(Map<String, dynamic> data) handler) {
+    _socket?.on('response_decision', (data) {
+      if (data is Map<String, dynamic>) handler(data);
+    });
+  }
+
   void off(String event) => _socket?.off(event);
 
   bool get isConnected => _socket?.connected == true;
