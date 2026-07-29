@@ -24,6 +24,8 @@ class SocketService {
           .setTransports(['polling'])
           .disableAutoConnect()
           .setAuth({'token': token})
+          .setExtraHeaders({'Authorization': 'Bearer $token'})
+          .setQuery({'token': token})
           .enableReconnection()
           .setReconnectionAttempts(10)
           .setReconnectionDelay(1000)

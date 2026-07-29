@@ -15,7 +15,9 @@ export function initSocket(httpServer: HttpServer): Server {
   })
 
   _io.use((socket, next) => {
-    const token = socket.handshake.auth?.token as string | undefined
+    const token = (socket.handshake.auth?.token as string | undefined)
+      ?? (socket.handshake.query?.token as string | undefined)
+      ?? (socket.handshake.headers?.authorization as string | undefined)?.replace('Bearer ', '')
     if (!token) return next(new Error('AUTH_REQUIRED'))
     try {
       const payload = jwt.verify(token, config.authSecret) as { sub: string }
