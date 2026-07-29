@@ -12,7 +12,7 @@ The admin panel is available at:
 https://needhub-admin-production.up.railway.app
 ```
 
-**Admin Secret Key:** `admin-dev-secret`
+**Admin Secret Key:** contact the team for the current key.
 
 Enter this code on the admin login screen. From the dashboard you can:
 - View and manage all posted needs
@@ -79,7 +79,7 @@ To wipe and re-populate all demo data (users, needs, chats, certificates, notifi
 
 ```bash
 curl -X POST \
-  -H "x-admin-secret: admin-dev-secret" \
+  -H "x-admin-secret: <your-admin-secret>" \
   https://needhubapi-production.up.railway.app/admin/seed
 ```
 
