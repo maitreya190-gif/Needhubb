@@ -6,6 +6,7 @@ import { badRequest, forbidden, notFound } from '../../lib/http-error'
 import { uploadFile, storageKey } from '../../lib/storage'
 import { isBlockedBetween, areFriends } from '../friends/friends.service'
 import { pushNotification } from '../../lib/notifications'
+import { emitToThread, emitToUser } from '../../lib/socket'
 
 export const messagingRouter: IRouter = Router()
 
@@ -216,6 +217,10 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
       return msg
     })
 
+    // Real-time: push to thread room + recipient's personal room
+    emitToThread(message.thread.id, 'new_message', message)
+    emitToUser(recipientId, 'new_notification', { type: 'MESSAGE_RECEIVED' })
+
     res.status(201).json(message)
   } catch (err) { next(err) }
 })
@@ -229,6 +234,7 @@ messagingRouter.delete('/messages/:id', authenticate, async (req, res, next) => 
     if (!msg) return next(notFound('Message not found', 'NOT_FOUND'))
     if (msg.senderId !== userId) return next(forbidden('Not your message', 'FORBIDDEN'))
     await prisma.dmMessage.delete({ where: { id: req.params.id } })
+    emitToThread(msg.threadId, 'message_deleted', { messageId: req.params.id })
     res.json({ ok: true })
   } catch (err) { next(err) }
 })
@@ -279,6 +285,7 @@ messagingRouter.post('/messages/:id/react', authenticate, async (req, res, next)
       })
     }
 
+    emitToThread(msg.threadId, 'message_reaction', { messageId: msgId, reactions: updated.reactions })
     res.json({ ok: true, reactions: updated.reactions })
   } catch (err) { next(err) }
 })

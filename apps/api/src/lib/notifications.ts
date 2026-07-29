@@ -1,4 +1,5 @@
 import type { Prisma, NotificationType } from '@prisma/client'
+import { emitToUser } from './socket'
 
 /**
  * Insert a notification for `userId` inside the given Prisma transaction.
@@ -67,5 +68,14 @@ export async function pushNotification(
       refType: args.refType ?? null,
       refId: args.refId ?? null,
     },
+  })
+
+  // Push real-time event to the recipient — fires after DB write succeeds
+  emitToUser(args.userId, 'new_notification', {
+    type: args.type,
+    title: args.title,
+    body: args.body,
+    refType: args.refType,
+    refId: args.refId,
   })
 }
