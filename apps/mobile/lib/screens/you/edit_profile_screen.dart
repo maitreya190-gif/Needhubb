@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
@@ -119,9 +120,32 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   Future<void> _pickAvatar() async {
     final file = await ImagePicker().pickImage(
       source: ImageSource.gallery,
-      imageQuality: 80,
+      imageQuality: 90,
     );
-    if (file != null && mounted) setState(() => _avatarPath = file.path);
+    if (file == null || !mounted) return;
+
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: file.path,
+      aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: 'Crop photo',
+          toolbarColor: const Color(0xFFB85C38),
+          toolbarWidgetColor: Colors.white,
+          activeControlsWidgetColor: const Color(0xFFB85C38),
+          lockAspectRatio: true,
+          hideBottomControls: false,
+        ),
+        IOSUiSettings(
+          title: 'Crop photo',
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+        ),
+      ],
+    );
+    if (cropped != null && mounted) {
+      setState(() => _avatarPath = cropped.path);
+    }
   }
 
   Future<void> _save() async {

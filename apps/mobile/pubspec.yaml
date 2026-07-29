@@ -25,6 +25,7 @@ dependencies:
 
   # Image picker (profile photos, need post images — Phase 2)
   image_picker: ^1.1.0
+  image_cropper: ^8.0.2
 
   # Location
   geolocator: ^11.0.0

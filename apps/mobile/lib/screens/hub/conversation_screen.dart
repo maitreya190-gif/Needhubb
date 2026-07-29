@@ -862,6 +862,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                               t: t,
                               avatarColor: widget.avatarColor,
                               initials: widget.initials,
+                              avatarUrl: widget.avatarUrl,
                               senderName: item.message.isMe ? 'You' : widget.name,
                               onQuoteTap: () => _scrollToMessage(
                                   item.message.replyTo?.remoteId,
@@ -1531,6 +1532,7 @@ class _Bubble extends StatelessWidget {
   final NeedHubTokens t;
   final Color avatarColor;
   final String initials;
+  final String? avatarUrl;
   final String senderName;
   final VoidCallback? onQuoteTap;
 
@@ -1539,6 +1541,7 @@ class _Bubble extends StatelessWidget {
     required this.t,
     required this.avatarColor,
     required this.initials,
+    this.avatarUrl,
     this.senderName = '',
     this.onQuoteTap,
   });
@@ -1564,19 +1567,16 @@ class _Bubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (!msg.isMe) ...[
-                Container(
-                  width: 26,
-                  height: 26,
-                  margin: const EdgeInsets.only(right: 6, bottom: 2),
-                  decoration: BoxDecoration(
-                    color: avatarColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    initials,
-                    style: GoogleFonts.bricolageGrotesque(
-                        fontSize: 9, fontWeight: FontWeight.w700, color: avatarColor),
+                Padding(
+                  padding: const EdgeInsets.only(right: 6, bottom: 2),
+                  child: NhAvatar(
+                    avatarUrl: avatarUrl,
+                    initials: initials,
+                    size: 26,
+                    borderRadius: 8,
+                    backgroundColor: avatarColor.withValues(alpha: 0.15),
+                    textColor: avatarColor,
+                    fontSize: 9,
                   ),
                 ),
               ],
