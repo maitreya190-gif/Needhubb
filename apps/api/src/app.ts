@@ -21,6 +21,7 @@ import { authLimiter, otpLimiter, writeLimiter, uploadLimiter } from './middlewa
 import { config } from './config'
 
 export const app: Express = express()
+app.set('trust proxy', 1)
 app.use(express.json())
 
 app.use((req, res, next) => {
