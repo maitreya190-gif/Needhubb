@@ -12,6 +12,7 @@ import 'services/notifications_api.dart';
 import 'services/profiles_api.dart';
 import 'services/reviews_api.dart';
 import 'services/social_providers.dart';
+import 'services/socket_service.dart';
 import 'services/uploads_api.dart';
 import 'theme/app_theme.dart';
 
@@ -133,10 +134,14 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
       _hydrateChitchat(chitchatApi);
     });
 
-    // Notifications: unread count + list refresh every 8s so offer-accept
-    // notifs surface almost immediately.
+    // Socket: increment badge instantly on new notification
+    SocketService().onNewNotification((data) {
+      unreadCountNotifier.value = (unreadCountNotifier.value) + 1;
+    });
+
+    // Notifications: poll every 30s as fallback (socket handles real-time)
     _notifPoller?.cancel();
-    _notifPoller = Timer.periodic(const Duration(seconds: 8), (_) {
+    _notifPoller = Timer.periodic(const Duration(seconds: 30), (_) {
       _hydrateNotifications(notificationsApi);
     });
 

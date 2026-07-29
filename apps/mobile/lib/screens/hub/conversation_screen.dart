@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
+import '../../services/socket_service.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_empty_state.dart';
@@ -144,9 +145,37 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       if (mounted) setState(() {});
     }
 
-    // Tail-poll every 2s while foregrounded.
+    // Join socket room for instant message delivery
+    final socket = SocketService();
+    if (_resolvedThreadId != null) {
+      socket.joinThread(_resolvedThreadId!);
+      socket.onNewMessage((data) {
+        final msgId = data['id'] as String?;
+        if (!mounted) return;
+        // Deduplicate — don't add if we already have this id
+        if (msgId != null && _messages.any((m) => m.remoteId == msgId)) return;
+        final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
+        final body = data['body'] as String? ?? '';
+        final imageUrl = data['imageUrl'] as String?;
+        final senderId = data['senderId'] as String?;
+        final createdAt = data['createdAt'] != null
+            ? DateTime.tryParse(data['createdAt'] as String) ?? DateTime.now()
+            : DateTime.now();
+        final newMsg = _Message(
+          text: body.isEmpty ? null : body,
+          imageUrl: imageUrl,
+          isMe: myId != null && senderId == myId,
+          time: createdAt,
+          remoteId: msgId,
+        );
+        setState(() => _messages.add(newMsg));
+        Future.microtask(_scrollToBottom);
+      });
+    }
+
+    // Fallback poll every 30s in case socket drops
     _tailPoller?.cancel();
-    _tailPoller = Timer.periodic(const Duration(seconds: 2), (_) => _tail());
+    _tailPoller = Timer.periodic(const Duration(seconds: 30), (_) => _tail());
   }
 
   Future<void> _tail() async {
@@ -208,6 +237,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   @override
   void dispose() {
     _tailPoller?.cancel();
+    final socket = SocketService();
+    if (_resolvedThreadId != null) socket.leaveThread(_resolvedThreadId!);
+    socket.off('new_message');
     friendsNotifier.removeListener(_bump);
     blockedNotifier.removeListener(_bump);
     friendUserIdsNotifier.removeListener(_bump);
