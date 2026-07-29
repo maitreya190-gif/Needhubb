@@ -51,6 +51,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   final _picker = ImagePicker();
   bool _isTyping = false;
   bool _sending = false;
+  bool _loading = false;
   _Message? _replyingTo;
 
   bool get _isFriend =>
@@ -82,6 +83,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       // Seed from cache so messages appear instantly on reopen.
       final cacheKey = widget.threadId ?? widget.userId ?? '';
       _messages = List.from(_threadMessageCache[cacheKey] ?? []);
+      _loading = _messages.isEmpty; // only show spinner if no cached messages
       Future.microtask(_hydrateReal);
     } else {
       // Mock conversation demo data for legacy screens.
@@ -142,11 +144,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               .toList();
         final cacheKey = _resolvedThreadId ?? widget.userId ?? '';
         _threadMessageCache[cacheKey] = loaded;
-        setState(() => _messages = loaded);
+        setState(() { _messages = loaded; _loading = false; });
         _scrollToBottom();
       } catch (_) {/* keep empty */}
     } else {
-      if (mounted) setState(() {});
+      if (mounted) setState(() { _loading = false; });
     }
 
     // Join socket room for instant message delivery
@@ -809,7 +811,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 ),
               ),
             Expanded(
-              child: _messages.isEmpty
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _messages.isEmpty
                   ? Center(
                       child: NhEmptyState(
                         icon: Icons.waving_hand_rounded,
