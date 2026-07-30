@@ -18,6 +18,10 @@ export const otpLimiter  = make(60 * 1000, 3)              // 3 req / min
 export const writeLimiter = make(60 * 1000, 30)            // 30 req / min
 export const uploadLimiter = make(60 * 1000, 10)           // 10 uploads / min
 
+// Messaging is a hot path — send, mark-read, tail-poll all count. A tight
+// limit throttles active conversations, so allow generous throughput.
+export const messagingLimiter = make(60 * 1000, 300)       // 300 req / min
+
 // Fallback no-op kept for routes that don't need limiting.
 export function rateLimiter(_req: Request, _res: Response, next: NextFunction) {
   next()

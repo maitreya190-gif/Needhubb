@@ -17,7 +17,7 @@ import { achievementsRouter } from './modules/achievements/achievements.router'
 import { adminAuth } from './middleware/adminAuth'
 import { authenticate } from './middleware/authenticate'
 import { errorHandler } from './middleware/errorHandler'
-import { authLimiter, otpLimiter, writeLimiter, uploadLimiter } from './middleware/rateLimiter'
+import { authLimiter, otpLimiter, writeLimiter, uploadLimiter, messagingLimiter } from './middleware/rateLimiter'
 import { config } from './config'
 
 export const app: Express = express()
@@ -246,7 +246,10 @@ app.use('/certificates', uploadLimiter, certificatesRouter)
 app.use('/profile', profilesRouter)
 
 // Messaging — DM threads + messages with optional image attachments.
-app.use('/chats', writeLimiter, messagingRouter)
+// Uses a dedicated high-throughput limiter (300/min) because active
+// conversations easily fire 5+ requests per exchange (send, mark-read,
+// polling) and would blow through the standard writeLimiter.
+app.use('/chats', messagingLimiter, messagingRouter)
 
 // Friends + Blocks — requests, accept/decline, block/unblock.
 app.use('/friends', friendsRouter)
