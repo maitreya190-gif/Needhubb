@@ -20,9 +20,19 @@ class SocketService {
   static const _storage = FlutterSecureStorage();
 
   Future<void> connect() async {
-    if (_socket?.connected == true) return;
+    if (_socket?.connected == true) {
+      // ignore: avoid_print
+      print('[socket] connect() called but already connected');
+      return;
+    }
     final token = await _storage.read(key: 'auth_token');
-    if (token == null) return;
+    if (token == null) {
+      // ignore: avoid_print
+      print('[socket] connect() no token in storage');
+      return;
+    }
+    // ignore: avoid_print
+    print('[socket] connect() attempting to $_wsUrl');
 
     _socket = io.io(
       _wsUrl,
@@ -87,9 +97,17 @@ class SocketService {
 
   /// Listen for new messages on the current thread.
   void onNewMessage(void Function(Map<String, dynamic> msg) handler) {
+    // ignore: avoid_print
+    print('[socket] registering new_message listener, socket=${_socket != null}, connected=${_socket?.connected}');
     _socket?.on('new_message', (data) {
+      // ignore: avoid_print
+      print('[socket] 📨 new_message event fired! data type: ${data.runtimeType}');
       final m = _asMap(data);
       if (m != null) handler(m);
+      else {
+        // ignore: avoid_print
+        print('[socket] ❌ new_message data was null after asMap');
+      }
     });
   }
 
@@ -121,7 +139,11 @@ class SocketService {
 
   /// New need posted — broadcast to all users
   void onNewNeed(void Function(Map<String, dynamic> data) handler) {
+    // ignore: avoid_print
+    print('[socket] registering new_need listener, socket=${_socket != null}');
     _socket?.on('new_need', (data) {
+      // ignore: avoid_print
+      print('[socket] 🆕 new_need event fired!');
       final m = _asMap(data);
       if (m != null) handler(m);
     });
