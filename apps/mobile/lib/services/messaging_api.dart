@@ -140,6 +140,14 @@ class MessagingApi {
 
   Future<void> deleteMessage(String id) => _api.delete('/chats/messages/$id');
 
+  /// Lightweight: mark the other party's unread messages in this thread as
+  /// read and trigger a socket emit so their tick turns blue instantly.
+  Future<void> markRead(String threadId) async {
+    try {
+      await _api.post('/chats/$threadId/mark-read', const {});
+    } catch (_) {/* best-effort */}
+  }
+
   Future<Map<String, dynamic>?> react(String messageId, String emoji) async {
     final res = await _api.post('/chats/messages/$messageId/react', {'emoji': emoji});
     if (res['reactions'] is Map) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -6,17 +7,56 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
+import '../../services/socket_service.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_full_screen_image_viewer.dart';
 import '../../widgets/nh_report_sheet.dart';
 import '../person/person_screen.dart';
+
+// In-memory cache (fast path, lives for the app session)
+final Map<String, List<_Message>> _threadMessageCache = {};
+
+Future<void> _persistMessages(String key, List<_Message> messages) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = jsonEncode(messages.map((m) => {
+      'text': m.text,
+      'imageUrl': m.imageUrl,
+      'isMe': m.isMe,
+      'time': m.time.toIso8601String(),
+      'remoteId': m.remoteId,
+      'senderName': m.senderName,
+      'isRead': m.isRead,
+    }).toList());
+    await prefs.setString('msg_cache_$key', encoded);
+  } catch (_) {}
+}
+
+Future<List<_Message>> _loadPersistedMessages(String key) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('msg_cache_$key');
+    if (raw == null) return [];
+    final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+    return list.map((m) => _Message(
+      text: m['text'] as String?,
+      imageUrl: m['imageUrl'] as String?,
+      isMe: m['isMe'] as bool? ?? false,
+      time: DateTime.tryParse(m['time'] as String? ?? '') ?? DateTime.now(),
+      remoteId: m['remoteId'] as String?,
+      senderName: m['senderName'] as String? ?? '',
+      isRead: m['isRead'] as bool? ?? false,
+    )).toList();
+  } catch (_) { return []; }
+}
 
 class ConversationScreen extends ConsumerStatefulWidget {
   final String name;
@@ -48,6 +88,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   final _picker = ImagePicker();
   bool _isTyping = false;
   bool _sending = false;
+  bool _loading = false;
   _Message? _replyingTo;
 
   bool get _isFriend =>
@@ -76,8 +117,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     _resolvedThreadId = widget.threadId;
 
     if (_hasRealApi) {
-      // Start empty when using the real API; hydrate from the server.
-      _messages = [];
+      final cacheKey = widget.threadId ?? widget.userId ?? '';
+      // Seed from in-memory cache instantly (same session)
+      _messages = List.from(_threadMessageCache[cacheKey] ?? []);
+      _loading = _messages.isEmpty;
+      if (_messages.isEmpty) {
+        // Load from disk cache before API call so messages show instantly
+        _loadPersistedMessages(cacheKey).then((persisted) {
+          if (!mounted) return;
+          if (persisted.isNotEmpty) {
+            _threadMessageCache[cacheKey] = persisted;
+            setState(() { _messages = persisted; _loading = false; });
+            _scrollToBottom();
+          }
+        });
+      }
       Future.microtask(_hydrateReal);
     } else {
       // Mock conversation demo data for legacy screens.
@@ -119,8 +173,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         final msgs = await api.messages(_resolvedThreadId!, limit: 50);
         if (!mounted) return;
         final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
-        setState(() {
-          _messages = msgs
+        final loaded = msgs
               .map((m) => _Message(
                     text: m.body.isEmpty ? null : m.body,
                     imageUrl: m.imageUrl,
@@ -137,16 +190,104 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     remoteId: m.id,
                   ))
               .toList();
-        });
+        final cacheKey = _resolvedThreadId ?? widget.userId ?? '';
+        _threadMessageCache[cacheKey] = loaded;
+        _persistMessages(cacheKey, loaded);
+        setState(() { _messages = loaded; _loading = false; });
         _scrollToBottom();
       } catch (_) {/* keep empty */}
     } else {
-      if (mounted) setState(() {});
+      if (mounted) setState(() { _loading = false; });
     }
 
-    // Tail-poll every 2s while foregrounded.
+    // Join socket room for instant message delivery
+    final socket = SocketService();
+    if (_resolvedThreadId != null) {
+      socket.joinThread(_resolvedThreadId!);
+      socket.onNewMessage((data) {
+        final msgId = data['id'] as String?;
+        if (!mounted) return;
+        // Already have this exact id — skip.
+        if (msgId != null && _messages.any((m) => m.remoteId == msgId)) return;
+        final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
+        final body = data['body'] as String? ?? '';
+        final imageUrl = data['imageUrl'] as String?;
+        final senderId = data['senderId'] as String?;
+        final createdAt = data['createdAt'] != null
+            ? DateTime.tryParse(data['createdAt'] as String) ?? DateTime.now()
+            : DateTime.now();
+        final isMine = myId != null && senderId == myId;
+
+        // For my own messages: the send flow already appended an optimistic
+        // bubble with remoteId=null. Stamp its remoteId instead of appending
+        // a duplicate.
+        if (isMine) {
+          final optimisticIdx = _messages.lastIndexWhere((m) =>
+              m.isMe &&
+              m.remoteId == null &&
+              (m.text ?? '') == body &&
+              (m.imageUrl ?? '') == (imageUrl ?? ''));
+          if (optimisticIdx != -1) {
+            setState(() {
+              _messages[optimisticIdx] =
+                  _messages[optimisticIdx].copyWith(remoteId: msgId);
+            });
+            final ck = _resolvedThreadId ?? widget.userId ?? '';
+            _threadMessageCache[ck] = List.from(_messages);
+            _persistMessages(ck, _messages);
+            return;
+          }
+        }
+
+        final newMsg = _Message(
+          text: body.isEmpty ? null : body,
+          imageUrl: imageUrl,
+          isMe: isMine,
+          time: createdAt,
+          remoteId: msgId,
+        );
+        setState(() => _messages.add(newMsg));
+        final ck = _resolvedThreadId ?? widget.userId ?? '';
+        _threadMessageCache[ck] = List.from(_messages);
+        _persistMessages(ck, _messages);
+        Future.microtask(_scrollToBottom);
+        // If this message is from the other person and I'm in the thread,
+        // mark it read immediately so their tick turns blue right away.
+        if (!isMine && _resolvedThreadId != null) {
+          ref.read(messagingApiProvider).markRead(_resolvedThreadId!);
+        }
+      });
+
+      // Read receipts — flip isRead on my messages the moment they're read.
+      socket.onMessagesRead((data) {
+        if (!mounted) return;
+        final ids = (data['messageIds'] as List?)?.cast<String>() ?? const [];
+        if (ids.isEmpty) return;
+        final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
+        if (myId == null) return;
+        final readerId = data['readerId'] as String?;
+        if (readerId == myId) return; // ignore my own reads
+        var changed = false;
+        setState(() {
+          for (var i = 0; i < _messages.length; i++) {
+            final m = _messages[i];
+            if (m.isMe && !m.isRead && m.remoteId != null && ids.contains(m.remoteId)) {
+              _messages[i] = m.copyWith(isRead: true);
+              changed = true;
+            }
+          }
+        });
+        if (changed) {
+          final ck = _resolvedThreadId ?? widget.userId ?? '';
+          _threadMessageCache[ck] = List.from(_messages);
+          _persistMessages(ck, _messages);
+        }
+      });
+    }
+
+    // Fallback poll every 30s in case socket drops
     _tailPoller?.cancel();
-    _tailPoller = Timer.periodic(const Duration(seconds: 2), (_) => _tail());
+    _tailPoller = Timer.periodic(const Duration(seconds: 30), (_) => _tail());
   }
 
   Future<void> _tail() async {
@@ -208,6 +349,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   @override
   void dispose() {
     _tailPoller?.cancel();
+    final socket = SocketService();
+    if (_resolvedThreadId != null) socket.leaveThread(_resolvedThreadId!);
+    socket.off('new_message');
     friendsNotifier.removeListener(_bump);
     blockedNotifier.removeListener(_bump);
     friendUserIdsNotifier.removeListener(_bump);
@@ -771,7 +915,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 ),
               ),
             Expanded(
-              child: _messages.isEmpty
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _messages.isEmpty
                   ? Center(
                       child: NhEmptyState(
                         icon: Icons.waving_hand_rounded,
@@ -824,6 +970,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                               t: t,
                               avatarColor: widget.avatarColor,
                               initials: widget.initials,
+                              avatarUrl: widget.avatarUrl,
                               senderName: item.message.isMe ? 'You' : widget.name,
                               onQuoteTap: () => _scrollToMessage(
                                   item.message.replyTo?.remoteId,
@@ -1493,6 +1640,7 @@ class _Bubble extends StatelessWidget {
   final NeedHubTokens t;
   final Color avatarColor;
   final String initials;
+  final String? avatarUrl;
   final String senderName;
   final VoidCallback? onQuoteTap;
 
@@ -1501,6 +1649,7 @@ class _Bubble extends StatelessWidget {
     required this.t,
     required this.avatarColor,
     required this.initials,
+    this.avatarUrl,
     this.senderName = '',
     this.onQuoteTap,
   });
@@ -1526,19 +1675,16 @@ class _Bubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               if (!msg.isMe) ...[
-                Container(
-                  width: 26,
-                  height: 26,
-                  margin: const EdgeInsets.only(right: 6, bottom: 2),
-                  decoration: BoxDecoration(
-                    color: avatarColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    initials,
-                    style: GoogleFonts.bricolageGrotesque(
-                        fontSize: 9, fontWeight: FontWeight.w700, color: avatarColor),
+                Padding(
+                  padding: const EdgeInsets.only(right: 6, bottom: 2),
+                  child: NhAvatar(
+                    avatarUrl: avatarUrl,
+                    initials: initials,
+                    size: 26,
+                    borderRadius: 8,
+                    backgroundColor: avatarColor.withValues(alpha: 0.15),
+                    textColor: avatarColor,
+                    fontSize: 9,
                   ),
                 ),
               ],

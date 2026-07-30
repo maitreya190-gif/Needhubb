@@ -119,7 +119,10 @@ const BLOCKLIST: { pattern: RegExp; category: string }[] = [
 
 const LLM_SAFETY_THRESHOLD = 0.7
 
-export async function checkText(text: string): Promise<ModerationVerdict> {
+export async function checkText(
+  text: string,
+  opts: { skipLlm?: boolean } = {},
+): Promise<ModerationVerdict> {
   const clean = (text ?? '').trim()
   if (!clean) {
     return { ok: true, hardBlocked: false, softFlag: false, matches: [], reasons: [] }
@@ -143,6 +146,13 @@ export async function checkText(text: string): Promise<ModerationVerdict> {
       matches,
       reasons: [...categories].map((c) => `blocklist:${c}`),
     }
+  }
+
+  // Callers on hot paths (like DMs) skip the LLM soft check to avoid a
+  // per-message round trip to Grok. Hard blocklist above still catches
+  // egregious content instantly.
+  if (opts.skipLlm) {
+    return { ok: true, hardBlocked: false, softFlag: false, matches: [], reasons: [] }
   }
 
   // Soft pass — ask the LLM to score toxicity. Never throws, never blocks.

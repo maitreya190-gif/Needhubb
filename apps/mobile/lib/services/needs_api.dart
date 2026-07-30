@@ -111,6 +111,8 @@ String _qs(Map<String, dynamic> params) {
       .join('&');
 }
 
+Need needFromSocketData(Map<String, dynamic> j) => _needFromJson(j);
+
 Need _needFromJson(Map<String, dynamic> j) {
   final poster = j['poster'] as Map<String, dynamic>? ?? const {};
   final posterProfile = poster['profile'] as Map<String, dynamic>? ?? const {};

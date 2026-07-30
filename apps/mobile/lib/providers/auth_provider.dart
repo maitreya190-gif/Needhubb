@@ -6,6 +6,7 @@ import '../services/needs_api.dart';
 import '../services/notifications_api.dart';
 import '../services/profiles_api.dart';
 import '../services/reviews_api.dart';
+import '../services/socket_service.dart';
 import '../services/uploads_api.dart';
 
 /// Resets every global ValueNotifier to its empty/initial value.
@@ -82,6 +83,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         displayName: displayName,
         email: email,
       );
+
+      // Reconnect WebSocket on app resume
+      SocketService().connect();
     } catch (_) {
       // If secure storage fails on first run, stay logged out
     }
@@ -110,6 +114,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       displayName: displayName,
       email: email,
     );
+
+    // Connect WebSocket after token is stored so socket auth succeeds
+    SocketService().connect();
   }
 
   /// Update the stored display name (called after profile save).
@@ -120,6 +127,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Clear all auth data and return to the logged-out state.
   Future<void> logout() async {
+    SocketService().disconnect();
     await _storage.deleteAll();
     clearAllUserState();
     state = const AuthState();

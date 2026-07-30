@@ -7,11 +7,12 @@ import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router/router.dart';
 import 'services/chitchat_api.dart';
-import 'services/needs_api.dart';
+import 'services/needs_api.dart' show NeedsApi, feedNeedsNotifier, feedRankerNotifier, needFromSocketData;
 import 'services/notifications_api.dart';
 import 'services/profiles_api.dart';
 import 'services/reviews_api.dart';
 import 'services/social_providers.dart';
+import 'services/socket_service.dart';
 import 'services/uploads_api.dart';
 import 'theme/app_theme.dart';
 
@@ -34,6 +35,7 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
   Timer? _feedPoller;
   Timer? _uploadsPoller;
   String? _lastHydratedUserId;
+  SocketService? _socket;
 
   @override
   void initState() {
@@ -100,6 +102,8 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
       _notifPoller = null;
       _feedPoller = null;
       _uploadsPoller = null;
+      _socket?.disconnect();
+      _socket = null;
       resetAllUserNotifiersOnLogout();
     }
   }
@@ -133,10 +137,38 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
       _hydrateChitchat(chitchatApi);
     });
 
-    // Notifications: unread count + list refresh every 8s so offer-accept
-    // notifs surface almost immediately.
+    _socket = SocketService();
+    await _socket!.connect();
+
+    // Increment badge instantly on any new notification
+    _socket!.onNewNotification((data) {
+      unreadCountNotifier.value = unreadCountNotifier.value + 1;
+    });
+
+    // New need posted — prepend to feed instantly
+    _socket!.onNewNeed((data) {
+      try {
+        final need = needFromSocketData(data);
+        final current = feedNeedsNotifier.value;
+        // Don't duplicate our own just-posted need
+        if (current.any((n) => n.id == need.id)) return;
+        feedNeedsNotifier.value = [need, ...current];
+      } catch (_) {}
+    });
+
+    // Someone responded to my need — refresh notification badge
+    _socket!.onNewResponse((_) {
+      unreadCountNotifier.value = unreadCountNotifier.value + 1;
+    });
+
+    // My offer was accepted/declined — refresh notification badge
+    _socket!.onResponseDecision((_) {
+      unreadCountNotifier.value = unreadCountNotifier.value + 1;
+    });
+
+    // Notifications: poll every 30s as fallback (socket handles real-time)
     _notifPoller?.cancel();
-    _notifPoller = Timer.periodic(const Duration(seconds: 8), (_) {
+    _notifPoller = Timer.periodic(const Duration(seconds: 30), (_) {
       _hydrateNotifications(notificationsApi);
     });
 

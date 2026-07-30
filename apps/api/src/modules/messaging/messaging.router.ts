@@ -6,6 +6,7 @@ import { badRequest, forbidden, notFound } from '../../lib/http-error'
 import { uploadFile, storageKey } from '../../lib/storage'
 import { isBlockedBetween, areFriends } from '../friends/friends.service'
 import { pushNotification } from '../../lib/notifications'
+import { emitToThread, emitToUser } from '../../lib/socket'
 
 export const messagingRouter: IRouter = Router()
 
@@ -123,11 +124,25 @@ messagingRouter.get('/:threadId/messages', authenticate, async (req, res, next) 
       console.log('DEBUG reactions type:', typeof messages[0].reactions, messages[0].reactions);
     }
 
-    // Mark fetched messages as read
-    await prisma.dmMessage.updateMany({
+    // Mark fetched messages as read + notify the sender in real time so
+    // their double-tick turns blue.
+    const nowReadIds = (await prisma.dmMessage.findMany({
       where: { threadId, senderId: { not: userId }, readAt: null },
-      data: { readAt: new Date() },
-    })
+      select: { id: true, senderId: true },
+    }))
+    if (nowReadIds.length > 0) {
+      await prisma.dmMessage.updateMany({
+        where: { id: { in: nowReadIds.map(m => m.id) } },
+        data: { readAt: new Date() },
+      })
+      // Group ids by sender and emit to the thread room so any open
+      // conversation UI can update instantly.
+      emitToThread(threadId, 'messages_read', {
+        threadId,
+        messageIds: nowReadIds.map(m => m.id),
+        readerId: userId,
+      })
+    }
 
     // Also mark the coalesced chat notification as read so next message
     // from this sender starts a fresh notification.
@@ -144,6 +159,37 @@ messagingRouter.get('/:threadId/messages', authenticate, async (req, res, next) 
     })
 
     res.json(since ? messages : messages.reverse())
+  } catch (err) { next(err) }
+})
+
+// ── POST /chats/:threadId/mark-read ───────────────────────────────────────────
+// Lightweight: mark the other party's messages as read + emit so their tick
+// turns blue instantly. Called when the recipient receives a socket event
+// while the conversation is open.
+messagingRouter.post('/:threadId/mark-read', authenticate, async (req, res, next) => {
+  try {
+    const userId = (req as AuthedRequest).userId!
+    const threadId = req.params.threadId
+    const thread = await prisma.dmThread.findUnique({ where: { id: threadId } })
+    if (!thread) return next(notFound('Thread not found', 'NOT_FOUND'))
+    if (thread.userAId !== userId && thread.userBId !== userId) {
+      return next(forbidden('Not your thread', 'FORBIDDEN'))
+    }
+    const nowRead = await prisma.dmMessage.findMany({
+      where: { threadId, senderId: { not: userId }, readAt: null },
+      select: { id: true },
+    })
+    if (nowRead.length > 0) {
+      const ids = nowRead.map(m => m.id)
+      await prisma.dmMessage.updateMany({
+        where: { id: { in: ids } },
+        data: { readAt: new Date() },
+      })
+      emitToThread(threadId, 'messages_read', {
+        threadId, messageIds: ids, readerId: userId,
+      })
+    }
+    res.json({ ok: true, count: nowRead.length })
   } catch (err) { next(err) }
 })
 
@@ -234,6 +280,10 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
       return msg
     })
 
+    // Real-time: push to thread room + recipient's personal room
+    emitToThread(message.thread.id, 'new_message', message)
+    emitToUser(recipientId, 'new_notification', { type: 'MESSAGE_RECEIVED' })
+
     res.status(201).json(message)
   } catch (err) { next(err) }
 })
@@ -247,6 +297,7 @@ messagingRouter.delete('/messages/:id', authenticate, async (req, res, next) => 
     if (!msg) return next(notFound('Message not found', 'NOT_FOUND'))
     if (msg.senderId !== userId) return next(forbidden('Not your message', 'FORBIDDEN'))
     await prisma.dmMessage.delete({ where: { id: req.params.id } })
+    emitToThread(msg.threadId, 'message_deleted', { messageId: req.params.id })
     res.json({ ok: true })
   } catch (err) { next(err) }
 })
@@ -297,6 +348,7 @@ messagingRouter.post('/messages/:id/react', authenticate, async (req, res, next)
       })
     }
 
+    emitToThread(msg.threadId, 'message_reaction', { messageId: msgId, reactions: updated.reactions })
     res.json({ ok: true, reactions: updated.reactions })
   } catch (err) { next(err) }
 })
