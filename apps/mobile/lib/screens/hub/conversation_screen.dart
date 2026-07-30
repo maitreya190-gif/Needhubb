@@ -207,7 +207,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       socket.onNewMessage((data) {
         final msgId = data['id'] as String?;
         if (!mounted) return;
-        // Deduplicate — don't add if we already have this id
+        // Already have this exact id — skip.
         if (msgId != null && _messages.any((m) => m.remoteId == msgId)) return;
         final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
         final body = data['body'] as String? ?? '';
@@ -216,10 +216,33 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         final createdAt = data['createdAt'] != null
             ? DateTime.tryParse(data['createdAt'] as String) ?? DateTime.now()
             : DateTime.now();
+        final isMine = myId != null && senderId == myId;
+
+        // For my own messages: the send flow already appended an optimistic
+        // bubble with remoteId=null. Stamp its remoteId instead of appending
+        // a duplicate.
+        if (isMine) {
+          final optimisticIdx = _messages.lastIndexWhere((m) =>
+              m.isMe &&
+              m.remoteId == null &&
+              (m.text ?? '') == body &&
+              (m.imageUrl ?? '') == (imageUrl ?? ''));
+          if (optimisticIdx != -1) {
+            setState(() {
+              _messages[optimisticIdx] =
+                  _messages[optimisticIdx].copyWith(remoteId: msgId);
+            });
+            final ck = _resolvedThreadId ?? widget.userId ?? '';
+            _threadMessageCache[ck] = List.from(_messages);
+            _persistMessages(ck, _messages);
+            return;
+          }
+        }
+
         final newMsg = _Message(
           text: body.isEmpty ? null : body,
           imageUrl: imageUrl,
-          isMe: myId != null && senderId == myId,
+          isMe: isMine,
           time: createdAt,
           remoteId: msgId,
         );
