@@ -7,9 +7,15 @@ const _wsUrl = String.fromEnvironment(
   defaultValue: 'http://10.0.2.2:3000',
 );
 
-final socketServiceProvider = Provider<SocketService>((ref) => SocketService());
+// Singleton instance — all callers share the same connected socket.
+final socketServiceProvider = Provider<SocketService>((ref) => SocketService.instance);
 
 class SocketService {
+  SocketService._();
+  static final SocketService instance = SocketService._();
+  // Keep the old default constructor pointing at the singleton for legacy call sites.
+  factory SocketService() => instance;
+
   io.Socket? _socket;
   static const _storage = FlutterSecureStorage();
 
@@ -21,14 +27,15 @@ class SocketService {
     _socket = io.io(
       _wsUrl,
       io.OptionBuilder()
-          .setTransports(['polling'])
+          .setTransports(['polling', 'websocket'])
           .disableAutoConnect()
           .setAuth({'token': token})
           .setExtraHeaders({'Authorization': 'Bearer $token'})
           .setQuery({'token': token})
           .enableReconnection()
           .setReconnectionAttempts(10)
-          .setReconnectionDelay(1000)
+          .setReconnectionDelay(2000)
+          .setTimeout(20000)
           .build(),
     );
 

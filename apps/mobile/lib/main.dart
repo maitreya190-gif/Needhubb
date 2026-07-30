@@ -7,7 +7,7 @@ import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router/router.dart';
 import 'services/chitchat_api.dart';
-import 'services/needs_api.dart' show NeedsApi, FeedResult, feedNeedsNotifier, feedRankerNotifier, needFromSocketData;
+import 'services/needs_api.dart' show NeedsApi, feedNeedsNotifier, feedRankerNotifier, needFromSocketData;
 import 'services/notifications_api.dart';
 import 'services/profiles_api.dart';
 import 'services/reviews_api.dart';
@@ -35,6 +35,7 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
   Timer? _feedPoller;
   Timer? _uploadsPoller;
   String? _lastHydratedUserId;
+  SocketService? _socket;
 
   @override
   void initState() {
@@ -101,6 +102,8 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
       _notifPoller = null;
       _feedPoller = null;
       _uploadsPoller = null;
+      _socket?.disconnect();
+      _socket = null;
       resetAllUserNotifiersOnLogout();
     }
   }
@@ -134,18 +137,18 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
       _hydrateChitchat(chitchatApi);
     });
 
-    final socket = SocketService();
+    _socket = SocketService();
+    await _socket!.connect();
 
     // Increment badge instantly on any new notification
-    socket.onNewNotification((data) {
+    _socket!.onNewNotification((data) {
       unreadCountNotifier.value = unreadCountNotifier.value + 1;
     });
 
     // New need posted — prepend to feed instantly
-    socket.onNewNeed((data) {
+    _socket!.onNewNeed((data) {
       try {
         final need = needFromSocketData(data);
-        if (need == null) return;
         final current = feedNeedsNotifier.value;
         // Don't duplicate our own just-posted need
         if (current.any((n) => n.id == need.id)) return;
@@ -154,12 +157,12 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
     });
 
     // Someone responded to my need — refresh notification badge
-    socket.onNewResponse((_) {
+    _socket!.onNewResponse((_) {
       unreadCountNotifier.value = unreadCountNotifier.value + 1;
     });
 
     // My offer was accepted/declined — refresh notification badge
-    socket.onResponseDecision((_) {
+    _socket!.onResponseDecision((_) {
       unreadCountNotifier.value = unreadCountNotifier.value + 1;
     });
 
