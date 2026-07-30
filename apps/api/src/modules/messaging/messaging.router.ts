@@ -144,6 +144,37 @@ messagingRouter.get('/:threadId/messages', authenticate, async (req, res, next) 
   } catch (err) { next(err) }
 })
 
+// ── POST /chats/:threadId/mark-read ───────────────────────────────────────────
+// Lightweight: mark the other party's messages as read + emit so their tick
+// turns blue instantly. Called when the recipient receives a socket event
+// while the conversation is open.
+messagingRouter.post('/:threadId/mark-read', authenticate, async (req, res, next) => {
+  try {
+    const userId = (req as AuthedRequest).userId!
+    const threadId = req.params.threadId
+    const thread = await prisma.dmThread.findUnique({ where: { id: threadId } })
+    if (!thread) return next(notFound('Thread not found', 'NOT_FOUND'))
+    if (thread.userAId !== userId && thread.userBId !== userId) {
+      return next(forbidden('Not your thread', 'FORBIDDEN'))
+    }
+    const nowRead = await prisma.dmMessage.findMany({
+      where: { threadId, senderId: { not: userId }, readAt: null },
+      select: { id: true },
+    })
+    if (nowRead.length > 0) {
+      const ids = nowRead.map(m => m.id)
+      await prisma.dmMessage.updateMany({
+        where: { id: { in: ids } },
+        data: { readAt: new Date() },
+      })
+      emitToThread(threadId, 'messages_read', {
+        threadId, messageIds: ids, readerId: userId,
+      })
+    }
+    res.json({ ok: true, count: nowRead.length })
+  } catch (err) { next(err) }
+})
+
 // ── POST /chats/dm/:userId/messages ───────────────────────────────────────────
 
 messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'), async (req, res, next) => {

@@ -251,6 +251,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         _threadMessageCache[ck] = List.from(_messages);
         _persistMessages(ck, _messages);
         Future.microtask(_scrollToBottom);
+        // If this message is from the other person and I'm in the thread,
+        // mark it read immediately so their tick turns blue right away.
+        if (!isMine && _resolvedThreadId != null) {
+          ref.read(messagingApiProvider).markRead(_resolvedThreadId!);
+        }
       });
 
       // Read receipts — flip isRead on my messages the moment they're read.
