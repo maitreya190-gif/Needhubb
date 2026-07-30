@@ -36,15 +36,23 @@ class SocketService {
 
     _socket!.onConnect((_) {
       // ignore: avoid_print
-      print('[socket] connected');
+      print('[socket] ✅ connected to $_wsUrl');
     });
     _socket!.onDisconnect((_) {
       // ignore: avoid_print
-      print('[socket] disconnected');
+      print('[socket] ❌ disconnected');
     });
     _socket!.onConnectError((e) {
       // ignore: avoid_print
       print('[socket] connect error: $e');
+    });
+    _socket!.on('connect_error', (e) {
+      // ignore: avoid_print
+      print('[socket] connect_error event: $e');
+    });
+    _socket!.on('error', (e) {
+      // ignore: avoid_print
+      print('[socket] error event: $e');
     });
   }
 

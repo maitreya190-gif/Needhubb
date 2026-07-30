@@ -18,13 +18,22 @@ export function initSocket(httpServer: HttpServer): Server {
     const token = (socket.handshake.auth?.token as string | undefined)
       ?? (socket.handshake.query?.token as string | undefined)
       ?? (socket.handshake.headers?.authorization as string | undefined)?.replace('Bearer ', '')
-    if (!token) return next(new Error('AUTH_REQUIRED'))
+    console.log('[socket] handshake token present:', !!token, 'transport:', socket.conn.transport.name)
+    if (!token) {
+      const err = new Error('AUTH_REQUIRED')
+      ;(err as any).data = { code: 'AUTH_REQUIRED' }
+      return next(err)
+    }
     try {
       const payload = jwt.verify(token, config.authSecret) as { sub: string }
       socket.data.userId = payload.sub
+      console.log('[socket] auth ok for user:', payload.sub)
       next()
-    } catch {
-      next(new Error('AUTH_INVALID'))
+    } catch (e) {
+      console.log('[socket] auth failed:', (e as Error).message)
+      const err = new Error('AUTH_INVALID')
+      ;(err as any).data = { code: 'AUTH_INVALID' }
+      next(err)
     }
   })
 
