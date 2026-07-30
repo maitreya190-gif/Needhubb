@@ -77,55 +77,69 @@ class SocketService {
     _socket?.emit('leave_thread', threadId);
   }
 
+  // JSON maps from socket.io often arrive as Map<dynamic, dynamic>, not
+  // Map<String, dynamic> — accept any Map and re-key.
+  Map<String, dynamic>? _asMap(dynamic data) {
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    return null;
+  }
+
   /// Listen for new messages on the current thread.
   void onNewMessage(void Function(Map<String, dynamic> msg) handler) {
     _socket?.on('new_message', (data) {
-      if (data is Map<String, dynamic>) handler(data);
+      final m = _asMap(data);
+      if (m != null) handler(m);
     });
   }
 
   /// Listen for reaction updates.
   void onMessageReaction(void Function(Map<String, dynamic> data) handler) {
     _socket?.on('message_reaction', (data) {
-      if (data is Map<String, dynamic>) handler(data);
+      final m = _asMap(data);
+      if (m != null) handler(m);
     });
   }
 
   /// Listen for deleted messages.
   void onMessageDeleted(void Function(String messageId) handler) {
     _socket?.on('message_deleted', (data) {
-      if (data is Map<String, dynamic>) {
-        final id = data['messageId'] as String?;
-        if (id != null) handler(id);
-      }
+      final m = _asMap(data);
+      if (m == null) return;
+      final id = m['messageId'] as String?;
+      if (id != null) handler(id);
     });
   }
 
   /// Listen for any new notification (badge increment).
   void onNewNotification(void Function(Map<String, dynamic> data) handler) {
     _socket?.on('new_notification', (data) {
-      if (data is Map<String, dynamic>) handler(data);
+      final m = _asMap(data);
+      if (m != null) handler(m);
     });
   }
 
   /// New need posted — broadcast to all users
   void onNewNeed(void Function(Map<String, dynamic> data) handler) {
     _socket?.on('new_need', (data) {
-      if (data is Map<String, dynamic>) handler(data);
+      final m = _asMap(data);
+      if (m != null) handler(m);
     });
   }
 
   /// Someone responded to my need
   void onNewResponse(void Function(Map<String, dynamic> data) handler) {
     _socket?.on('new_response', (data) {
-      if (data is Map<String, dynamic>) handler(data);
+      final m = _asMap(data);
+      if (m != null) handler(m);
     });
   }
 
   /// My offer was accepted or declined
   void onResponseDecision(void Function(Map<String, dynamic> data) handler) {
     _socket?.on('response_decision', (data) {
-      if (data is Map<String, dynamic>) handler(data);
+      final m = _asMap(data);
+      if (m != null) handler(m);
     });
   }
 
