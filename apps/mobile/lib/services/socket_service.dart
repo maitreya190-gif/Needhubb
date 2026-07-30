@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -6,6 +7,10 @@ const _wsUrl = String.fromEnvironment(
   'API_URL',
   defaultValue: 'http://10.0.2.2:3000',
 );
+
+// On-screen debug status — surfaces the socket state without needing adb.
+final ValueNotifier<String> socketDebugStatus = ValueNotifier<String>('idle');
+final ValueNotifier<int> socketEventCount = ValueNotifier<int>(0);
 
 // Singleton instance — all callers share the same connected socket.
 final socketServiceProvider = Provider<SocketService>((ref) => SocketService.instance);
@@ -19,25 +24,30 @@ class SocketService {
   io.Socket? _socket;
   static const _storage = FlutterSecureStorage();
 
+  void _setStatus(String s) {
+    socketDebugStatus.value = s;
+    // ignore: avoid_print
+    print('[socket] $s');
+  }
+
   Future<void> connect() async {
     if (_socket?.connected == true) {
-      // ignore: avoid_print
-      print('[socket] connect() called but already connected');
+      _setStatus('already connected');
       return;
     }
     final token = await _storage.read(key: 'auth_token');
     if (token == null) {
-      // ignore: avoid_print
-      print('[socket] connect() no token in storage');
+      _setStatus('no token');
       return;
     }
-    // ignore: avoid_print
-    print('[socket] connect() attempting to $_wsUrl');
+    _setStatus('connecting to $_wsUrl');
 
+    // On native (Android/iOS), socket_io_client 3.x only supports websocket
+    // transport — polling is web-only. Force websocket explicitly.
     _socket = io.io(
       _wsUrl,
       io.OptionBuilder()
-          .setTransports(['polling', 'websocket'])
+          .setTransports(['websocket'])
           .disableAutoConnect()
           .setAuth({'token': token})
           .setExtraHeaders({'Authorization': 'Bearer $token'})
@@ -51,25 +61,15 @@ class SocketService {
 
     _socket!.connect();
 
-    _socket!.onConnect((_) {
+    _socket!.onConnect((_) => _setStatus('✅ connected'));
+    _socket!.onDisconnect((_) => _setStatus('❌ disconnected'));
+    _socket!.onConnectError((e) => _setStatus('connect_err: $e'));
+    _socket!.on('connect_error', (e) => _setStatus('connect_error evt: $e'));
+    _socket!.on('error', (e) => _setStatus('error evt: $e'));
+    _socket!.onAny((event, data) {
+      socketEventCount.value = socketEventCount.value + 1;
       // ignore: avoid_print
-      print('[socket] ✅ connected to $_wsUrl');
-    });
-    _socket!.onDisconnect((_) {
-      // ignore: avoid_print
-      print('[socket] ❌ disconnected');
-    });
-    _socket!.onConnectError((e) {
-      // ignore: avoid_print
-      print('[socket] connect error: $e');
-    });
-    _socket!.on('connect_error', (e) {
-      // ignore: avoid_print
-      print('[socket] connect_error event: $e');
-    });
-    _socket!.on('error', (e) {
-      // ignore: avoid_print
-      print('[socket] error event: $e');
+      print('[socket] onAny: $event');
     });
   }
 

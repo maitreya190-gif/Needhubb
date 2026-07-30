@@ -12,6 +12,7 @@ import 'tabs/alerts_tab.dart';
 import 'post_need_sheet.dart';
 import '../you/you_screen.dart';
 import '../needs/need_detail_screen.dart';
+import '../../services/socket_service.dart';
 
 class HubScreen extends ConsumerStatefulWidget {
   const HubScreen({super.key});
@@ -71,6 +72,32 @@ class _HubScreenState extends ConsumerState<HubScreen> {
             child: IndexedStack(
               index: _index,
               children: pages,
+            ),
+          ),
+
+          // DEBUG socket status banner — remove after fixing sockets
+          Positioned(
+            top: MediaQuery.of(context).padding.top,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: ValueListenableBuilder<String>(
+                valueListenable: socketDebugStatus,
+                builder: (context, status, _) => ValueListenableBuilder<int>(
+                  valueListenable: socketEventCount,
+                  builder: (context, count, _) => Container(
+                    color: status.startsWith('✅')
+                        ? Colors.green.withOpacity(0.85)
+                        : Colors.red.withOpacity(0.85),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Text(
+                      'SOCKET: $status  |  events: $count',
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
 
