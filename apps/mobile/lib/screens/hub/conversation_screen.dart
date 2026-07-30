@@ -252,6 +252,32 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         _persistMessages(ck, _messages);
         Future.microtask(_scrollToBottom);
       });
+
+      // Read receipts — flip isRead on my messages the moment they're read.
+      socket.onMessagesRead((data) {
+        if (!mounted) return;
+        final ids = (data['messageIds'] as List?)?.cast<String>() ?? const [];
+        if (ids.isEmpty) return;
+        final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
+        if (myId == null) return;
+        final readerId = data['readerId'] as String?;
+        if (readerId == myId) return; // ignore my own reads
+        var changed = false;
+        setState(() {
+          for (var i = 0; i < _messages.length; i++) {
+            final m = _messages[i];
+            if (m.isMe && !m.isRead && m.remoteId != null && ids.contains(m.remoteId)) {
+              _messages[i] = m.copyWith(isRead: true);
+              changed = true;
+            }
+          }
+        });
+        if (changed) {
+          final ck = _resolvedThreadId ?? widget.userId ?? '';
+          _threadMessageCache[ck] = List.from(_messages);
+          _persistMessages(ck, _messages);
+        }
+      });
     }
 
     // Fallback poll every 30s in case socket drops

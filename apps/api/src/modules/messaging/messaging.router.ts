@@ -106,11 +106,25 @@ messagingRouter.get('/:threadId/messages', authenticate, async (req, res, next) 
       console.log('DEBUG reactions type:', typeof messages[0].reactions, messages[0].reactions);
     }
 
-    // Mark fetched messages as read
-    await prisma.dmMessage.updateMany({
+    // Mark fetched messages as read + notify the sender in real time so
+    // their double-tick turns blue.
+    const nowReadIds = (await prisma.dmMessage.findMany({
       where: { threadId, senderId: { not: userId }, readAt: null },
-      data: { readAt: new Date() },
-    })
+      select: { id: true, senderId: true },
+    }))
+    if (nowReadIds.length > 0) {
+      await prisma.dmMessage.updateMany({
+        where: { id: { in: nowReadIds.map(m => m.id) } },
+        data: { readAt: new Date() },
+      })
+      // Group ids by sender and emit to the thread room so any open
+      // conversation UI can update instantly.
+      emitToThread(threadId, 'messages_read', {
+        threadId,
+        messageIds: nowReadIds.map(m => m.id),
+        readerId: userId,
+      })
+    }
 
     // Also mark the coalesced chat notification as read so next message
     // from this sender starts a fresh notification.

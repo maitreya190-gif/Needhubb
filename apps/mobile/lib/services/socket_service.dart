@@ -119,6 +119,14 @@ class SocketService {
     });
   }
 
+  /// Listen for read-receipt updates (double-tick → blue).
+  void onMessagesRead(void Function(Map<String, dynamic> data) handler) {
+    _socket?.on('messages_read', (data) {
+      final m = _asMap(data);
+      if (m != null) handler(m);
+    });
+  }
+
   /// Listen for deleted messages.
   void onMessageDeleted(void Function(String messageId) handler) {
     _socket?.on('message_deleted', (data) {
