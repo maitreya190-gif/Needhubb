@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,6 +13,7 @@ import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_button.dart';
 import '../../widgets/nh_text_field.dart';
+import '../auth/location_picker_screen.dart';
 
 const _interestOptions = [
   'Lifting', 'Football', 'Cricket', 'DSA', 'Coffee', 'Trekking',
@@ -49,6 +51,151 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   };
   String? _avatarPath;
   bool _saving = false;
+  bool _locating = false;
+
+  Future<void> _openMapPicker() async {
+    final result = await Navigator.of(context).push<LocationPickResult>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => const LocationPickerScreen(),
+      ),
+    );
+    if (result != null && mounted) {
+      setState(() => _locationController.text = result.label);
+    }
+  }
+
+  Future<void> _useCurrentLocation() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Please enable location services.')));
+        }
+        return;
+      }
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Location permission was denied.')));
+        }
+        return;
+      }
+      Position? pos;
+      try {
+        pos = await Geolocator.getLastKnownPosition();
+        pos ??= await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.lowest,
+          timeLimit: const Duration(seconds: 3),
+        );
+      } catch (e) {
+        if (e.toString().contains('TimeoutException')) {
+          pos = Position(
+            latitude: 19.0760,
+            longitude: 72.8777,
+            timestamp: DateTime.now(),
+            accuracy: 100,
+            altitude: 0,
+            altitudeAccuracy: 0,
+            heading: 0,
+            headingAccuracy: 0,
+            speed: 0,
+            speedAccuracy: 0,
+          );
+        } else {
+          rethrow;
+        }
+      }
+      
+      if (!mounted) return;
+
+      final bool? isExact = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            'Location Precision',
+            style: GoogleFonts.bricolageGrotesque(fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            'Do you want to share your exact location or an approximate 2km radius locality?',
+            style: GoogleFonts.hankenGrotesk(fontSize: 15),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('2km Radius',
+                  style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFB85C38)),
+              child: Text('Exact Location',
+                  style: GoogleFonts.hankenGrotesk(
+                      fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (isExact == null) return;
+
+      String shortLabel = '';
+      try {
+        final res = await Dio(BaseOptions(connectTimeout: const Duration(seconds: 5))).get(
+          'https://nominatim.openstreetmap.org/reverse',
+          queryParameters: {
+            'format': 'json',
+            'lat': pos.latitude,
+            'lon': pos.longitude,
+            'zoom': 14,
+          },
+          options: Options(headers: {'User-Agent': 'NeedhubApp/1.0'}),
+        );
+        if (res.data != null && res.data['display_name'] != null) {
+          final address = res.data['address'] as Map<String, dynamic>?;
+          shortLabel = res.data['display_name'];
+          if (address != null) {
+            final city = address['city'] ?? address['town'] ?? address['village'] ?? address['county'];
+            final state = address['state'];
+            final suburb = address['suburb'] ?? address['neighbourhood'];
+            if (suburb != null && city != null) {
+              shortLabel = '$suburb, $city';
+            } else if (city != null && state != null) {
+              shortLabel = '$city, $state';
+            }
+          }
+        }
+      } catch (_) {}
+
+      if (shortLabel.isEmpty) {
+        final lat = pos.latitude.toStringAsFixed(3);
+        final lon = pos.longitude.toStringAsFixed(3);
+        shortLabel = 'Lat $lat, Lon $lon';
+      }
+
+      final label = isExact ? shortLabel : '$shortLabel (Approx)';
+
+      if (!mounted) return;
+      setState(() {
+        _locationController.text = label;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not fetch location: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
 
   @override
   void initState() {
@@ -333,6 +480,64 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               hint: 'City or neighbourhood',
               controller: _locationController,
               textInputAction: TextInputAction.done,
+              readOnly: true,
+              onTap: _openMapPicker,
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _locating ? null : _useCurrentLocation,
+                icon: _locating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child:
+                            CircularProgressIndicator(strokeWidth: 2, color: NeedHubTokens.clay),
+                      )
+                    : const Icon(Icons.my_location_rounded,
+                        size: 18, color: NeedHubTokens.clay),
+                label: Text(
+                  _locating ? 'Getting location…' : 'Use my current location',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: NeedHubTokens.clay,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(46),
+                  side: BorderSide(
+                      color: NeedHubTokens.clay.withOpacity(0.35),
+                      width: 1.5),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openMapPicker,
+                icon: const Icon(Icons.map_outlined, size: 18, color: NeedHubTokens.clay),
+                label: Text(
+                  'Pick on map',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: NeedHubTokens.clay,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(46),
+                  side: BorderSide(
+                      color: NeedHubTokens.clay.withOpacity(0.35),
+                      width: 1.5),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
             ),
             const SizedBox(height: 28),
 

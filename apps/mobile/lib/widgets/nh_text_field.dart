@@ -12,6 +12,8 @@ class NhTextField extends StatelessWidget {
   final String? errorText;
   final TextInputAction? textInputAction;
   final FocusNode? focusNode;
+  final bool readOnly;
+  final VoidCallback? onTap;
 
   const NhTextField({
     super.key,
@@ -24,6 +26,8 @@ class NhTextField extends StatelessWidget {
     this.errorText,
     this.textInputAction,
     this.focusNode,
+    this.readOnly = false,
+    this.onTap,
   });
 
   @override
@@ -50,6 +54,8 @@ class NhTextField extends StatelessWidget {
           onChanged: onChanged,
           textInputAction: textInputAction,
           focusNode: focusNode,
+          readOnly: readOnly,
+          onTap: onTap,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 15,
             fontWeight: FontWeight.w400,

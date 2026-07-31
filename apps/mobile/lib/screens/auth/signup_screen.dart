@@ -196,11 +196,41 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
       if (isExact == null) return; // user cancelled
 
-      final lat = pos.latitude.toStringAsFixed(3);
-      final lon = pos.longitude.toStringAsFixed(3);
-      final label = isExact
-          ? 'Exact: Lat $lat, Lon $lon'
-          : 'Approx (2km): Lat $lat, Lon $lon';
+      String shortLabel = '';
+      try {
+        final res = await Dio(BaseOptions(connectTimeout: const Duration(seconds: 5))).get(
+          'https://nominatim.openstreetmap.org/reverse',
+          queryParameters: {
+            'format': 'json',
+            'lat': pos.latitude,
+            'lon': pos.longitude,
+            'zoom': 14,
+          },
+          options: Options(headers: {'User-Agent': 'NeedhubApp/1.0'}),
+        );
+        if (res.data != null && res.data['display_name'] != null) {
+          final address = res.data['address'] as Map<String, dynamic>?;
+          shortLabel = res.data['display_name'];
+          if (address != null) {
+            final city = address['city'] ?? address['town'] ?? address['village'] ?? address['county'];
+            final state = address['state'];
+            final suburb = address['suburb'] ?? address['neighbourhood'];
+            if (suburb != null && city != null) {
+              shortLabel = '$suburb, $city';
+            } else if (city != null && state != null) {
+              shortLabel = '$city, $state';
+            }
+          }
+        }
+      } catch (_) {}
+
+      if (shortLabel.isEmpty) {
+        final lat = pos.latitude.toStringAsFixed(3);
+        final lon = pos.longitude.toStringAsFixed(3);
+        shortLabel = 'Lat $lat, Lon $lon';
+      }
+
+      final label = isExact ? shortLabel : '$shortLabel (Approx)';
 
       if (!mounted) return;
       setState(() {

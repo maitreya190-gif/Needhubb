@@ -2,14 +2,21 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-// Injected at build time via --dart-define. Falls back to the Android emulator
-// alias for local dev so `flutter run` on an emulator still Just Works.
-//   flutter run --dart-define=API_URL=http://10.0.2.2:3000
-//   flutter build web --dart-define=API_URL=https://needhub-api.up.railway.app
-const _baseUrl = String.fromEnvironment(
-  'API_URL',
-  defaultValue: 'http://10.0.2.2:3000',
-);
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
+// Smart local dev fallback to bypass deleted railway prod server.
+String get _baseUrl {
+  const envUrl = String.fromEnvironment('API_URL');
+  if (envUrl.isNotEmpty && !envUrl.contains('railway.app')) {
+    return envUrl;
+  }
+  if (kIsWeb) return 'http://localhost:3000';
+  try {
+    if (Platform.isAndroid) return 'http://10.0.2.2:3000';
+  } catch (_) {}
+  return 'http://127.0.0.1:3000';
+}
 
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 

@@ -40,14 +40,13 @@ class SocketService {
       _setStatus('no token');
       return;
     }
-    _setStatus('connecting to $_wsUrl');
+    String url = _wsUrl;
+    _setStatus('connecting to $_wsUrl (computed url: $url)');
 
-    // On native (Android/iOS), socket_io_client 3.x only supports websocket
-    // transport — polling is web-only. Force websocket explicitly.
+    // Try allowing polling first, as Railway might require it before upgrading.
     _socket = io.io(
-      _wsUrl,
+      url,
       io.OptionBuilder()
-          .setTransports(['websocket'])
           .disableAutoConnect()
           .setAuth({'token': token})
           .setExtraHeaders({'Authorization': 'Bearer $token'})
