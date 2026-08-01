@@ -34,6 +34,24 @@ const EMPTY: TrackRecord = {
   activatedReferralCount: 0,
 }
 
+/**
+ * One input failing must never take down the caller.
+ *
+ * These counts feed badges and the trust score — both are enhancements to a
+ * profile or a feed, not the reason the page exists. A schema that has drifted
+ * from the live database (the `Referral` table and its enum are declared in
+ * schema.prisma but were never migrated onto production) would otherwise turn
+ * a missing badge input into a 500 on the entire feed. It did exactly that.
+ *
+ * Degrading a single count to zero loses one badge; throwing loses the page.
+ */
+function orEmpty<T>(label: string): (err: unknown) => T[] {
+  return (err) => {
+    console.error(`[track-record] ${label} unavailable, counting 0`, err)
+    return []
+  }
+}
+
 /** Track records for many users, in one batched round of queries. */
 export async function fetchTrackRecords(
   userIds: string[],
@@ -46,12 +64,12 @@ export async function fetchTrackRecords(
       by: ['userId'],
       where: { userId: { in: userIds }, status: 'APPROVED' },
       _count: { id: true },
-    }),
+    }).catch(orEmpty<{ userId: string; _count: { id: number } }>('certificates')),
     prisma.need.groupBy({
       by: ['posterId'],
       where: { posterId: { in: userIds }, status: 'FULFILLED' },
       _count: { id: true },
-    }),
+    }).catch(orEmpty<{ posterId: string; _count: { id: number } }>('posted needs')),
     // Helping is an accepted response on a need that then completed — being
     // picked is not the same as having delivered.
     prisma.interestResponse.groupBy({
@@ -62,18 +80,18 @@ export async function fetchTrackRecords(
         need: { status: 'FULFILLED' },
       },
       _count: { id: true },
-    }),
+    }).catch(orEmpty<{ responderId: string; _count: { id: number } }>('helped needs')),
     prisma.review.groupBy({
       by: ['revieweeId'],
       where: { revieweeId: { in: userIds } },
       _avg: { rating: true },
       _count: { id: true },
-    }),
+    }).catch(orEmpty<{ revieweeId: string; _avg: { rating: number | null }; _count: { id: number } }>('reviews')),
     prisma.referral.groupBy({
       by: ['referrerId'],
       where: { referrerId: { in: userIds }, status: 'ACTIVATED' },
       _count: { id: true },
-    }),
+    }).catch(orEmpty<{ referrerId: string; _count: { id: number } }>('referrals')),
   ])
 
   const certBy = new Map(certs.map((g) => [g.userId, g._count.id]))
