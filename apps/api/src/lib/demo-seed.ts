@@ -505,7 +505,7 @@ export async function runSeed() {
   }
 
   // ── Seed Needs across all Categories & Statuses ───────────────────────────
-  const createdNeeds: Record<String, String> = {}
+  const createdNeeds: Record<string, string> = {}
 
   // Top-level parent needs
   for (const n of DEMO_NEEDS) {
