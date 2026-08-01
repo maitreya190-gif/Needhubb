@@ -62,6 +62,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   // Step 4 — location
   final _locationController = TextEditingController();
+  double? _pickedLat;
+  double? _pickedLng;
   double _maxDistanceKm = 5.0;
 
   // Step 5 — about you (bio + prompts)
@@ -259,7 +261,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       ),
     );
     if (result != null && mounted) {
-      setState(() => _locationController.text = result.label);
+      setState(() {
+        _locationController.text = result.label;
+        _pickedLat = result.lat;
+        _pickedLng = result.lng;
+      });
     }
   }
 
@@ -366,6 +372,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
         gender: _gender,
         location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+        lat: _pickedLat,
+        lng: _pickedLng,
         promptSkill: _promptSkillController.text.trim().isEmpty ? null : _promptSkillController.text.trim(),
         promptCollab: _promptCollabController.text.trim().isEmpty ? null : _promptCollabController.text.trim(),
         promptNeed: _promptNeedController.text.trim().isEmpty ? null : _promptNeedController.text.trim(),
