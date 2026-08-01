@@ -41,6 +41,9 @@ enum NeedStatus {
   IN_PROGRESS
   FULFILLED
   CLOSED
+  // Deadline passed on an urgent need with no resolution. System-set only —
+  // never user-settable (see lib/urgency.ts) — and excluded from discovery.
+  EXPIRED
 }
 
 enum InterestResponseStatus {
@@ -126,6 +129,24 @@ model User {
   blocksMade             Block[]            @relation("Blocker")
   blocksReceived         Block[]            @relation("Blocked")
   referralsMade          Referral[]         @relation("ReferralsMade")
+  urgencyProfile         UrgencyProfile?
+}
+
+// Internal-only track record of how this user has used Urgency Mode.
+// Deliberately separate from Trust Score (see lib/trust-score.ts) — this is a
+// distinct, private signal that only the urgency AI evaluation reads. Never
+// serialized in any API response; there is no route that returns this model.
+model UrgencyProfile {
+  userId         String @id
+  // 0..1, starts neutral. Nudged by lib/urgency.ts after each urgent need's
+  // outcome (fulfilled before deadline vs. expired with no engagement).
+  reliability    Float  @default(0.5)
+  urgentCount    Int    @default(0)
+  justifiedCount Int    @default(0)
+  misusedCount   Int    @default(0)
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Profile {
@@ -196,6 +217,8 @@ model Need {
   isPaid          Boolean          @default(false)
   budgetMin       Float?
   budgetMax       Float?
+  // Reused for Urgency Mode's deadline too — it was already optional and
+  // already unused by ranking, so urgent needs need no separate column.
   deadline        DateTime?
   locationText    String?
   lat             Float?
@@ -203,6 +226,14 @@ model Need {
   status          NeedStatus       @default(OPEN)
   parentNeedId    String?
   createdAt       DateTime         @default(now())
+
+  // ── Urgency (optional, additive — see lib/urgency.ts) ──────────────────
+  // Off by default; existing needs and existing flows are entirely unaffected.
+  isUrgent          Boolean @default(false)
+  // Internal AI confidence in [0,1] that this need's urgency is justified.
+  // Set once, silently, right after creation when isUrgent is true. Read only
+  // by the ranking pipeline — never selected into any client-facing response.
+  urgencyConfidence Float?
 
   poster     User               @relation("PosterNeeds", fields: [posterId], references: [id], onDelete: Cascade)
   parentNeed Need?              @relation("SubNeeds", fields: [parentNeedId], references: [id])

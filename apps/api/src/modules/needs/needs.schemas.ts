@@ -4,6 +4,10 @@ const needType = z.enum(['EARN', 'CONNECT'])
 const earnCategory = z.enum(['TUTORING', 'FREELANCE', 'GOODS_BUY', 'GOODS_SELL', 'REPAIR', 'OTHER'])
 const connectCategory = z.enum(['STUDY_PARTNER', 'ACTIVITY_PARTNER', 'HOBBY', 'MENTOR', 'OTHER'])
 const status = z.enum(['OPEN', 'IN_PROGRESS', 'FULFILLED', 'CLOSED'])
+// EXPIRED is system-set only (see lib/urgency.ts) — kept out of `status` above
+// so a user can never PATCH their own need into or out of it, but included
+// here so a client can still filter feedQuery for their own expired needs.
+const queryableStatus = z.enum([...status.options, 'EXPIRED'])
 
 export const decomposeBody = z.object({
   text: z.string().min(3).max(3000),
@@ -21,6 +25,18 @@ const decomposedNeed = z.object({
   locationText: z.string().max(200).nullable().optional(),
   lat: z.number().nullable().optional(),
   lng: z.number().nullable().optional(),
+  // Urgency Mode — optional, off unless the poster explicitly opts in on this
+  // specific need. Everything downstream of this flag is additive; omitting
+  // it (every existing caller) behaves exactly as before.
+  isUrgent: z.boolean().optional(),
+}).superRefine((val, ctx) => {
+  if (val.isUrgent && !val.deadline) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['deadline'],
+      message: 'A deadline is required when Urgency Mode is enabled',
+    })
+  }
 })
 
 export const createNeedBody = z.object({
@@ -44,7 +60,7 @@ export const feedQuery = z.object({
   lng: z.coerce.number().optional(),
   take: z.coerce.number().min(1).max(100).default(30),
   skip: z.coerce.number().min(0).default(0),
-  status: status.optional(),
+  status: queryableStatus.optional(),
 })
 
 export const respondBody = z.object({
@@ -64,6 +80,13 @@ export const editResponseBody = respondBody
 
 export const statusBody = z.object({
   status,
+})
+
+// A renewed need is always urgent again by definition — the whole point is
+// re-establishing a deadline after the old one passed — so this only asks
+// for the new deadline itself, not an isUrgent flag.
+export const renewNeedBody = z.object({
+  deadline: z.string().min(1),
 })
 
 export type DecomposeBody = z.infer<typeof decomposeBody>

@@ -15,6 +15,11 @@ import { getSystemUserId } from '../../lib/system-user'
 import { computeTrustScore } from '../../lib/trust-score'
 import { earnedBadgeCount } from '../../lib/badges'
 import { fetchTrackRecord, fetchTrackRecords, toBadgeInputs, totalFulfilledCount } from '../../lib/track-record'
+import {
+  evaluateAndStoreUrgency, stripInternalUrgencyFields,
+  computeUrgencyBoost, computeRescueStage, rescueScoreBonus, rescueDistanceMultiplier,
+  isExpired, expireIfNeeded, recordUrgentNeedFulfilled,
+} from '../../lib/urgency'
 import { tagNeedsByEmbedding } from '../../lib/need-tagging'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { isBlockedBetween } from '../friends/friends.service'
@@ -23,7 +28,7 @@ import {
 } from '../../lib/http-error'
 import { suggestResponse } from '../../lib/lyzr'
 import {
-  decomposeBody, createNeedBody, feedQuery, respondBody, editResponseBody, respondDecisionBody, statusBody,
+  decomposeBody, createNeedBody, feedQuery, respondBody, editResponseBody, respondDecisionBody, statusBody, renewNeedBody,
 } from './needs.schemas'
 import { uploadFile, storageKey } from '../../lib/storage'
 
@@ -147,6 +152,7 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
           lat: first.lat ?? defaultLat,
           lng: first.lng ?? defaultLng,
           isPaid: first.budgetMin != null || first.budgetMax != null,
+          isUrgent: first.isUrgent ?? false,
         },
       })
 
@@ -166,6 +172,7 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
             lat: n.lat ?? defaultLat,
             lng: n.lng ?? defaultLng,
             isPaid: n.budgetMin != null || n.budgetMax != null,
+            isUrgent: n.isUrgent ?? false,
             parentNeedId: parent.id,
           },
         }),
@@ -212,8 +219,9 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
       return { parent, subs }
     })
 
-    // Broadcast new need to all connected users so feeds update instantly
-    try { getIo()?.emit('new_need', created.parent) } catch {}
+    // Broadcast new need to all connected users so feeds update instantly.
+    // urgencyConfidence must never leave the server — see stripInternalUrgencyFields.
+    try { getIo()?.emit('new_need', stripInternalUrgencyFields(created.parent)) } catch {}
 
     // Check & notify users whose selected skills match the new need
     notifyMatchingSkillUsers(created.parent).catch((err) =>
@@ -225,9 +233,20 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
       )
     }
 
+    // Urgency evaluation, if requested — silent, server-side, and deliberately
+    // NOT awaited: the response below must never be slowed or blocked by it.
+    // Every created need still starts with urgencyConfidence = null, which
+    // computeUrgencyBoost treats as zero contribution, so ranking is correct
+    // even in the brief window before this resolves.
+    for (const need of [created.parent, ...created.subs]) {
+      if (need.isUrgent) evaluateAndStoreUrgency(need, userId).catch((err: unknown) =>
+        console.error('[urgency] evaluation failed for need', need.id, err),
+      )
+    }
+
     res.status(201).json({
-      parent: created.parent,
-      subs: created.subs,
+      parent: stripInternalUrgencyFields(created.parent),
+      subs: created.subs.map(stripInternalUrgencyFields),
       softFlagged: verdict.softFlag,
     })
   } catch (err) { next(err) }
@@ -334,17 +353,33 @@ needsRouter.get('/', async (req, res, next) => {
     type Filtered = { need: (typeof needsRaw)[number]; distanceKm: number | null }
     const filtered: Filtered[] = []
     for (const n of needsRaw) {
+      // Urgent needs past their deadline drop out of discovery immediately —
+      // checked here rather than trusting the stored `status`, so exclusion
+      // never depends on the fire-and-forget write below having landed yet.
+      if (isExpired(n)) {
+        expireIfNeeded({ ...n, responseCount: n._count.responses }).catch((err: unknown) =>
+          console.error('[urgency] expiry check failed for need', n.id, err))
+        continue
+      }
+
       // Gender filter (poster's declared gender).
       if (q.genders?.length && (!n.poster.profile?.gender ||
           !q.genders.map((g) => g.toLowerCase()).includes(n.poster.profile.gender.toLowerCase()))) continue
 
-      // Distance filter (hard cap — user's chosen radius).
+      // Distance filter (hard cap — user's chosen radius). Rescue Mode (stage
+      // 2+, see lib/urgency.ts) lets a struggling urgent need surface past it,
+      // capped and bounded — never an unlimited radius, never for needs the
+      // AI evaluation didn't flag as genuinely urgent.
       let distanceKm: number | null = null
       const needLat = n.lat ?? n.poster.profile?.lat ?? null
       const needLng = n.lng ?? n.poster.profile?.lng ?? null
       if (userLat != null && userLng != null && needLat != null && needLng != null) {
         distanceKm = haversineKm(userLat, userLng, needLat, needLng)
-        if (q.distanceKm != null && distanceKm > q.distanceKm) continue
+        if (q.distanceKm != null) {
+          const rescueStage = computeRescueStage(n, n._count.responses)
+          const effectiveCutoff = q.distanceKm * rescueDistanceMultiplier(rescueStage)
+          if (distanceKm > effectiveCutoff) continue
+        }
       }
 
       // Explicit interest filter (still restrictive — user has toggled it).
@@ -385,7 +420,7 @@ needsRouter.get('/', async (req, res, next) => {
       return {
         ...f,
         semantic,
-        score: scoreNeed(f.need, f.distanceKm, userInterests, semantic, trustScore),
+        score: scoreNeed(f.need, f.distanceKm, userInterests, semantic, trustScore, f.need._count.responses),
       }
     })
 
@@ -412,7 +447,7 @@ needsRouter.get('/', async (req, res, next) => {
       const needLat = r.need.lat ?? r.need.poster.profile?.lat ?? null
       const needLng = r.need.lng ?? r.need.poster.profile?.lng ?? null
       return {
-        ...r.need,
+        ...stripInternalUrgencyFields(r.need),
         lat: needLat,
         lng: needLng,
         poster: {
@@ -455,14 +490,27 @@ needsRouter.get('/', async (req, res, next) => {
  * The semantic path catches near-synonym matches ("need someone to fix my
  * code" vs. user with interest "coding" both rank high). The heuristic path
  * only catches literal substring hits.
+ *
+ * Urgency (see lib/urgency.ts) is added on top of both modes as a final,
+ * capped, additive term — never part of the weighted mix above. A need with
+ * isUrgent=false contributes exactly 0 here, so this function returns the
+ * same value it always did for every need created before Urgency Mode shipped
+ * and for every need that never opts in.
  */
-function scoreNeed(
-  need: { title: string; description: string; createdAt: Date; earnCategory: string | null; connectCategory: string | null; needType: string },
+export function scoreNeed(
+  need: {
+    title: string; description: string; createdAt: Date
+    earnCategory: string | null; connectCategory: string | null; needType: string
+    isUrgent: boolean; urgencyConfidence: number | null; deadline: Date | null; status: string
+  },
   distanceKm: number | null,
   userInterestLabels: string[],
   semanticSimilarity: number | null,
   trustScore: number, // 0-100, ignored for EARN needs
+  responseCount: number,
 ): number {
+  const urgencyBoost =
+    computeUrgencyBoost(need) + rescueScoreBonus(computeRescueStage(need, responseCount))
   // Proximity — 1 at 0km, 0 at 30km+, linear decay.
   const proximityScore = distanceKm == null
     ? 0.5
@@ -478,9 +526,9 @@ function scoreNeed(
   if (semanticSimilarity != null) {
     // Cosine similarity is in [-1, 1]; normalize to [0, 1] for combining.
     const semanticScore = Math.max(0, (semanticSimilarity + 1) / 2)
-    return isConnect
+    return urgencyBoost + (isConnect
       ? 0.45 * semanticScore + 0.20 * proximityScore + 0.15 * freshnessScore + 0.20 * trustScore01
-      : 0.60 * semanticScore + 0.25 * proximityScore + 0.15 * freshnessScore
+      : 0.60 * semanticScore + 0.25 * proximityScore + 0.15 * freshnessScore)
   }
 
   // Heuristic fallback — substring hits on title/description/category.
@@ -490,9 +538,9 @@ function scoreNeed(
     const hits = userInterestLabels.filter((i) => i.length > 1 && hay.includes(i)).length
     interestScore = Math.min(1, hits / Math.min(3, userInterestLabels.length))
   }
-  return isConnect
+  return urgencyBoost + (isConnect
     ? 0.40 * interestScore + 0.25 * proximityScore + 0.15 * freshnessScore + 0.20 * trustScore01
-    : 0.55 * interestScore + 0.30 * proximityScore + 0.15 * freshnessScore
+    : 0.55 * interestScore + 0.30 * proximityScore + 0.15 * freshnessScore)
 }
 
 // ─── GET /needs/:id — public detail ──────────────────────────────────────────
@@ -514,6 +562,15 @@ needsRouter.get('/:id', async (req, res, next) => {
     })
     if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
 
+    // Same lazy expiry as the feed (see lib/urgency.ts) — best-effort, and the
+    // in-memory status is corrected immediately so this response doesn't show
+    // a stale OPEN for the one request before the write lands.
+    if (isExpired(need)) {
+      expireIfNeeded({ ...need, responseCount: need._count.responses }).catch((err: unknown) =>
+        console.error('[urgency] expiry check failed for need', need.id, err))
+      need.status = 'EXPIRED'
+    }
+
     const record = await fetchTrackRecord(need.posterId)
     const posterVerification = {
       emailVerifiedAt: need.poster.emailVerifiedAt,
@@ -530,7 +587,7 @@ needsRouter.get('/:id', async (req, res, next) => {
     })
 
     res.json({
-      ...need,
+      ...stripInternalUrgencyFields(need),
       poster: { ...need.poster, profile: need.poster.profile ? { ...need.poster.profile, trustScore } : need.poster.profile },
       offerCount: need._count.responses,
     })
@@ -547,7 +604,7 @@ needsRouter.get('/mine/list', authenticate, async (req, res, next) => {
       orderBy: { createdAt: 'desc' },
       include: { subNeeds: { select: { id: true, title: true, status: true } } },
     })
-    res.json({ needs: rows })
+    res.json({ needs: rows.map(stripInternalUrgencyFields) })
   } catch (err) { next(err) }
 })
 
@@ -564,7 +621,17 @@ needsRouter.patch('/:id/status', authenticate, async (req, res, next) => {
     const updated = await prisma.need.update({
       where: { id: need.id }, data: { status: parsed.data.status },
     })
-    res.json(updated)
+
+    // An urgent need fulfilled before its deadline is exactly the "genuinely
+    // justified" outcome Urgency Reliability tracks — see lib/urgency.ts.
+    // Fire-and-forget: this must never slow down or fail the status update.
+    if (need.isUrgent && parsed.data.status === 'FULFILLED' &&
+        (!need.deadline || need.deadline.getTime() > Date.now())) {
+      recordUrgentNeedFulfilled(need.posterId).catch((err: unknown) =>
+        console.error('[urgency] failed to record fulfillment', need.id, err))
+    }
+
+    res.json(stripInternalUrgencyFields(updated))
   } catch (err) { next(err) }
 })
 
@@ -600,7 +667,7 @@ needsRouter.patch('/:id', authenticate, async (req, res, next) => {
         ...(parsed.data.locationText !== undefined && { locationText: parsed.data.locationText }),
       },
     })
-    res.json(updated)
+    res.json(stripInternalUrgencyFields(updated))
   } catch (err) { next(err) }
 })
 
@@ -618,6 +685,60 @@ needsRouter.delete('/:id', authenticate, async (req, res, next) => {
       prisma.need.delete({ where: { id: need.id } }),
     ])
     res.json({ success: true, message: 'Need deleted' })
+  } catch (err) { next(err) }
+})
+
+// ─── POST /needs/:id/renew — repost an expired urgent need with a fresh deadline ──
+
+needsRouter.post('/:id/renew', authenticate, async (req, res, next) => {
+  const parsed = renewNeedBody.safeParse(req.body)
+  if (!parsed.success) return next(badRequest('A new deadline is required to renew', 'INVALID_BODY'))
+  const userId = (req as AuthedRequest).userId
+  try {
+    const need = await prisma.need.findUnique({ where: { id: req.params.id } })
+    if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
+    if (need.posterId !== userId) return next(forbidden('Only the poster can renew this need', 'NOT_POSTER'))
+    // Only an expired need needs renewing — anything still open, or already
+    // fulfilled/closed, has no business going through this endpoint.
+    if (need.status !== 'EXPIRED') {
+      return next(forbidden('Only an expired need can be renewed', 'NOT_EXPIRED'))
+    }
+
+    const deadline = new Date(parsed.data.deadline)
+    if (Number.isNaN(deadline.getTime()) || deadline.getTime() <= Date.now()) {
+      return next(badRequest('Renewal deadline must be a valid future date', 'INVALID_DEADLINE'))
+    }
+
+    // A fresh, independent need — not a mutation of the expired one, so its
+    // history (responses, the fact it expired) stays intact and browsable.
+    const renewed = await prisma.need.create({
+      data: {
+        posterId: userId,
+        title: need.title,
+        description: need.description,
+        needType: need.needType,
+        earnCategory: need.earnCategory,
+        connectCategory: need.connectCategory,
+        budgetMin: need.budgetMin,
+        budgetMax: need.budgetMax,
+        locationText: need.locationText,
+        lat: need.lat,
+        lng: need.lng,
+        isPaid: need.isPaid,
+        isUrgent: true,
+        deadline,
+      },
+    })
+
+    try { getIo()?.emit('new_need', stripInternalUrgencyFields(renewed)) } catch {}
+    notifyMatchingSkillUsers(renewed).catch((err) =>
+      console.error('[skill-matching] Error notifying for renewed need:', err))
+    // Silent re-evaluation, same as a fresh urgent need at creation — see
+    // POST /needs above.
+    evaluateAndStoreUrgency(renewed, userId).catch((err: unknown) =>
+      console.error('[urgency] evaluation failed for renewed need', renewed.id, err))
+
+    res.status(201).json(stripInternalUrgencyFields(renewed))
   } catch (err) { next(err) }
 })
 
@@ -862,6 +983,15 @@ needsRouter.patch('/:id/responses/:respId', authenticate, async (req, res, next)
       emitToUser(resp.responderId, 'response_decision', { needId: resp.needId, status: parsed.data.status })
       return { r, dmThreadId }
     })
+
+    // This is the primary way a need actually gets fulfilled in this app —
+    // accepting an offer, not the separate manual PATCH /:id/status. Same
+    // "genuinely justified" reliability signal as that path — see lib/urgency.ts.
+    if (parsed.data.status === 'ACCEPTED' && resp.need.isUrgent &&
+        (!resp.need.deadline || resp.need.deadline.getTime() > Date.now())) {
+      recordUrgentNeedFulfilled(resp.need.posterId).catch((err: unknown) =>
+        console.error('[urgency] failed to record fulfillment', resp.needId, err))
+    }
 
     res.json({ ...updated.r, dmThreadId: updated.dmThreadId })
   } catch (err) { next(err) }
