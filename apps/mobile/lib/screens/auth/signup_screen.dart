@@ -16,6 +16,8 @@ import '../../theme/tokens.dart';
 import '../../widgets/nh_button.dart';
 import '../../widgets/nh_text_field.dart';
 import 'location_picker_screen.dart';
+import '../../providers/language_provider.dart';
+import '../../l10n/app_strings.dart';
 
 const _interests = [
   'Lifting', 'Football', 'Cricket', 'DSA', 'Coffee', 'Trekking',
@@ -37,7 +39,7 @@ class SignupScreen extends ConsumerStatefulWidget {
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
   int _step = 0;
-  static const int _totalSteps = 7;
+  static const int _totalSteps = 8;
 
   // Step 0 — identity
   final _nameController = TextEditingController();
@@ -501,64 +503,109 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.tokens;
-    return Scaffold(
-      backgroundColor: t.paper,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Back button row (only after step 0)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 20, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.arrow_back_rounded, color: t.ink),
-                    onPressed: () {
-                      if (_step > 0) {
-                        setState(() => _step--);
-                      } else {
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          context.go('/login');
-                        }
-                      }
-                    },
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Step ${_step + 1} of $_totalSteps',
-                      textAlign: TextAlign.right,
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: t.muted,
+    return ValueListenableBuilder<String>(
+      valueListenable: uiLanguageNotifier,
+      builder: (context, lang, _) {
+        final t = context.tokens;
+        final s = S.of(lang);
+        return Scaffold(
+          backgroundColor: t.paper,
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Back button row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 20, 0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.arrow_back_rounded, color: t.ink),
+                        onPressed: () {
+                          if (_step > 0) {
+                            setState(() => _step--);
+                          } else {
+                            if (context.canPop()) {
+                              context.pop();
+                            } else {
+                              context.go('/login');
+                            }
+                          }
+                        },
                       ),
-                    ),
+                      Expanded(
+                        child: Text(
+                          'Step ${_step + 1} of $_totalSteps',
+                          textAlign: TextAlign.right,
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: t.muted,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                // Progress dots bar
+                _ProgressBar(step: _step, total: _totalSteps),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: [
+                      _buildLangStep(t, s),
+                      _buildStep0(t),
+                      _buildStep1(t),
+                      _buildStep2(t),
+                      _buildStep3(t),
+                      _buildStep4Location(t),
+                      _buildStep5AboutYou(t),
+                      _buildStep5Rules(t),
+                    ][_step],
+                  ),
+                ),
+              ],
             ),
-            // Progress dots bar
-            _ProgressBar(step: _step, total: _totalSteps),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: [
-                  _buildStep0(t),
-                  _buildStep1(t),
-                  _buildStep2(t),
-                  _buildStep3(t),
-                  _buildStep4Location(t),
-                  _buildStep5AboutYou(t),
-                  _buildStep5Rules(t),
-                ][_step],
-              ),
-            ),
-          ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLangStep(NeedHubTokens t, S s) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 36),
+        _Kicker(label: 'CHOOSE LANGUAGE'),
+        const SizedBox(height: 10),
+        Text(
+          s.chooseLanguage,
+          style: GoogleFonts.bricolageGrotesque(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            color: t.ink,
+          ),
         ),
-      ),
+        const SizedBox(height: 8),
+        Text(
+          'NeedHub works in 8 Indian languages. You can change this anytime.',
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 15,
+            color: t.muted2,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 28),
+        ...kSupportedLanguages.map((lang) => _LangTile(
+              lang: lang,
+              t: t,
+              onTap: () {
+                setUiLanguage(lang['code']!);
+                _goNext();
+              },
+            )),
+        const SizedBox(height: 32),
+      ],
     );
   }
 
@@ -1462,6 +1509,50 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 }
 
 // ── Shared sub-widgets ────────────────────────────────────────────────────────
+
+class _LangTile extends StatelessWidget {
+  final Map<String, String> lang;
+  final NeedHubTokens t;
+  final VoidCallback onTap;
+
+  const _LangTile({required this.lang, required this.t, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          color: t.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: t.rail, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                lang['native']!,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: t.ink,
+                ),
+              ),
+            ),
+            Text(
+              lang['name']!,
+              style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: t.muted),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _ProgressBar extends StatelessWidget {
   final int step;

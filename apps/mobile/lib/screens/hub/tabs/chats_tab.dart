@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../l10n/app_strings.dart';
 import '../../../models/friend_request.dart';
 import '../../../models/user_state.dart';
+import '../../../providers/language_provider.dart';
 import '../../../services/api_client.dart';
 import '../../../services/chitchat_api.dart';
 import '../../../services/friends_api.dart';
@@ -108,6 +110,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
   @override
   void initState() {
     super.initState();
+    uiLanguageNotifier.addListener(_bump);
     chatsListNotifier.addListener(_bump);
     Future.microtask(() async {
       await Future.any([
@@ -130,6 +133,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
   @override
   void dispose() {
     _poller?.cancel();
+    uiLanguageNotifier.removeListener(_bump);
     chatsListNotifier.removeListener(_bump);
     super.dispose();
   }
@@ -139,6 +143,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     final realChats = chatsListNotifier.value;
     // Show real chats when we have them; fall back to mocks only if the
     // real list is empty AND friend-accept animations added local previews.
@@ -158,7 +163,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
               child: Row(
                 children: [
                   Text(
-                    'Chats',
+                    s.chats,
                     style: GoogleFonts.bricolageGrotesque(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
@@ -210,12 +215,11 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                       ],
                     )
                   : realChats.isEmpty && allChats.isEmpty && _pendingRequests.isEmpty && friendRequestsInboxNotifier.value.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: NhEmptyState(
                             icon: Icons.chat_bubble_outline_rounded,
-                            title: 'No conversations yet',
-                            subtitle:
-                                'Accept a friend request or connect with someone to start chatting',
+                            title: s.noChatsYet,
+                            subtitle: s.noChatsSubtitle,
                           ),
                         )
                       : ListView(

@@ -20,6 +20,9 @@ import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_full_screen_image_viewer.dart';
 import '../../widgets/nh_report_sheet.dart';
 import '../person/person_screen.dart';
+import '../../providers/language_provider.dart';
+import '../../l10n/app_strings.dart';
+import '../../services/translate_api.dart';
 
 // In-memory cache (fast path, lives for the app session)
 final Map<String, List<_Message>> _threadMessageCache = {};
@@ -1770,7 +1773,7 @@ String? _resolveUrl(String? url) {
   return url;
 }
 
-class _Bubble extends StatelessWidget {
+class _Bubble extends StatefulWidget {
   final _Message msg;
   final NeedHubTokens t;
   final Color avatarColor;
@@ -1790,13 +1793,111 @@ class _Bubble extends StatelessWidget {
   });
 
   @override
+  State<_Bubble> createState() => _BubbleState();
+}
+
+class _BubbleState extends State<_Bubble> {
+  String? _translatedText;
+  bool _showingTranslation = false;
+  bool _translating = false;
+
+  Future<void> _doTranslate(String targetLang) async {
+    if (widget.msg.text == null || widget.msg.text!.isEmpty) return;
+    setState(() => _translating = true);
+    try {
+      final result = await globalTranslateApi.translate(widget.msg.text!, targetLang);
+      if (mounted) {
+        setState(() {
+          _translatedText = result;
+          _showingTranslation = true;
+          _translating = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _translating = false);
+    }
+  }
+
+  void _showTranslatePicker(BuildContext context) {
+    final t = widget.t;
+    final s = S.of(uiLanguageNotifier.value);
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: t.paper,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: t.rail,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              s.translateTo,
+              style: GoogleFonts.bricolageGrotesque(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: t.ink,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: kSupportedLanguages.map((lang) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _doTranslate(lang['code']!);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: t.rail, width: 1.5),
+                    ),
+                    child: Text(
+                      lang['native']!,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: t.muted2,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final msg = widget.msg;
+    final t = widget.t;
     final isImage = msg.imagePath != null || msg.imageUrl != null;
     final resolvedUrl = _resolveUrl(msg.imageUrl);
     final heroTag = msg.remoteId ??
         resolvedUrl ??
         msg.imagePath ??
         'img_${msg.time.millisecondsSinceEpoch}';
+    final s = S.of(uiLanguageNotifier.value);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -1813,12 +1914,12 @@ class _Bubble extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(right: 6, bottom: 2),
                   child: NhAvatar(
-                    avatarUrl: avatarUrl,
-                    initials: initials,
+                    avatarUrl: widget.avatarUrl,
+                    initials: widget.initials,
                     size: 26,
                     borderRadius: 8,
-                    backgroundColor: avatarColor.withValues(alpha: 0.15),
-                    textColor: avatarColor,
+                    backgroundColor: widget.avatarColor.withValues(alpha: 0.15),
+                    textColor: widget.avatarColor,
                     fontSize: 9,
                   ),
                 ),
@@ -1848,7 +1949,7 @@ class _Bubble extends StatelessWidget {
                     children: [
                       if (msg.replyTo != null)
                         GestureDetector(
-                          onTap: onQuoteTap,
+                          onTap: widget.onQuoteTap,
                           child: Container(
                             margin: EdgeInsets.only(bottom: 6),
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1886,8 +1987,8 @@ class _Bubble extends StatelessWidget {
                                 imageUrl: resolvedUrl,
                                 imagePath: msg.imagePath,
                                 heroTag: heroTag,
-                                title: senderName.isNotEmpty
-                                    ? senderName
+                                title: widget.senderName.isNotEmpty
+                                    ? widget.senderName
                                     : (msg.isMe ? 'You' : 'Image'),
                                 subtitle: msg.timeLabel,
                               );
@@ -1963,11 +2064,61 @@ class _Bubble extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           child: Text(
-                            msg.text!,
+                            _showingTranslation && _translatedText != null
+                                ? _translatedText!
+                                : msg.text!,
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 14,
                               color: msg.isMe ? Colors.white : t.ink,
                               height: 1.45,
+                            ),
+                          ),
+                        ),
+                      if (!msg.isMe && msg.text != null && msg.text!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(6, 2, 4, 2),
+                          child: GestureDetector(
+                            onTap: _showingTranslation
+                                ? () => setState(() {
+                                      _showingTranslation = false;
+                                      _translatedText = null;
+                                    })
+                                : _translating
+                                    ? null
+                                    : () => _showTranslatePicker(context),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_translating)
+                                  SizedBox(
+                                    width: 10,
+                                    height: 10,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: t.muted,
+                                    ),
+                                  )
+                                else
+                                  Icon(
+                                    _showingTranslation
+                                        ? Icons.undo_rounded
+                                        : Icons.translate_rounded,
+                                    size: 11,
+                                    color: t.muted,
+                                  ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  _translating
+                                      ? s.translating
+                                      : _showingTranslation
+                                          ? s.showOriginal
+                                          : s.translate,
+                                  style: GoogleFonts.hankenGrotesk(
+                                    fontSize: 10.5,
+                                    color: t.muted,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),

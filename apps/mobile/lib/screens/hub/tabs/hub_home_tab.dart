@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../l10n/app_strings.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/language_provider.dart';
 import '../../../services/reviews_api.dart';
 import '../../../theme/tokens.dart';
 import '../../chitchat/chit_chat_screen.dart';
@@ -26,6 +28,7 @@ class HubHomeTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.tokens;
+    final s = S.current;
     final auth = ref.watch(authProvider);
     final firstName = (auth.displayName ?? 'there').split(' ').first;
 
@@ -47,7 +50,7 @@ class HubHomeTab extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Welcome back',
+                          s.welcomeBack,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -56,7 +59,7 @@ class HubHomeTab extends ConsumerWidget {
                         ),
                         const SizedBox(height: 7),
                         Text(
-                          'Hii $firstName, great to see you again!',
+                          s.hiGreeting(firstName),
                           style: GoogleFonts.bricolageGrotesque(
                             fontSize: 26,
                             fontWeight: FontWeight.w800,
@@ -164,7 +167,7 @@ class HubHomeTab extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Add a need',
+                                  s.addANeed,
                                   style: GoogleFonts.bricolageGrotesque(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -173,7 +176,7 @@ class HubHomeTab extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Post what you need — offers roll in',
+                                  s.addANeedSubtitle,
                                   style: GoogleFonts.hankenGrotesk(
                                     fontSize: 13,
                                     color: Colors.white.withValues(alpha: 0.9),
@@ -236,7 +239,7 @@ class HubHomeTab extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Explore needs',
+                                  s.exploreNeeds,
                                   style: GoogleFonts.bricolageGrotesque(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w800,
@@ -245,7 +248,7 @@ class HubHomeTab extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Help out nearby & earn',
+                                  s.helpEarnSubtitle,
                                   style: GoogleFonts.hankenGrotesk(
                                     fontSize: 13,
                                     color: Colors.white.withValues(alpha: 0.9),

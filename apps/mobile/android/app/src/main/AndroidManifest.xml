@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- image_picker: gallery + camera access -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- speech_to_text: microphone for voice input -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.CAMERA" />
     <application

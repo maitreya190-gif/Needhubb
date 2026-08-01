@@ -24,6 +24,9 @@ import '../../person/person_screen.dart';
 import '../conversation_screen.dart';
 import '../view_on_map_screen.dart';
 import 'package:needhub/services/messaging_api.dart';
+import '../../../l10n/app_strings.dart';
+import '../../../providers/language_provider.dart';
+import '../../../services/translate_api.dart';
 
 // ── Feed filtering & sorting ─────────────────────────────────────────────────
 // Earn and Connect share these so the two surfaces can't drift apart again.
@@ -237,6 +240,8 @@ class _FeedTabState extends ConsumerState<FeedTab> {
     unreadCountNotifier.addListener(_bump);
     earnFilterNotifier.addListener(_onFilterChanged);
     connectFilterNotifier.addListener(_onFilterChanged);
+    feedLanguageNotifier.addListener(_bump);
+    uiLanguageNotifier.addListener(_bump);
     Future.microtask(_fetchFeed);
   }
 
@@ -247,6 +252,8 @@ class _FeedTabState extends ConsumerState<FeedTab> {
     unreadCountNotifier.removeListener(_bump);
     earnFilterNotifier.removeListener(_onFilterChanged);
     connectFilterNotifier.removeListener(_onFilterChanged);
+    feedLanguageNotifier.removeListener(_bump);
+    uiLanguageNotifier.removeListener(_bump);
     super.dispose();
   }
 
@@ -288,9 +295,9 @@ class _FeedTabState extends ConsumerState<FeedTab> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     final feedNeeds = feedNeedsNotifier.value;
-    final rankerLabel =
-        feedRankerNotifier.value == 'embeddings' ? 'AI-ranked' : 'Ranked';
+    final isAiRanked = feedRankerNotifier.value == 'embeddings';
 
     return Scaffold(
       backgroundColor: t.paper,
@@ -331,10 +338,10 @@ class _FeedTabState extends ConsumerState<FeedTab> {
                         const SizedBox(height: 2),
                         Text(
                           _surface == 'earn'
-                              ? '${feedNeeds.where((n) => n.category == 'earn').length} needs near you'
+                              ? '${feedNeeds.where((n) => n.category == 'earn').length} ${s.needsNearYou}'
                               : _surface == 'connect'
-                                  ? '${mockPeople.length} people near you'
-                                  : 'Casual chats nearby',
+                                  ? '${mockPeople.length} ${s.peopleNearYou}'
+                                  : s.casualChats,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
@@ -366,6 +373,42 @@ class _FeedTabState extends ConsumerState<FeedTab> {
                       ),
                       child: Center(
                         child: Icon(Icons.map_rounded, size: 20, color: NeedHubTokens.clay),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Language picker button
+                  GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: Colors.transparent,
+                        builder: (ctx) => _FeedLangSheet(t: t),
+                      );
+                    },
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: t.card,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: t.ink.withValues(alpha: 0.09),
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          feedLanguageNotifier.value.toUpperCase(),
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: feedLanguageNotifier.value == 'en'
+                                ? t.muted
+                                : NeedHubTokens.clay,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -455,19 +498,19 @@ class _FeedTabState extends ConsumerState<FeedTab> {
                 child: Row(
                   children: [
                     _SurfaceBtn(
-                      label: 'Connect',
+                      label: s.connect,
                       active: _surface == 'connect',
                       onTap: () => _setSurface('connect'),
                       t: t,
                     ),
                     _SurfaceBtn(
-                      label: 'Earn',
+                      label: s.earn,
                       active: _surface == 'earn',
                       onTap: () => _setSurface('earn'),
                       t: t,
                     ),
                     _SurfaceBtn(
-                      label: 'Chit-chat',
+                      label: s.chitchat,
                       active: _surface == 'chitchat',
                       onTap: () => _setSurface('chitchat'),
                       t: t,
@@ -482,23 +525,17 @@ class _FeedTabState extends ConsumerState<FeedTab> {
               child: _surface == 'connect'
                   ? _ConnectFeed(
                       needs: feedNeeds
-                          .where((n) =>
-                              n.category.toLowerCase() == 'connect' &&
-                              n.authorName != 'You' &&
-                              n.authorInitials != 'ME')
+                          .where((n) => n.category.toLowerCase() == 'connect')
                           .toList(),
                       t: t,
-                      rankerLabel: rankerLabel)
+                      isAiRanked: isAiRanked)
                   : _surface == 'earn'
                       ? _EarnFeed(
                           needs: feedNeeds
-                              .where((n) =>
-                                  n.category.toLowerCase() == 'earn' &&
-                                  n.authorName != 'You' &&
-                                  n.authorInitials != 'ME')
+                              .where((n) => n.category.toLowerCase() == 'earn')
                               .toList(),
                           t: t,
-                          rankerLabel: rankerLabel)
+                          isAiRanked: isAiRanked)
                       : _ChitChatFeedInline(t: t),
             ),
           ],
@@ -566,12 +603,12 @@ class _SurfaceBtn extends StatelessWidget {
 class _ConnectFeed extends StatefulWidget {
   final NeedHubTokens t;
   final List<Need> needs;
-  final String rankerLabel;
+  final bool isAiRanked;
 
   const _ConnectFeed({
     required this.t,
     required this.needs,
-    this.rankerLabel = 'Ranked',
+    this.isAiRanked = false,
   });
 
   @override
@@ -679,7 +716,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
       children: [
-        _RankerBadge(label: widget.rankerLabel, t: t),
+        _RankerBadge(isAi: widget.isAiRanked, t: t),
         const SizedBox(height: 10),
         Row(
           children: [
@@ -716,7 +753,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
                         size: 14,
                         color: activeCount > 0 ? NeedHubTokens.clay : t.ink),
                     const SizedBox(width: 6),
-                    Text(activeCount > 0 ? 'Filter ($activeCount)' : 'Filter',
+                    Text(activeCount > 0 ? '${S.current.filter} ($activeCount)' : S.current.filter,
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
@@ -999,12 +1036,12 @@ class _Chip extends StatelessWidget {
 class _EarnFeed extends StatefulWidget {
   final List<Need> needs;
   final NeedHubTokens t;
-  final String rankerLabel;
+  final bool isAiRanked;
 
   const _EarnFeed({
     required this.needs,
     required this.t,
-    this.rankerLabel = 'Ranked',
+    this.isAiRanked = false,
   });
 
   @override
@@ -1085,7 +1122,7 @@ class _EarnFeedState extends State<_EarnFeed> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 120),
       children: [
-        _RankerBadge(label: widget.rankerLabel, t: t),
+        _RankerBadge(isAi: widget.isAiRanked, t: t),
         const SizedBox(height: 10),
         Row(
           children: [
@@ -1119,7 +1156,7 @@ class _EarnFeedState extends State<_EarnFeed> {
                         size: 14,
                         color: activeCount > 0 ? NeedHubTokens.clay : t.ink),
                     const SizedBox(width: 6),
-                    Text(activeCount > 0 ? 'Filter ($activeCount)' : 'Filter',
+                    Text(activeCount > 0 ? '${S.current.filter} ($activeCount)' : S.current.filter,
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
@@ -1133,12 +1170,38 @@ class _EarnFeedState extends State<_EarnFeed> {
         ),
         const SizedBox(height: 12),
         _ActiveFilterRibbon(filter: filter, surface: 'earn', t: t),
-        ..._earnCards(context, needs, t),
+        ...needs.asMap().entries.map((e) {
+          final i = e.key;
+          final need = e.value;
+          return Padding(
+            padding: EdgeInsets.only(bottom: i < needs.length - 1 ? 14 : 0),
+            child: _TranslatedEarnCard(
+              need: need,
+              t: t,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
+              ),
+            ),
+          );
+        }),
         if (partials.isNotEmpty) ...[
           const SizedBox(height: 26),
           _PartialMatchDivider(title: 'MATCHES SOME FILTERS', t: t),
           const SizedBox(height: 16),
-          ..._earnCards(context, partials, t),
+          ...partials.asMap().entries.map((e) {
+            final i = e.key;
+            final need = e.value;
+            return Padding(
+              padding: EdgeInsets.only(bottom: i < partials.length - 1 ? 14 : 0),
+              child: _TranslatedEarnCard(
+                need: need,
+                t: t,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
+                ),
+              ),
+            );
+          }),
         ],
       ],
     );
@@ -1159,6 +1222,134 @@ class _EarnFeedState extends State<_EarnFeed> {
         ),
       );
     }).toList();
+  }
+}
+
+class _FeedLangSheet extends StatelessWidget {
+  final NeedHubTokens t;
+  const _FeedLangSheet({required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: t.paper,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: t.rail,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Translate needs to',
+            style: GoogleFonts.bricolageGrotesque(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: t.ink,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: kSupportedLanguages.map((lang) {
+              final isSelected = feedLanguageNotifier.value == lang['code'];
+              return GestureDetector(
+                onTap: () {
+                  setFeedLanguage(lang['code']!);
+                  translationCache.clear();
+                  Navigator.pop(context);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? NeedHubTokens.clay
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: isSelected ? NeedHubTokens.clay : t.rail,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    lang['native']!,
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isSelected ? Colors.white : t.muted2,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TranslatedEarnCard extends StatefulWidget {
+  final Need need;
+  final NeedHubTokens t;
+  final VoidCallback onTap;
+
+  const _TranslatedEarnCard({required this.need, required this.t, required this.onTap});
+
+  @override
+  State<_TranslatedEarnCard> createState() => _TranslatedEarnCardState();
+}
+
+class _TranslatedEarnCardState extends State<_TranslatedEarnCard> {
+  @override
+  void initState() {
+    super.initState();
+    feedLanguageNotifier.addListener(_onLangChange);
+    _translateIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    feedLanguageNotifier.removeListener(_onLangChange);
+    super.dispose();
+  }
+
+  void _onLangChange() => _translateIfNeeded();
+
+  Future<void> _translateIfNeeded() async {
+    final lang = feedLanguageNotifier.value;
+    if (lang == 'en') {
+      if (mounted) setState(() {});
+      return;
+    }
+    if (translationCache[widget.need.id]?[lang] != null) {
+      if (mounted) setState(() {});
+      return;
+    }
+    final translated = await globalTranslateApi.translate(widget.need.title, lang);
+    translationCache.putIfAbsent(widget.need.id, () => {})[lang] = translated;
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = feedLanguageNotifier.value;
+    final cached = lang == 'en' ? null : translationCache[widget.need.id]?[lang];
+    final displayNeed = cached != null ? widget.need.copyWith(title: cached) : widget.need;
+    return _EarnCard(need: displayNeed, t: widget.t, onTap: widget.onTap);
   }
 }
 
@@ -2360,14 +2551,14 @@ class _ChitChatRealCuboidalTile extends ConsumerWidget {
 // ── Ranker badge — visually reinforces "AI-ranked" vs "Ranked" heuristic ─────
 
 class _RankerBadge extends StatelessWidget {
-  final String label;
+  final bool isAi;
   final NeedHubTokens t;
 
-  const _RankerBadge({required this.label, required this.t});
+  const _RankerBadge({required this.isAi, required this.t});
 
   @override
   Widget build(BuildContext context) {
-    final isAi = label == 'AI-ranked';
+    final s = S.current;
     return Row(
       children: [
         Container(
@@ -2391,7 +2582,7 @@ class _RankerBadge extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                isAi ? 'AI-ranked feed' : 'Ranked feed',
+                isAi ? '${s.aiRanked} feed' : 'Ranked feed',
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,

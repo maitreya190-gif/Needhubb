@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/app_strings.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/language_provider.dart';
 import '../../services/auth_service.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_button.dart';
@@ -24,7 +26,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    uiLanguageNotifier.addListener(_onLangChange);
+  }
+
+  void _onLangChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    uiLanguageNotifier.removeListener(_onLangChange);
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -93,6 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
 
     return Scaffold(
       backgroundColor: t.paper,
@@ -137,7 +151,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               // Email field
               NhTextField(
-                label: 'Email',
+                label: s.email,
                 hint: 'you@example.com',
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -148,7 +162,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               // Password field
               NhTextField(
-                label: 'Password',
+                label: s.password,
                 hint: '••••••••',
                 controller: _passwordController,
                 obscure: true,
@@ -183,7 +197,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               // Log in button
               NhPrimaryButton(
-                label: 'Log in',
+                label: s.login,
                 onPressed: _login,
                 loading: _loading,
               ),
@@ -197,7 +211,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Text(
-                      'new to NeedHub?',
+                      s.newToNeedHub,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -213,7 +227,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               // Create profile button
               NhOutlineButton(
-                label: 'Create your profile',
+                label: s.createProfile,
                 onPressed: () => context.push('/signup'),
               ),
 

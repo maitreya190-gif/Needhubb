@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../models/need.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/language_provider.dart';
+import '../../l10n/app_strings.dart';
 import '../../services/api_client.dart';
 import '../../services/needs_api.dart';
 import '../../services/social_providers.dart';
@@ -21,11 +24,67 @@ class PostNeedSheet extends ConsumerStatefulWidget {
 class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
   String _category = 'connect';
 
+  // STT
+  final _speech = stt.SpeechToText();
+  bool _speechAvailable = false;
+  bool _isListening = false;
+  String _liveWords = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _initSpeech();
+    uiLanguageNotifier.addListener(_onLangChange);
+  }
+
+  void _onLangChange() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _initSpeech() async {
+    _speechAvailable = await _speech.initialize();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _startListening() async {
+    if (!_speechAvailable) return;
+    final locale = kLangLocaleIds[uiLanguageNotifier.value] ?? 'en_IN';
+    await _speech.listen(
+      listenOptions: stt.SpeechListenOptions(localeId: locale),
+      onResult: (result) {
+        if (!mounted) return;
+        setState(() => _liveWords = result.recognizedWords);
+        if (result.finalResult && result.recognizedWords.isNotEmpty) {
+          final cur = _descController.text;
+          _descController.text = cur.isEmpty
+              ? result.recognizedWords
+              : '$cur ${result.recognizedWords}';
+          setState(() => _liveWords = '');
+        }
+      },
+    );
+    if (mounted) setState(() => _isListening = true);
+  }
+
+  Future<void> _stopListening() async {
+    await _speech.stop();
+    if (mounted) setState(() { _isListening = false; _liveWords = ''; });
+  }
+
   Future<void> _refreshRankedFeed() async {
     try {
       final api = ref.read(needsApiProvider);
       final res = await api.feed(sort: 'smart', take: 60);
-      feedNeedsNotifier.value = res.needs;
+      // Merge: keep locally-posted "You" needs that may not appear server-side yet
+      final Map<String, Need> map = {};
+      for (final n in feedNeedsNotifier.value
+          .where((n) => n.authorName == 'You' || n.authorInitials == 'ME')) {
+        map[n.id] = n;
+      }
+      for (final n in res.needs) {
+        map[n.id] = n;
+      }
+      feedNeedsNotifier.value = map.values.toList();
       feedRankerNotifier.value = res.ranker;
     } catch (_) {/* silent */}
   }
@@ -46,6 +105,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
 
   @override
   void dispose() {
+    uiLanguageNotifier.removeListener(_onLangChange);
     _titleController.dispose();
     _descController.dispose();
     _budgetMinController.dispose();
@@ -144,26 +204,35 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
       }];
     }
 
-    Need? postedNeed;
+    final List<Need> postedNeeds = [];
+    final myUserId = ref.read(authProvider).userId ?? '';
+
+    Need makeNeed(Map<String, dynamic> n, String fallbackId) => Need(
+      id: n['id'] as String? ?? fallbackId,
+      posterId: n['posterId'] as String? ?? myUserId,
+      title: n['title'] as String? ?? '',
+      description: n['description'] as String? ?? '',
+      category: (n['needType'] as String? ?? 'CONNECT') == 'EARN' ? 'earn' : 'connect',
+      authorName: 'You',
+      authorInitials: 'ME',
+      location: 'Nearby',
+      createdAt: DateTime.tryParse(n['createdAt'] as String? ?? '') ?? DateTime.now(),
+      budgetMin: (n['budgetMin'] as num?)?.toInt(),
+      budgetMax: (n['budgetMax'] as num?)?.toInt(),
+    );
 
     try {
       final client = ref.read(apiClientProvider);
       final res = await client.post('/needs', {'needs': needsPayload});
+      final ts = DateTime.now().millisecondsSinceEpoch;
       if (res['parent'] is Map<String, dynamic>) {
-        final parent = res['parent'] as Map<String, dynamic>;
-        postedNeed = Need(
-          id: parent['id'] as String? ?? 'posted_${DateTime.now().millisecondsSinceEpoch}',
-          posterId: parent['posterId'] as String? ?? ref.read(authProvider).userId ?? '',
-          title: parent['title'] as String? ?? _titleController.text.trim(),
-          description: parent['description'] as String? ?? _descController.text.trim(),
-          category: (parent['needType'] as String? ?? (_category == 'earn' ? 'EARN' : 'CONNECT')) == 'EARN' ? 'earn' : 'connect',
-          authorName: 'You',
-          authorInitials: 'ME',
-          location: 'Nearby',
-          createdAt: DateTime.tryParse(parent['createdAt'] as String? ?? '') ?? DateTime.now(),
-          budgetMin: (parent['budgetMin'] as num?)?.toInt(),
-          budgetMax: (parent['budgetMax'] as num?)?.toInt(),
-        );
+        postedNeeds.add(makeNeed(res['parent'] as Map<String, dynamic>, 'p_$ts'));
+      }
+      final subsRaw = res['subs'] as List? ?? [];
+      for (int i = 0; i < subsRaw.length; i++) {
+        if (subsRaw[i] is Map<String, dynamic>) {
+          postedNeeds.add(makeNeed(subsRaw[i] as Map<String, dynamic>, 's_${ts}_$i'));
+        }
       }
     } on DioException catch (e) {
       final code = e.response?.data?['code'] as String?;
@@ -173,39 +242,42 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
         }
         return;
       }
-      // Network/server error — fall through to optimistic local Need so user isn't stuck
-    } catch (_) {
-      // Unexpected error — fall through to optimistic
+    } catch (_) {}
+
+    // Fallback: if API returned nothing, build optimistic Need for every sub-need payload
+    if (postedNeeds.isEmpty) {
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      for (int i = 0; i < needsPayload.length; i++) {
+        final n = needsPayload[i];
+        postedNeeds.add(Need(
+          id: 'opt_${ts}_$i',
+          posterId: myUserId,
+          title: n['title'] as String? ?? _titleController.text.trim(),
+          description: n['description'] as String? ?? _descController.text.trim(),
+          category: _category,
+          authorName: 'You',
+          authorInitials: 'ME',
+          location: 'Nearby',
+          createdAt: DateTime.now(),
+          budgetMin: int.tryParse(_budgetMinController.text.trim()),
+          budgetMax: int.tryParse(_budgetMaxController.text.trim()),
+        ));
+      }
     }
 
-    // Only reach here if the API succeeded or had a non-moderation network error.
-    // Fallback: If API did not return parent (e.g. offline), create optimistic local Need.
-    postedNeed ??= Need(
-      id: 'posted_${DateTime.now().millisecondsSinceEpoch}',
-      posterId: ref.read(authProvider).userId ?? '',
-      title: needsPayload.first['title'] as String? ?? _titleController.text.trim(),
-      description: needsPayload.first['description'] as String? ?? _descController.text.trim(),
-      category: _category,
-      authorName: 'You',
-      authorInitials: 'ME',
-      location: 'Nearby',
-      createdAt: DateTime.now(),
-      budgetMin: int.tryParse(_budgetMinController.text.trim()),
-      budgetMax: int.tryParse(_budgetMaxController.text.trim()),
-    );
-
-    // Optimistically prepend to local feed so the feed refreshes immediately
-    mockNeeds.insert(0, postedNeed);
+    // Prepend ALL posted needs to the feed immediately
+    final postedIds = postedNeeds.map((n) => n.id).toSet();
+    for (final n in postedNeeds) mockNeeds.insert(0, n);
     feedNeedsNotifier.value = [
-      postedNeed,
-      ...feedNeedsNotifier.value.where((n) => n.id != postedNeed!.id),
+      ...postedNeeds,
+      ...feedNeedsNotifier.value.where((n) => !postedIds.contains(n.id)),
     ];
-    needsNotifier.value++;
+    needsNotifier.value += postedNeeds.length;
     unawaited(_refreshRankedFeed());
 
     if (mounted) {
       setState(() => _posting = false);
-      Navigator.of(context).pop(postedNeed);
+      Navigator.of(context).pop(postedNeeds.first);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -314,6 +386,10 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
               onSelectNoneSubNeeds: _selectNoneSubNeeds,
               onUseOriginalNeed: _useOriginalNeed,
               onPost: _post,
+              isListening: _isListening,
+              speechAvailable: _speechAvailable,
+              liveWords: _liveWords,
+              onMicTap: _isListening ? _stopListening : _startListening,
             ),
           ],
         ),
@@ -346,6 +422,10 @@ class _NeedForm extends StatelessWidget {
   final VoidCallback onSelectNoneSubNeeds;
   final VoidCallback onUseOriginalNeed;
   final VoidCallback onPost;
+  final bool isListening;
+  final bool speechAvailable;
+  final String liveWords;
+  final VoidCallback? onMicTap;
 
   const _NeedForm({
     required this.t,
@@ -369,17 +449,22 @@ class _NeedForm extends StatelessWidget {
     required this.onSelectNoneSubNeeds,
     required this.onUseOriginalNeed,
     required this.onPost,
+    this.isListening = false,
+    this.speechAvailable = false,
+    this.liveWords = '',
+    this.onMicTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final s = S.current;
     String postButtonText() {
-      if (!decomposed) return 'Post need';
-      if (selectedSubNeedIndexes.isEmpty) return 'Post original need';
+      if (!decomposed) return s.post;
+      if (selectedSubNeedIndexes.isEmpty) return s.post;
       if (selectedSubNeedIndexes.length == subNeeds.length) {
-        return 'Post all needs (${subNeeds.length})';
+        return '${s.post} (${subNeeds.length})';
       }
-      return 'Post selected needs (${selectedSubNeedIndexes.length} of ${subNeeds.length})';
+      return '${s.post} (${selectedSubNeedIndexes.length}/${subNeeds.length})';
     }
 
     return Column(
@@ -390,7 +475,7 @@ class _NeedForm extends StatelessWidget {
         Row(
           children: [
             _CatButton(
-              label: 'Connect',
+              label: s.connect,
               icon: Icons.handshake_outlined,
               color: NeedHubTokens.forest,
               selected: category == 'connect',
@@ -399,7 +484,7 @@ class _NeedForm extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             _CatButton(
-              label: 'Earn',
+              label: s.earn,
               icon: Icons.currency_rupee_rounded,
               color: NeedHubTokens.ochre,
               selected: category == 'earn',
@@ -412,7 +497,7 @@ class _NeedForm extends StatelessWidget {
 
         _Field(
           controller: titleController,
-          label: 'TITLE',
+          label: s.title.toUpperCase(),
           hint: category == 'earn'
               ? 'e.g., Need calculus tutor for 2 weeks'
               : 'e.g., Looking for hackathon teammate',
@@ -423,11 +508,19 @@ class _NeedForm extends StatelessWidget {
 
         _Field(
           controller: descController,
-          label: 'DETAILS',
+          label: s.description.toUpperCase(),
           hint: 'Describe what you need in detail...',
           minLines: 3,
           maxLines: 5,
           onChanged: (_) => onChanged(),
+          t: t,
+        ),
+        const SizedBox(height: 8),
+        _MicBar(
+          speechAvailable: speechAvailable,
+          isListening: isListening,
+          liveWords: liveWords,
+          onMicTap: onMicTap,
           t: t,
         ),
         const SizedBox(height: 6),
@@ -462,7 +555,7 @@ class _NeedForm extends StatelessWidget {
               Expanded(
                 child: _Field(
                   controller: budgetMinController,
-                  label: 'MIN BUDGET (₹)',
+                  label: '${s.minBudget} (₹)',
                   hint: '500',
                   keyboardType: TextInputType.number,
                   onChanged: (_) => onChanged(),
@@ -473,7 +566,7 @@ class _NeedForm extends StatelessWidget {
               Expanded(
                 child: _Field(
                   controller: budgetMaxController,
-                  label: 'MAX BUDGET (₹)',
+                  label: '${s.maxBudget} (₹)',
                   hint: '2000',
                   keyboardType: TextInputType.number,
                   onChanged: (_) => onChanged(),
@@ -683,7 +776,7 @@ class _ApiSubNeedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isEarn = (sn['needType'] as String?) == 'EARN';
     final color = isEarn ? NeedHubTokens.ochre : NeedHubTokens.forest;
-    final label = isEarn ? 'Earn' : 'Connect';
+    final label = isEarn ? S.current.earn : S.current.connect;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -864,6 +957,124 @@ class _Field extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MicBar extends StatelessWidget {
+  final bool speechAvailable;
+  final bool isListening;
+  final String liveWords;
+  final VoidCallback? onMicTap;
+  final NeedHubTokens t;
+
+  const _MicBar({
+    required this.speechAvailable,
+    required this.isListening,
+    required this.liveWords,
+    required this.onMicTap,
+    required this.t,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(uiLanguageNotifier.value);
+    return GestureDetector(
+      onTap: speechAvailable ? onMicTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isListening
+              ? NeedHubTokens.clay.withValues(alpha: 0.08)
+              : t.rail.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isListening
+                ? NeedHubTokens.clay.withValues(alpha: 0.3)
+                : t.rail,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            _PulsingMic(active: isListening),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                isListening
+                    ? (liveWords.isNotEmpty ? liveWords : s.listening)
+                    : speechAvailable
+                        ? s.tapToSpeak
+                        : s.voiceNotAvailable,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 13.5,
+                  color: isListening ? NeedHubTokens.clay : t.muted,
+                  fontStyle: isListening && liveWords.isEmpty
+                      ? FontStyle.italic
+                      : FontStyle.normal,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PulsingMic extends StatefulWidget {
+  final bool active;
+  const _PulsingMic({required this.active});
+
+  @override
+  State<_PulsingMic> createState() => _PulsingMicState();
+}
+
+class _PulsingMicState extends State<_PulsingMic>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    if (widget.active) _anim.repeat(reverse: true);
+  }
+
+  @override
+  void didUpdateWidget(_PulsingMic old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !_anim.isAnimating) {
+      _anim.repeat(reverse: true);
+    } else if (!widget.active) {
+      _anim.stop();
+      _anim.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Transform.scale(
+        scale: widget.active ? 1.0 + 0.35 * _anim.value : 1.0,
+        child: Icon(
+          Icons.mic_rounded,
+          size: 22,
+          color: widget.active ? NeedHubTokens.clay : Colors.grey.shade400,
+        ),
+      ),
     );
   }
 }

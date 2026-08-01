@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/language_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/friends_api.dart';
 import '../../services/social_providers.dart';
@@ -22,8 +24,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _hidePreciseLocation = false;
 
   @override
+  void initState() {
+    super.initState();
+    uiLanguageNotifier.addListener(_onLangChange);
+  }
+
+  void _onLangChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    uiLanguageNotifier.removeListener(_onLangChange);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     final currentTokens = ref.watch(themeProvider);
 
     return Scaffold(
@@ -56,7 +75,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     const SizedBox(width: 14),
                     Text(
-                      'Settings',
+                      s.settings,
                       style: GoogleFonts.bricolageGrotesque(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -97,6 +116,77 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     },
                   );
                 }).toList(),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+
+            // ── Language ───────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SectionLabel(label: s.language.toUpperCase()),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: t.card,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: NeedHubThemes.cardShadow,
+                  ),
+                  child: ValueListenableBuilder<String>(
+                    valueListenable: uiLanguageNotifier,
+                    builder: (ctx, currentLang, _) => Column(
+                      children: [
+                        for (int i = 0; i < kSupportedLanguages.length; i++)
+                          Column(
+                            children: [
+                              InkWell(
+                                onTap: () => setUiLanguage(kSupportedLanguages[i]['code']!),
+                                borderRadius: i == 0
+                                    ? const BorderRadius.vertical(top: Radius.circular(16))
+                                    : i == kSupportedLanguages.length - 1
+                                        ? const BorderRadius.vertical(bottom: Radius.circular(16))
+                                        : BorderRadius.zero,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        kSupportedLanguages[i]['native']!,
+                                        style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: t.ink,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        kSupportedLanguages[i]['name']!,
+                                        style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 13,
+                                          color: t.muted,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      if (currentLang == kSupportedLanguages[i]['code'])
+                                        Icon(Icons.check_rounded, color: NeedHubTokens.clay, size: 18),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              if (i < kSupportedLanguages.length - 1)
+                                Divider(color: t.rail, height: 1),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
 

@@ -3,7 +3,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/need.dart';
+import '../../providers/language_provider.dart';
 import '../../theme/tokens.dart';
 import 'tabs/hub_home_tab.dart';
 import 'tabs/feed_tab.dart';
@@ -22,6 +24,22 @@ class HubScreen extends ConsumerStatefulWidget {
 
 class _HubScreenState extends ConsumerState<HubScreen> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    uiLanguageNotifier.addListener(_onLangChange);
+  }
+
+  @override
+  void dispose() {
+    uiLanguageNotifier.removeListener(_onLangChange);
+    super.dispose();
+  }
+
+  void _onLangChange() {
+    if (mounted) setState(() {});
+  }
 
   void _browseTo(BuildContext ctx, String surface) {
     Navigator.of(ctx).push(
@@ -59,7 +77,7 @@ class _HubScreenState extends ConsumerState<HubScreen> {
       const ChatsTab(),
       const SizedBox.shrink(),
       const AlertsTab(),
-      const YouScreen(),
+      YouScreen(),
     ];
 
     return Scaffold(
@@ -126,13 +144,13 @@ class _NavBar extends ConsumerWidget {
             children: [
               _NavItem(
                 icon: Icons.home_rounded,
-                label: 'Home',
+                label: S.current.home,
                 active: currentIndex == 0,
                 onTap: () => onTap(0),
               ),
               _NavItem(
                 icon: Icons.chat_bubble_outline_rounded,
-                label: 'Chats',
+                label: S.current.chats,
                 active: currentIndex == 1,
                 onTap: () => onTap(1),
               ),
@@ -162,13 +180,13 @@ class _NavBar extends ConsumerWidget {
               ),
               _NavItem(
                 icon: Icons.notifications_outlined,
-                label: 'Alerts',
+                label: S.current.alerts,
                 active: currentIndex == 3,
                 onTap: () => onTap(3),
               ),
               _NavItem(
                 icon: Icons.person_outline_rounded,
-                label: 'You',
+                label: S.current.you,
                 active: currentIndex == 4,
                 onTap: () => onTap(4),
               ),

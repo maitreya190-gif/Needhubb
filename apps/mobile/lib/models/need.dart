@@ -129,6 +129,34 @@ class Need {
     this.lng,
   });
 
+  Need copyWith({String? title}) => Need(
+        id: id,
+        posterId: posterId,
+        title: title ?? this.title,
+        description: description,
+        category: category,
+        authorName: authorName,
+        authorInitials: authorInitials,
+        location: location,
+        distanceKm: distanceKm,
+        createdAt: createdAt,
+        budgetMin: budgetMin,
+        budgetMax: budgetMax,
+        tags: tags,
+        posterGender: posterGender,
+        posterAvatarUrl: posterAvatarUrl,
+        posterFaceVerified: posterFaceVerified,
+        posterTrustScore: posterTrustScore,
+        offerCount: offerCount,
+        posterBio: posterBio,
+        posterInterests: posterInterests,
+        posterPersonalityTraits: posterPersonalityTraits,
+        posterPersonalityNickname: posterPersonalityNickname,
+        status: status,
+        lat: lat,
+        lng: lng,
+      );
+
   bool get isFrozen => status.toUpperCase() != 'OPEN';
 
   String get timeAgo {

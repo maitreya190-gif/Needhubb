@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/app_strings.dart';
+import '../../providers/language_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart' show Share;
 import '../../models/need.dart';
@@ -38,6 +40,7 @@ class YouScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
     final t = context.tokens;
+    final s = S.current;
     final name = auth.displayName ?? auth.email ?? 'You';
     final initials = _initials(name);
 
@@ -79,7 +82,7 @@ class YouScreen extends ConsumerWidget {
                                     size: 14, color: t.onDark),
                                 const SizedBox(width: 5),
                                 Text(
-                                  'Settings',
+                                  s.settings,
                                   style: GoogleFonts.hankenGrotesk(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w700,
@@ -103,7 +106,7 @@ class YouScreen extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(11),
                             ),
                             child: Text(
-                              'Edit',
+                              s.edit,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w700,

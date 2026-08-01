@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../l10n/app_strings.dart';
+import '../../../providers/language_provider.dart';
 import '../../../services/notification_navigator.dart';
 import '../../../services/notifications_api.dart';
 import '../../../services/social_providers.dart';
@@ -23,6 +25,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
     super.initState();
     notificationsListNotifier.addListener(_bump);
     unreadCountNotifier.addListener(_bump);
+    uiLanguageNotifier.addListener(_bump);
     _refresh();
   }
 
@@ -47,6 +50,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
   void dispose() {
     notificationsListNotifier.removeListener(_bump);
     unreadCountNotifier.removeListener(_bump);
+    uiLanguageNotifier.removeListener(_bump);
     super.dispose();
   }
 
@@ -300,6 +304,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     final list = notificationsListNotifier.value;
 
     // Group by our own bucket derived from the backend `type`.
@@ -353,7 +358,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               child: Row(
                 children: [
-                  Text('Alerts',
+                  Text(s.alerts,
                       style: GoogleFonts.bricolageGrotesque(
                           fontSize: 26,
                           fontWeight: FontWeight.w800,
@@ -365,7 +370,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                         _selectMode = false;
                         _selectedIds.clear();
                       }),
-                      child: Text('Cancel',
+                      child: Text(s.cancel,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -374,7 +379,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                   ] else ...[
                     TextButton(
                       onPressed: _busy ? null : _markAllRead,
-                      child: Text('Mark all read',
+                      child: Text(s.markAllRead,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -414,7 +419,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                             color: NeedHubTokens.clay,
                           ),
                           const SizedBox(width: 6),
-                          Text('Select all',
+                          Text(s.selectAll,
                               style: GoogleFonts.hankenGrotesk(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
@@ -423,12 +428,12 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                       ),
                     ),
                     const Spacer(),
-                    Text('${_selectedIds.length} selected',
+                    Text('${_selectedIds.length} ${s.selected}',
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 12, color: t.muted)),
                     const SizedBox(width: 12),
                     _PillButton(
-                      label: 'Delete',
+                      label: s.delete,
                       icon: Icons.delete_outline_rounded,
                       color: NeedHubTokens.clay,
                       enabled: _selectedIds.isNotEmpty && !_busy,
@@ -438,7 +443,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                     const Spacer(),
                     if (list.isNotEmpty)
                       _PillButton(
-                        label: 'Clear',
+                        label: s.clear,
                         icon: Icons.filter_list_off_rounded,
                         color: t.muted,
                         enabled: !_busy,
@@ -458,7 +463,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                       Icon(Icons.notifications_none_rounded,
                           size: 44, color: t.muted),
                       const SizedBox(height: 12),
-                      Text('No notifications yet',
+                      Text(s.noNotificationsYet,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 14, color: t.muted)),
                     ],

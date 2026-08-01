@@ -15,9 +15,11 @@ import 'services/social_providers.dart';
 import 'services/socket_service.dart';
 import 'services/uploads_api.dart';
 import 'theme/app_theme.dart';
+import 'providers/language_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await loadLanguagePreference();
   runApp(const ProviderScope(child: NeedHubApp()));
 }
 
@@ -263,11 +265,14 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
     final router = ref.watch(routerProvider);
     ref.listen<AuthState>(authProvider, (_, next) => _onAuthChanged(next));
 
-    return MaterialApp.router(
-      title: 'NeedHub',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.forTokens(tokens),
-      routerConfig: router,
+    return ValueListenableBuilder<String>(
+      valueListenable: uiLanguageNotifier,
+      builder: (_, __, ___) => MaterialApp.router(
+        title: 'NeedHub',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.forTokens(tokens),
+        routerConfig: router,
+      ),
     );
   }
 }
