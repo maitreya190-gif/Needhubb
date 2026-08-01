@@ -9,6 +9,7 @@ import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
+import '../../widgets/nh_badge_row.dart';
 import '../../widgets/nh_report_sheet.dart';
 import '../history/history_screen.dart';
 
@@ -64,6 +65,11 @@ class PersonScreen extends ConsumerStatefulWidget {
 class _PersonScreenState extends ConsumerState<PersonScreen> {
   Person? _real;
 
+  /// Kept alongside `_real` because badges are public profile data that the
+  /// `Person` view model does not carry — someone deciding whether to meet
+  /// this person should be able to see what they have actually done.
+  ProfileMe? _profile;
+
   @override
   void initState() {
     super.initState();
@@ -75,8 +81,23 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
       final api = ref.read(profilesApiProvider);
       final me = await api.getById(widget.userId!);
       if (!mounted) return;
-      setState(() => _real = _toPerson(me, widget.avatarColor));
+      setState(() {
+        _real = _toPerson(me, widget.avatarColor);
+        _profile = me;
+      });
     } catch (_) {/* keep the mock fallback */}
+  }
+
+  /// Grounds the badge row in the actual numbers behind it, so it reads as
+  /// evidence rather than decoration.
+  static String _badgeSubtitle(ProfileMe m) {
+    final earned = m.earnedBadges.length;
+    final parts = <String>['$earned earned'];
+    if (m.helpedNeedCount > 0) {
+      parts.add(
+          '${m.helpedNeedCount} need${m.helpedNeedCount == 1 ? '' : 's'} completed for others');
+    }
+    return parts.join(' · ');
   }
 
   static Person _toPerson(ProfileMe m, Color color) {
@@ -552,6 +573,37 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
+
+                  // ── Badges ────────────────────────────────────────────────
+                  // Only earned ones here: on someone else's profile the locked
+                  // badges are noise, and the reason to show these at all is as
+                  // evidence of what this person has actually done.
+                  if (_profile != null && _profile!.earnedBadges.isNotEmpty) ...[
+                    Text(
+                      'BADGES',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: t.muted2,
+                        letterSpacing: 0.7,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _badgeSubtitle(_profile!),
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12.5, color: t.muted),
+                    ),
+                    const SizedBox(height: 14),
+                    NhBadgeRow(
+                      badges: _profile!.badges,
+                      t: t,
+                      showLocked: false,
+                    ),
+                    const SizedBox(height: 24),
+                    Divider(color: t.rail, height: 1),
+                    const SizedBox(height: 22),
+                  ],
 
                   // ── Past Work & Ratings ────────────────────────────────────
                   Row(

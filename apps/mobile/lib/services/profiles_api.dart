@@ -2,6 +2,48 @@ import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 import 'personality_api.dart';
 
+/// An earned badge, exactly as the server computed it.
+///
+/// The server derives these from real facts (verifications, completed needs,
+/// reviews) — the client never decides whether a badge is earned, it only
+/// renders what it is told. That is deliberate: the previous version hardcoded
+/// a list here and showed every new user three badges they had not earned.
+class ProfileBadge {
+  final String id;
+  final String label;
+
+  /// What it takes to earn — shown on locked badges as the goal.
+  final String description;
+
+  /// 'verification' | 'helping' | 'quality' | 'community'
+  final String group;
+  final bool earned;
+
+  const ProfileBadge({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.group,
+    required this.earned,
+  });
+
+  factory ProfileBadge.fromJson(Map<String, dynamic> j) => ProfileBadge(
+        id: j['id'] as String? ?? '',
+        label: j['label'] as String? ?? '',
+        description: j['description'] as String? ?? '',
+        group: j['group'] as String? ?? 'other',
+        earned: j['earned'] as bool? ?? false,
+      );
+
+  static List<ProfileBadge> listFrom(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((m) => ProfileBadge.fromJson(Map<String, dynamic>.from(m)))
+        .toList();
+  }
+}
+
 class ProfileMe {
   final String id;
   final String displayName;
@@ -29,6 +71,15 @@ class ProfileMe {
   final String? personalitySummary;
   final List<String> personalityVibeTags;
 
+  /// Every badge with its earned state — locked ones included, so the profile
+  /// can show what is still available rather than silently omitting it.
+  final List<ProfileBadge> badges;
+
+  /// Needs completed for other people, and posted needs that reached
+  /// completion. Shown alongside the badges as the raw numbers behind them.
+  final int helpedNeedCount;
+  final int fulfilledPostedCount;
+
   const ProfileMe({
     required this.id,
     required this.displayName,
@@ -55,9 +106,15 @@ class ProfileMe {
     this.personalityNickname,
     this.personalitySummary,
     this.personalityVibeTags = const [],
+    this.badges = const [],
+    this.helpedNeedCount = 0,
+    this.fulfilledPostedCount = 0,
   });
 
   bool get hasPersonality => personalityTraits != null;
+
+  List<ProfileBadge> get earnedBadges =>
+      badges.where((b) => b.earned).toList(growable: false);
 
   PersonalityProfile? get personalityProfile => personalityTraits == null
       ? null
@@ -169,6 +226,9 @@ class ProfileMe {
       personalityNickname: profile['personalityNickname'] as String?,
       personalitySummary: profile['personalitySummary'] as String?,
       personalityVibeTags: personalityVibeTags,
+      badges: ProfileBadge.listFrom(j['badges']),
+      helpedNeedCount: (j['helpedNeedCount'] as num?)?.toInt() ?? 0,
+      fulfilledPostedCount: (j['fulfilledPostedCount'] as num?)?.toInt() ?? 0,
     );
   }
 }

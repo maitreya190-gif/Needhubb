@@ -18,6 +18,7 @@ import '../../services/social_providers.dart';
 import '../../services/uploads_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
+import '../../widgets/nh_badge_row.dart';
 import '../history/history_screen.dart';
 import '../hub/tabs/feed_tab.dart';
 import '../needs/need_detail_screen.dart';
@@ -589,6 +590,28 @@ class YouScreen extends ConsumerWidget {
                       );
                     },
                   ),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Badges (earned, server-computed) ─────────────────────
+                  Text(
+                    'BADGES',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: t.muted2,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Earned automatically from what you actually do. Each one adds to your Trust Score.',
+                    style: GoogleFonts.hankenGrotesk(
+                        fontSize: 12.5, color: t.muted),
+                  ),
+                  const SizedBox(height: 14),
+                  _BadgesSection(t: t),
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
@@ -1456,20 +1479,50 @@ class _CertTile extends StatelessWidget {
   }
 }
 
+// ── Badges (earned, computed server-side) ────────────────────────────────────
+
+/// Your own badges, including the ones still locked so you can see what is
+/// available to earn. The server decides what is earned — see `lib/badges.ts`.
+class _BadgesSection extends StatelessWidget {
+  final NeedHubTokens t;
+
+  const _BadgesSection({required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ProfileMe?>(
+      valueListenable: myProfileNotifier,
+      builder: (_, profile, __) {
+        final badges = profile?.badges ?? const <ProfileBadge>[];
+        final earned = badges.where((b) => b.earned).length;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (badges.isNotEmpty) ...[
+              Text(
+                '$earned of ${badges.length} earned',
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: t.ink,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            NhBadgeRow(badges: badges, t: t),
+          ],
+        );
+      },
+    );
+  }
+}
+
 // ── Achievements row (seal-style) ─────────────────────────────────────────────
 
 class _AchievementsRow extends StatelessWidget {
   final NeedHubTokens t;
 
   const _AchievementsRow({required this.t});
-
-  static const _mockItems = [
-    (icon: Icons.handshake_outlined, label: 'First Help', earned: true),
-    (icon: Icons.star_rounded, label: '5-Star', earned: true),
-    (icon: Icons.bolt_rounded, label: 'Quick Reply', earned: true),
-    (icon: Icons.emoji_events_outlined, label: 'Top Helper', earned: false),
-    (icon: Icons.diversity_3_outlined, label: 'Connector', earned: false),
-  ];
 
   static const _plum = Color(0xFF6B3FA0);
 
@@ -1488,15 +1541,31 @@ class _AchievementsRow extends StatelessWidget {
     return ValueListenableBuilder<List<MyAchievement>>(
       valueListenable: myAchievementsNotifier,
       builder: (_, real, __) {
-        // Build display list: real achievements first, then filler mocks.
-        final items = <({IconData icon, String label, bool earned})>[
-          ...real.map((a) => (
-                icon: _iconFor(a.category),
-                label: a.title.length > 12 ? a.title.substring(0, 12) : a.title,
-                earned: a.status == 'APPROVED',
-              )),
-          if (real.isEmpty) ..._mockItems,
-        ];
+        // Only real, user-submitted achievements. This row used to pad itself
+        // with five hardcoded placeholders when a user had none, three of them
+        // marked as earned — so every new account displayed achievements it
+        // had not earned. Earned badges are a separate, server-computed thing
+        // (see NhBadgeRow); this row is strictly uploaded certificates.
+        final items = real
+            .map((a) => (
+                  icon: _iconFor(a.category),
+                  label:
+                      a.title.length > 12 ? a.title.substring(0, 12) : a.title,
+                  earned: a.status == 'APPROVED',
+                ))
+            .toList();
+
+        if (items.isEmpty) {
+          return Text(
+            'Nothing submitted yet — add a certificate or competition win above.',
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: t.muted,
+            ),
+          );
+        }
+
         return SizedBox(
           height: 90,
           child: ListView.separated(
