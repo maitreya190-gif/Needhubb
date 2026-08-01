@@ -70,6 +70,63 @@ const RELIABILITY_NUDGE_UP = 0.05
 const RELIABILITY_NUDGE_DOWN = 0.08
 const RELIABILITY_NEUTRAL = 0.5
 
+/**
+ * Renewal-abuse guard: each renewal of the same need multiplies the final
+ * confidence by this much less, so repeatedly renewing cannot keep earning
+ * the same boost forever. Never fully zeroed — RENEWAL_DAMPENING_FLOOR keeps
+ * a small amount of headroom, because a need can legitimately still be
+ * urgent on its third renewal; it just cannot coast on the same evaluation
+ * it got the first time.
+ */
+export const RENEWAL_DAMPENING_PER_GENERATION = 0.15
+export const RENEWAL_DAMPENING_FLOOR = 0.3
+
+/** Multiplicative discount applied to confidence for a need at this renewal
+ * generation. Generation 0 (never renewed) returns 1 — no discount. */
+export function renewalDampeningFactor(renewalGeneration: number): number {
+  return Math.max(
+    RENEWAL_DAMPENING_FLOOR,
+    1 - Math.max(0, renewalGeneration) * RENEWAL_DAMPENING_PER_GENERATION,
+  )
+}
+
+// ── Visibility cap ───────────────────────────────────────────────────────────
+
+/**
+ * Bounds how many needs on one page can hold their urgency boost, so urgent
+ * posts nudge the order without ever being able to dominate a feed page or
+ * degrade its quality. Configurable via the three constants below rather
+ * than hardcoded inline, so the balance can be tuned without touching logic.
+ */
+export const URGENT_VISIBILITY_CAP_RATIO = 0.2
+export const URGENT_VISIBILITY_CAP_MIN = 3
+export const URGENT_VISIBILITY_CAP_MAX = 8
+
+/** How many needs on a page of this size may keep their urgency boost. */
+export function urgencyVisibilityCap(pageSize: number): number {
+  return Math.max(
+    URGENT_VISIBILITY_CAP_MIN,
+    Math.min(URGENT_VISIBILITY_CAP_MAX, Math.ceil(pageSize * URGENT_VISIBILITY_CAP_RATIO)),
+  )
+}
+
+/**
+ * Given every need's id and how much urgency contributed to its score,
+ * returns the ids allowed to keep that contribution — the top `cap` by
+ * contribution size. Everything else is NOT penalized (see requirement 4):
+ * the caller subtracts exactly the boost back out, returning those needs to
+ * precisely the score they would have had had they never opted into urgency
+ * at all. They stay fully visible in the feed, just without extra help
+ * climbing further once the cap is full.
+ */
+export function selectBoostedWithinCap(
+  items: { id: string; boost: number }[],
+  cap: number,
+): Set<string> {
+  const boosted = items.filter((i) => i.boost > 0).sort((a, b) => b.boost - a.boost)
+  return new Set(boosted.slice(0, cap).map((i) => i.id))
+}
+
 // ── AI evaluation ────────────────────────────────────────────────────────────
 
 export interface UrgencyEvalInput {
@@ -87,6 +144,16 @@ export interface UrgencyEvalInput {
    * approximation (see marketPressure below), not a precise market model.
    */
   marketPressure: number
+  /** 0 for an original need; N+1 for a need renewed from generation N. */
+  renewalGeneration: number
+}
+
+export interface UrgencyEvalResult {
+  confidence: number
+  /** Short natural-language summary of the AI's reasoning, including its
+   * delay-cost read — stored only in UrgencyEvaluationLog, never surfaced. */
+  reasoning: string | null
+  usedLlm: boolean
 }
 
 const SYSTEM_PROMPT = `You are an urgency-justification evaluator for NeedHub.
@@ -96,30 +163,51 @@ justified that urgency actually is, from the text alone — the timeframe, the
 nature of the task, and whether the language matches genuine time pressure
 versus an attempt to game visibility.
 
-Return STRICT JSON: { "confidence": number } where confidence is in [0, 1].
-0 = not justified (vague, no real time pressure, or deadline implausible for
-the task). 1 = clearly and specifically time-critical.
+Weigh delay cost explicitly: would the real-world value of fulfilling this
+request drop significantly if it were delayed by even a few hours — e.g. "need
+a ride to catch my flight in 2 hours", "need a proofreader before my 5pm
+submission"? That is genuinely high-urgency. Contrast with a request that
+stays just as useful later despite carrying a deadline — e.g. "need a tutor
+sometime this week, urgent!" — which should score lower even with a similar
+stated timeframe, because delaying it costs little.
+
+Return STRICT JSON: { "confidence": number, "reasoning": string } where
+confidence is in [0, 1] and reasoning is one short sentence explaining the
+judgment, including the delay-cost read. 0 = not justified (vague, no real
+time pressure, low delay cost, or deadline implausible for the task). 1 =
+clearly and specifically time-critical with high delay cost.
 Be balanced: most genuine urgent requests should land between 0.4 and 0.8.
 Reserve extremes for clear cases. Return ONLY the JSON object.`
 
 /**
  * Silent server-side judgment of how justified a need's urgency claim is.
- * Blends an LLM read of the text with cheap structural heuristics (deadline
- * plausibility, poster trust, this poster's urgency track record, local
- * pressure). Never throws — on any failure this falls back to the heuristic
- * half alone, because urgency evaluation is an enhancement to a need that
- * already exists; it must never be able to block or fail need creation.
+ * Blends an LLM read of the text (including an explicit delay-cost read —
+ * see the prompt) with cheap structural heuristics (deadline plausibility,
+ * poster trust, this poster's urgency track record, local pressure), then
+ * applies a renewal-abuse discount. Never throws — on any failure this falls
+ * back to the heuristic half alone, because urgency evaluation is an
+ * enhancement to a need that already exists; it must never be able to block
+ * or fail need creation.
  */
-export async function evaluateUrgency(input: UrgencyEvalInput): Promise<number> {
+export async function evaluateUrgency(input: UrgencyEvalInput): Promise<UrgencyEvalResult> {
   const heuristic = heuristicUrgencyScore(input)
-  const llmScore = await tryLlmUrgencyScore(input)
-  if (llmScore == null) return heuristic
+  const llm = await tryLlmUrgencyScore(input)
   // LLM reads the text; heuristics ground it in this user's actual history.
   // Heuristic keeps a majority say so a well-written but ungrounded claim
   // from a low-reliability poster can't fully override their track record.
-  return clamp01(0.45 * llmScore + 0.55 * heuristic)
+  const blended = llm == null ? heuristic : clamp01(0.45 * llm.confidence + 0.55 * heuristic)
+  const dampened = clamp01(blended * renewalDampeningFactor(input.renewalGeneration))
+  return { confidence: dampened, reasoning: llm?.reasoning ?? null, usedLlm: llm != null }
 }
 
+/**
+ * Honest limitation: this cannot actually assess delay cost — "does the
+ * value of this request drop if delayed" is a reading-comprehension judgment
+ * only the LLM half can make (see the prompt). Deadline plausibility is the
+ * closest structural proxy available when the LLM is unavailable, which is
+ * why heuristic-only mode leans on it more heavily than the blended score
+ * does.
+ */
 function heuristicUrgencyScore(input: UrgencyEvalInput): number {
   const hoursToDeadline = (input.deadline.getTime() - input.createdAt.getTime()) / 3_600_000
   // A deadline that's implausibly soon (minutes away) or very far out (weeks)
@@ -144,7 +232,9 @@ function heuristicUrgencyScore(input: UrgencyEvalInput): number {
   )
 }
 
-async function tryLlmUrgencyScore(input: UrgencyEvalInput): Promise<number | null> {
+async function tryLlmUrgencyScore(
+  input: UrgencyEvalInput,
+): Promise<{ confidence: number; reasoning: string | null } | null> {
   const baseUrl = process.env.LLM_BASE_URL
   const key = config.llmApiKey
   const model = config.llmModel
@@ -181,9 +271,12 @@ async function tryLlmUrgencyScore(input: UrgencyEvalInput): Promise<number | nul
     const raw = data.choices?.[0]?.message?.content?.trim()
     if (!raw) return null
     const stripped = raw.replace(/^```(?:json)?\s*|\s*```$/g, '')
-    const parsed = JSON.parse(stripped) as { confidence?: unknown }
+    const parsed = JSON.parse(stripped) as { confidence?: unknown; reasoning?: unknown }
     if (typeof parsed.confidence !== 'number' || Number.isNaN(parsed.confidence)) return null
-    return clamp01(parsed.confidence)
+    return {
+      confidence: clamp01(parsed.confidence),
+      reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning.slice(0, 500) : null,
+    }
   } catch (err) {
     console.error('[urgency] LLM evaluation unavailable, using heuristic only', err)
     return null
@@ -310,6 +403,18 @@ export function rescueScoreBonus(stage: RescueStage): number {
   return stage === 3 ? RESCUE_STAGE3_BONUS : 0
 }
 
+/**
+ * Total urgency contribution to a need's rank score: the deadline-proximity
+ * boost plus any Rescue Mode bonus. The single source of truth for "how much
+ * did urgency add here" — scoreNeed folds it straight into the total, and
+ * the feed's visibility cap (see selectBoostedWithinCap) uses this same
+ * number to know exactly how much to subtract back out for needs beyond the
+ * cap, returning them to precisely their non-urgent score.
+ */
+export function urgencyRankContribution(need: UrgencyRankInput, responseCount: number, now: Date = new Date()): number {
+  return computeUrgencyBoost(need, now) + rescueScoreBonus(computeRescueStage(need, responseCount, now))
+}
+
 // ── Expiry (pure predicate — no I/O) ────────────────────────────────────────
 
 /**
@@ -432,14 +537,19 @@ export interface UrgentNeedRecord {
   connectCategory: ConnectCategory | null
   deadline: Date | null
   createdAt: Date
+  renewalGeneration: number
 }
 
 /**
  * Gathers every input evaluateUrgency needs (trust score, this poster's
  * urgency track record, local market pressure), runs the evaluation, and
- * writes the result. Called fire-and-forget right after an urgent need is
- * created — see the POST /needs handler — so it can take its time without
- * ever delaying the user's post.
+ * writes the result plus an internal-only UrgencyEvaluationLog row. Called
+ * fire-and-forget right after an urgent need is created (POST /needs), after
+ * it is renewed (POST /needs/:id/renew), and after an edit that changes its
+ * title, description or deadline (PATCH /needs/:id) — the same function
+ * serves all three, since each is just "this need's urgency claim needs a
+ * fresh look." Never awaited on a response path, so it can take its time
+ * without ever delaying the user's action.
  *
  * A need with no deadline should not reach here (creation validates that
  * isUrgent requires one), but this stays a no-op rather than throwing if it
@@ -483,7 +593,7 @@ export async function evaluateAndStoreUrgency(
     earnedBadgeCount: earnedBadgeCount(badgeInputs),
   })
 
-  const confidence = await evaluateUrgency({
+  const result = await evaluateUrgency({
     title: need.title,
     description: need.description,
     category: need.earnCategory ?? need.connectCategory ?? need.needType,
@@ -492,12 +602,32 @@ export async function evaluateAndStoreUrgency(
     trustScore,
     reliability,
     marketPressure: pressure,
+    renewalGeneration: need.renewalGeneration,
   })
 
   try {
-    await prisma.need.update({ where: { id: need.id }, data: { urgencyConfidence: confidence } })
+    await prisma.need.update({
+      where: { id: need.id },
+      data: { urgencyConfidence: result.confidence },
+    })
   } catch (err) {
     console.error('[urgency] failed to store confidence for need', need.id, err)
+  }
+
+  // Internal-only — see UrgencyEvaluationLog's doc comment in schema.prisma.
+  // A logging failure must never be treated as an evaluation failure.
+  try {
+    await prisma.urgencyEvaluationLog.create({
+      data: {
+        needId: need.id,
+        confidence: result.confidence,
+        reasoning: result.reasoning,
+        usedLlm: result.usedLlm,
+        renewalGeneration: need.renewalGeneration,
+      },
+    })
+  } catch (err) {
+    console.error('[urgency] failed to write evaluation log for need', need.id, err)
   }
 }
 

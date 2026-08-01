@@ -17,7 +17,8 @@ import { earnedBadgeCount } from '../../lib/badges'
 import { fetchTrackRecord, fetchTrackRecords, toBadgeInputs, totalFulfilledCount } from '../../lib/track-record'
 import {
   evaluateAndStoreUrgency, stripInternalUrgencyFields,
-  computeUrgencyBoost, computeRescueStage, rescueScoreBonus, rescueDistanceMultiplier,
+  computeRescueStage, rescueDistanceMultiplier, urgencyRankContribution,
+  urgencyVisibilityCap, selectBoostedWithinCap,
   isExpired, expireIfNeeded, recordUrgentNeedFulfilled,
 } from '../../lib/urgency'
 import { tagNeedsByEmbedding } from '../../lib/need-tagging'
@@ -413,16 +414,34 @@ needsRouter.get('/', async (req, res, next) => {
       }
     }
 
-    type Ranked = Filtered & { score: number; semantic: number | null }
+    type Ranked = Filtered & { score: number; semantic: number | null; urgencyBoost: number }
     const ranked: Ranked[] = filtered.map((f) => {
       const semantic = needSimilarityById.get(f.need.id) ?? null
       const trustScore = trustScoreByPoster.get(f.need.posterId) ?? 0
       return {
         ...f,
         semantic,
+        urgencyBoost: urgencyRankContribution(f.need, f.need._count.responses),
         score: scoreNeed(f.need, f.distanceKm, userInterests, semantic, trustScore, f.need._count.responses),
       }
     })
+
+    // Visibility cap: only a configured number of needs per page may keep
+    // their urgency boost, so urgent posts nudge the order without ever
+    // being able to dominate a page or crowd out organic results. Needs
+    // beyond the cap are not penalized (no rejection, no score below
+    // baseline) — they simply fall back to exactly the score they would
+    // have had without Urgency Mode, same as any other need.
+    const urgentCap = urgencyVisibilityCap(ranked.length)
+    const allowedToKeepBoost = selectBoostedWithinCap(
+      ranked.map((r) => ({ id: r.need.id, boost: r.urgencyBoost })),
+      urgentCap,
+    )
+    for (const r of ranked) {
+      if (r.urgencyBoost > 0 && !allowedToKeepBoost.has(r.need.id)) {
+        r.score -= r.urgencyBoost
+      }
+    }
 
     // Sort. "smart" = personalized ranking, "newest" = createdAt DESC, "distance" = nearest first.
     if (sortMode === 'newest') {
@@ -509,8 +528,7 @@ export function scoreNeed(
   trustScore: number, // 0-100, ignored for EARN needs
   responseCount: number,
 ): number {
-  const urgencyBoost =
-    computeUrgencyBoost(need) + rescueScoreBonus(computeRescueStage(need, responseCount))
+  const urgencyBoost = urgencyRankContribution(need, responseCount)
   // Proximity — 1 at 0km, 0 at 30km+, linear decay.
   const proximityScore = distanceKm == null
     ? 0.5
@@ -644,6 +662,11 @@ const editNeedSchema = z.object({
   budgetMin: z.number().int().min(0).nullable().optional(),
   budgetMax: z.number().int().min(0).nullable().optional(),
   locationText: z.string().optional(),
+  // Urgency deadline — editable so a poster can adjust it without deleting
+  // and reposting. Only meaningful when the need is already urgent; edits on
+  // a non-urgent need still store it (matches how deadline already behaved
+  // pre-Urgency-Mode) but trigger nothing further.
+  deadline: z.string().nullable().optional(),
 })
 
 needsRouter.patch('/:id', authenticate, async (req, res, next) => {
@@ -656,6 +679,10 @@ needsRouter.patch('/:id', authenticate, async (req, res, next) => {
     if (need.posterId !== userId) return next(forbidden('Only the poster can edit this need', 'NOT_POSTER'))
     if (need.status === 'FULFILLED') return next(forbidden('Cannot edit a frozen/fulfilled need', 'NEED_FROZEN'))
 
+    const newDeadline = parsed.data.deadline !== undefined
+      ? (parsed.data.deadline ? new Date(parsed.data.deadline) : null)
+      : undefined
+
     const updated = await prisma.need.update({
       where: { id: need.id },
       data: {
@@ -665,8 +692,24 @@ needsRouter.patch('/:id', authenticate, async (req, res, next) => {
         ...(parsed.data.budgetMin !== undefined && { budgetMin: parsed.data.budgetMin }),
         ...(parsed.data.budgetMax !== undefined && { budgetMax: parsed.data.budgetMax }),
         ...(parsed.data.locationText !== undefined && { locationText: parsed.data.locationText }),
+        ...(newDeadline !== undefined && { deadline: newDeadline }),
       },
     })
+
+    // Automatic re-evaluation: any edit that actually changes title,
+    // description or deadline on an urgent need invalidates the confidence
+    // computed for the old text/date, so a fresh evaluation runs — same
+    // fire-and-forget call used at creation and renewal.
+    const titleChanged = parsed.data.title !== undefined && parsed.data.title !== need.title
+    const descriptionChanged =
+      parsed.data.description !== undefined && parsed.data.description !== need.description
+    const deadlineChanged =
+      newDeadline !== undefined && (newDeadline?.getTime() ?? null) !== (need.deadline?.getTime() ?? null)
+    if (need.isUrgent && (titleChanged || descriptionChanged || deadlineChanged)) {
+      evaluateAndStoreUrgency(updated, userId).catch((err: unknown) =>
+        console.error('[urgency] re-evaluation failed for edited need', updated.id, err))
+    }
+
     res.json(stripInternalUrgencyFields(updated))
   } catch (err) { next(err) }
 })
@@ -727,6 +770,10 @@ needsRouter.post('/:id/renew', authenticate, async (req, res, next) => {
         isPaid: need.isPaid,
         isUrgent: true,
         deadline,
+        // Renewal-abuse guard: each generation dampens the confidence this
+        // need can earn (see renewalDampeningFactor) — repeatedly renewing
+        // the same need cannot keep the same boost forever.
+        renewalGeneration: need.renewalGeneration + 1,
       },
     })
 

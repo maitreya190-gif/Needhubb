@@ -36,8 +36,11 @@ vi.mock('../prisma', () => ({
 import {
   computeUrgencyBoost, computeRescueStage, rescueDistanceMultiplier, rescueScoreBonus,
   isExpired, expireIfNeeded, marketPressure, getReliability, recordUrgentNeedCreated,
-  recordUrgentNeedFulfilled, stripInternalUrgencyFields,
+  recordUrgentNeedFulfilled, stripInternalUrgencyFields, urgencyRankContribution,
+  renewalDampeningFactor, urgencyVisibilityCap, selectBoostedWithinCap,
   URGENCY_MAX_BOOST, RESCUE_MIN_CONFIDENCE,
+  RENEWAL_DAMPENING_PER_GENERATION, RENEWAL_DAMPENING_FLOOR,
+  URGENT_VISIBILITY_CAP_MIN, URGENT_VISIBILITY_CAP_MAX, URGENT_VISIBILITY_CAP_RATIO,
 } from '../urgency'
 
 function h(hours: number): Date {
@@ -246,5 +249,110 @@ describe('reliability nudges are applied exactly once', () => {
     const updateArg = mocks.urgencyProfileUpsert.mock.calls[0][0].update
     expect(updateArg.reliability).toBeGreaterThan(0.9) // nudged up further
     expect(updateArg.reliability).toBeLessThanOrEqual(1) // still clamped
+  })
+})
+
+// ── Requirement 3: renewal awareness ────────────────────────────────────────
+
+describe('renewalDampeningFactor', () => {
+  it('is 1 (no discount) for a need that has never been renewed', () => {
+    expect(renewalDampeningFactor(0)).toBe(1);
+  })
+
+  it('strictly decreases with each additional renewal generation', () => {
+    const g0 = renewalDampeningFactor(0);
+    const g1 = renewalDampeningFactor(1);
+    const g2 = renewalDampeningFactor(2);
+    expect(g1).toBeLessThan(g0);
+    expect(g2).toBeLessThan(g1);
+  })
+
+  it('matches the documented per-generation discount exactly at generation 1', () => {
+    expect(renewalDampeningFactor(1)).toBeCloseTo(1 - RENEWAL_DAMPENING_PER_GENERATION, 6);
+  })
+
+  it('never drops below the configured floor, however many times renewed', () => {
+    expect(renewalDampeningFactor(50)).toBe(RENEWAL_DAMPENING_FLOOR);
+    expect(renewalDampeningFactor(1000)).toBe(RENEWAL_DAMPENING_FLOOR);
+  })
+
+  it('treats a negative generation the same as zero rather than boosting it', () => {
+    expect(renewalDampeningFactor(-5)).toBe(1);
+  })
+})
+
+// ── Requirement 6: visibility cap ───────────────────────────────────────────
+
+describe('urgencyVisibilityCap', () => {
+  it('never goes below the configured minimum, even for a tiny page', () => {
+    expect(urgencyVisibilityCap(1)).toBeGreaterThanOrEqual(URGENT_VISIBILITY_CAP_MIN);
+    expect(urgencyVisibilityCap(0)).toBeGreaterThanOrEqual(URGENT_VISIBILITY_CAP_MIN);
+  })
+
+  it('never exceeds the configured maximum, even for a huge page', () => {
+    expect(urgencyVisibilityCap(10_000)).toBeLessThanOrEqual(URGENT_VISIBILITY_CAP_MAX);
+  })
+
+  it('scales with page size within the configured ratio, between the bounds', () => {
+    // Pick a page size where ratio * size lands strictly between min and max.
+    const size = Math.round((URGENT_VISIBILITY_CAP_MIN + 1) / URGENT_VISIBILITY_CAP_RATIO);
+    const cap = urgencyVisibilityCap(size);
+    expect(cap).toBe(Math.ceil(size * URGENT_VISIBILITY_CAP_RATIO));
+  })
+})
+
+describe('selectBoostedWithinCap', () => {
+  it('keeps every boosted need when the cap is not reached', () => {
+    const items = [{ id: 'a', boost: 0.1 }, { id: 'b', boost: 0.2 }];
+    const allowed = selectBoostedWithinCap(items, 5);
+    expect(allowed.has('a')).toBe(true);
+    expect(allowed.has('b')).toBe(true);
+  })
+
+  it('keeps the strongest N and drops the rest once the cap is reached', () => {
+    const items = [
+      { id: 'low', boost: 0.05 },
+      { id: 'mid', boost: 0.1 },
+      { id: 'high', boost: 0.2 },
+    ];
+    const allowed = selectBoostedWithinCap(items, 2);
+    expect(allowed.has('high')).toBe(true);
+    expect(allowed.has('mid')).toBe(true);
+    expect(allowed.has('low')).toBe(false);
+    expect(allowed.size).toBe(2);
+  })
+
+  it('ignores needs with zero or negative boost entirely — nothing to cap', () => {
+    const items = [{ id: 'a', boost: 0 }, { id: 'b', boost: -1 }];
+    expect(selectBoostedWithinCap(items, 5).size).toBe(0);
+  })
+
+  it('a cap of zero allows nothing through, regardless of boost size', () => {
+    const items = [{ id: 'a', boost: 0.9 }];
+    expect(selectBoostedWithinCap(items, 0).size).toBe(0);
+  })
+})
+
+// ── Requirement 4: graceful fallback ─────────────────────────────────────────
+
+describe('graceful fallback — low confidence never penalizes, only withholds boost', () => {
+  it('urgencyRankContribution is exactly 0, never negative, at zero confidence', () => {
+    const need = { isUrgent: true, urgencyConfidence: 0, deadline: h(2), status: 'OPEN' };
+    expect(urgencyRankContribution(need, 0)).toBe(0);
+  })
+
+  it('urgencyRankContribution matches computeUrgencyBoost + rescueScoreBonus exactly — single source of truth', () => {
+    const need = { isUrgent: true, urgencyConfidence: 0.6, deadline: h(3), status: 'OPEN' };
+    const expected = computeUrgencyBoost(need) + rescueScoreBonus(computeRescueStage(need, 0));
+    expect(urgencyRankContribution(need, 0)).toBeCloseTo(expected, 9);
+  })
+
+  it('a barely-justified need still gets counted, not rejected — just a small nudge', () => {
+    const need = { isUrgent: true, urgencyConfidence: 0.01, deadline: h(1), status: 'OPEN' };
+    const contribution = urgencyRankContribution(need, 0);
+    expect(contribution).toBeGreaterThanOrEqual(0);
+    // Never throws, never returns null/undefined — the need stays fully
+    // scoreable through the normal pipeline.
+    expect(typeof contribution).toBe('number');
   })
 })

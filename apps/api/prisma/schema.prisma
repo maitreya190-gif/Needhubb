@@ -234,12 +234,41 @@ model Need {
   // Set once, silently, right after creation when isUrgent is true. Read only
   // by the ranking pipeline — never selected into any client-facing response.
   urgencyConfidence Float?
+  // 0 for an original need; N+1 for the need created by renewing a need at
+  // generation N. Dampens the urgency boost each renewal can earn, so
+  // repeatedly renewing the same need cannot keep the same visibility
+  // forever — see renewalDampeningFactor in lib/urgency.ts.
+  renewalGeneration Int     @default(0)
 
   poster     User               @relation("PosterNeeds", fields: [posterId], references: [id], onDelete: Cascade)
   parentNeed Need?              @relation("SubNeeds", fields: [parentNeedId], references: [id])
   subNeeds   Need[]             @relation("SubNeeds")
   responses  InterestResponse[]
   reviews    Review[]
+  urgencyEvaluationLogs UrgencyEvaluationLog[]
+}
+
+// Internal-only record of each urgency AI evaluation — the "why" behind a
+// urgencyConfidence value, kept for debugging and for improving future
+// evaluations. Never joined into any needs-router select/include, and there
+// is no route that returns it: unlike Need.urgencyConfidence, which needs
+// stripInternalUrgencyFields() to stay hidden, this is invisible by
+// construction — nothing reads it back into a response.
+model UrgencyEvaluationLog {
+  id                String   @id @default(cuid())
+  needId            String
+  confidence        Float
+  // Short natural-language summary from the LLM of why it judged the
+  // urgency the way it did (including the delay-cost read). Null when the
+  // LLM was unavailable and the evaluation fell back to heuristics alone.
+  reasoning         String?
+  usedLlm           Boolean
+  renewalGeneration Int
+  createdAt         DateTime @default(now())
+
+  need Need @relation(fields: [needId], references: [id], onDelete: Cascade)
+
+  @@index([needId])
 }
 
 model InterestResponse {
