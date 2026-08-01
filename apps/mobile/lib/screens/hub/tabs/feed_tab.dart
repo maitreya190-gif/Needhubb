@@ -25,6 +25,86 @@ import '../conversation_screen.dart';
 import '../view_on_map_screen.dart';
 import 'package:needhub/services/messaging_api.dart';
 
+// ── Feed filtering & sorting ─────────────────────────────────────────────────
+// Earn and Connect share these so the two surfaces can't drift apart again.
+
+/// Lowercases and collapses punctuation to single spaces so "Non-binary",
+/// "non binary" and "Non_Binary" all compare equal.
+String _normalizeTerm(String s) =>
+    s.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
+/// Whole-word match with light plural tolerance, so "Sports" hits
+/// "local sports groups" but "Art" does not hit "Martial".
+bool _termMatches(String haystack, String term) {
+  final h = _normalizeTerm(haystack);
+  final tm = _normalizeTerm(term);
+  if (tm.isEmpty || h.isEmpty) return false;
+  if (h == tm) return true;
+  // Multi-word terms ("UI design") match as a contiguous phrase.
+  if (tm.contains(' ')) return h.contains(tm);
+  for (final w in h.split(' ')) {
+    if (w == tm || w == '${tm}s' || '${w}s' == tm) return true;
+  }
+  return false;
+}
+
+/// Every text signal a chip may legitimately match against.
+List<String> _needHaystack(Need n) =>
+    [...n.posterInterests, ...n.tags, n.title, n.description];
+
+bool _needMatchesFilter(Need n, FeedFilter filter) {
+  // The slider's top notch (50) is labelled "50+ km (Any)" in the filter
+  // sheet, so it must mean no limit — not a hard 50km cut.
+  if (filter.maxDistanceKm < 50 &&
+      n.distanceKm != null &&
+      n.distanceKm! > filter.maxDistanceKm) {
+    return false;
+  }
+  if (filter.minBudget != null &&
+      (n.budgetMin == null || n.budgetMin! < filter.minBudget!)) {
+    return false;
+  }
+  if (filter.maxBudget != null &&
+      n.budgetMin != null &&
+      n.budgetMin! > filter.maxBudget!) {
+    return false;
+  }
+  // Gender is one-of by nature (a poster has a single gender), so selecting
+  // several widens. A poster who never set a gender can't satisfy an
+  // explicit gender filter.
+  if (filter.genders.isNotEmpty) {
+    final g = n.posterGender;
+    if (g == null) return false;
+    if (!filter.genders.any((f) => _normalizeTerm(f) == _normalizeTerm(g))) {
+      return false;
+    }
+  }
+  // Interests and skills are AND: stacking chips narrows to needs common to
+  // every chip, rather than widening the list.
+  final haystack = _needHaystack(n);
+  if (filter.interests
+      .any((i) => !haystack.any((h) => _termMatches(h, i)))) {
+    return false;
+  }
+  if (filter.skills.any((s) => !haystack.any((h) => _termMatches(h, s)))) {
+    return false;
+  }
+  return true;
+}
+
+List<Need> _filterAndSortNeeds(List<Need> source, FeedFilter filter) {
+  final out = source.where((n) => _needMatchesFilter(n, filter)).toList();
+  if (filter.sortBy == 'nearest') {
+    out.sort((a, b) => (a.distanceKm ?? double.infinity)
+        .compareTo(b.distanceKm ?? double.infinity));
+  } else if (filter.sortBy == 'highest_points') {
+    out.sort((a, b) => (b.budgetMin ?? 0).compareTo(a.budgetMin ?? 0));
+  } else {
+    out.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+  return out;
+}
+
 class FeedTab extends ConsumerStatefulWidget {
   final String initialSurface;
 
@@ -386,32 +466,27 @@ class _ConnectFeedState extends State<_ConnectFeed> {
   Widget build(BuildContext context) {
     final t = widget.t;
     final filter = connectFilterNotifier.value;
+    // Same rules as needs: 50 means "any distance", explicit gender filters
+    // exclude unknown-gender profiles, and interests/skills are AND.
     var filteredPeople = mockPeople.where((p) {
-      if (p.distanceKm > filter.maxDistanceKm) return false;
-      if (filter.genders.isNotEmpty &&
-          p.gender != null &&
-          !filter.genders.contains(p.gender)) {
+      if (filter.maxDistanceKm < 50 && p.distanceKm > filter.maxDistanceKm) {
         return false;
       }
-      if (filter.interests.isNotEmpty) {
-        final hasOverlap = p.interests.any(
-          (i) => filter.interests.any(
-            (fi) =>
-                i.toLowerCase().contains(fi.toLowerCase()) ||
-                fi.toLowerCase().contains(i.toLowerCase()),
-          ),
-        );
-        if (!hasOverlap) return false;
+      if (filter.genders.isNotEmpty) {
+        final g = p.gender;
+        if (g == null) return false;
+        if (!filter.genders
+            .any((f) => _normalizeTerm(f) == _normalizeTerm(g))) {
+          return false;
+        }
       }
-      if (filter.skills.isNotEmpty) {
-        final hasSkill = p.skills.any(
-          (s) => filter.skills.any(
-            (fs) =>
-                s.toLowerCase().contains(fs.toLowerCase()) ||
-                fs.toLowerCase().contains(s.toLowerCase()),
-          ),
-        );
-        if (!hasSkill) return false;
+      final haystack = [...p.interests, ...p.skills];
+      if (filter.interests
+          .any((i) => !haystack.any((h) => _termMatches(h, i)))) {
+        return false;
+      }
+      if (filter.skills.any((s) => !haystack.any((h) => _termMatches(h, s)))) {
+        return false;
       }
       return true;
     }).toList();
@@ -422,52 +497,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
       filteredPeople.sort((a, b) => b.points.compareTo(a.points));
     }
 
-    var needs = widget.needs.where((n) {
-      if (n.distanceKm != null && n.distanceKm! > filter.maxDistanceKm) {
-        return false;
-      }
-      if (filter.minBudget != null &&
-          (n.budgetMin == null || n.budgetMin! < filter.minBudget!)) {
-        return false;
-      }
-      if (filter.maxBudget != null &&
-          n.budgetMin != null &&
-          n.budgetMin! > filter.maxBudget!) {
-        return false;
-      }
-      if (filter.genders.isNotEmpty &&
-          n.posterGender != null &&
-          !filter.genders.contains(n.posterGender)) {
-        return false;
-      }
-      if (filter.interests.isNotEmpty) {
-        final haystack = [...n.posterInterests, ...n.tags];
-        final hasMatch = haystack.any(
-          (h) => filter.interests.any(
-            (fi) =>
-                h.toLowerCase().contains(fi.toLowerCase()) ||
-                fi.toLowerCase().contains(h.toLowerCase()),
-          ),
-        );
-        if (!hasMatch) return false;
-      }
-      if (filter.skills.isNotEmpty) {
-        final hasSkill = filter.skills.any(
-          (sk) =>
-              n.title.toLowerCase().contains(sk.toLowerCase()) ||
-              n.description.toLowerCase().contains(sk.toLowerCase()) ||
-              n.tags.any((t) => t.toLowerCase().contains(sk.toLowerCase())),
-        );
-        if (!hasSkill) return false;
-      }
-      return true;
-    }).toList();
-
-    if (filter.sortBy == 'newest') {
-      needs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    } else if (filter.sortBy == 'nearest') {
-      needs.sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
-    }
+    final needs = _filterAndSortNeeds(widget.needs, filter);
 
     final activeCount = filter.filterCount;
 
@@ -853,59 +883,7 @@ class _EarnFeedState extends State<_EarnFeed> {
   Widget build(BuildContext context) {
     final t = widget.t;
     final filter = earnFilterNotifier.value;
-    var needs = widget.needs.where((n) {
-      if (n.distanceKm != null && n.distanceKm! > filter.maxDistanceKm) {
-        return false;
-      }
-      if (filter.minBudget != null &&
-          (n.budgetMin == null || n.budgetMin! < filter.minBudget!)) {
-        return false;
-      }
-      if (filter.maxBudget != null &&
-          n.budgetMin != null &&
-          n.budgetMin! > filter.maxBudget!) {
-        return false;
-      }
-      if (filter.genders.isNotEmpty &&
-          n.posterGender != null &&
-          !filter.genders.contains(n.posterGender)) {
-        return false;
-      }
-      if (filter.interests.isNotEmpty) {
-        // Match against the poster's actual declared interests AND the
-        // need's category tags — the filter chips (Flutter, Chess, Coffee…)
-        // are interest labels, not category names, so posterInterests is
-        // the field that's actually comparable; tags is kept as a fallback.
-        final haystack = [...n.posterInterests, ...n.tags];
-        final hasMatch = haystack.any(
-          (h) => filter.interests.any(
-            (fi) =>
-                h.toLowerCase().contains(fi.toLowerCase()) ||
-                fi.toLowerCase().contains(h.toLowerCase()),
-          ),
-        );
-        if (!hasMatch) return false;
-      }
-      if (filter.skills.isNotEmpty) {
-        final hasSkill = filter.skills.any(
-          (sk) =>
-              n.title.toLowerCase().contains(sk.toLowerCase()) ||
-              n.description.toLowerCase().contains(sk.toLowerCase()) ||
-              n.tags.any((t) => t.toLowerCase().contains(sk.toLowerCase())),
-        );
-        if (!hasSkill) return false;
-      }
-      return true;
-    }).toList();
-
-    if (filter.sortBy == 'newest') {
-      needs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    } else if (filter.sortBy == 'nearest') {
-      needs
-          .sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
-    } else if (filter.sortBy == 'highest_points') {
-      needs.sort((a, b) => (b.budgetMin ?? 0).compareTo(a.budgetMin ?? 0));
-    }
+    final needs = _filterAndSortNeeds(widget.needs, filter);
 
     final activeCount = filter.filterCount;
 
