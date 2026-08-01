@@ -354,6 +354,7 @@ enum NotificationType {
   CERT_REJECTED
   REDEMPTION_READY
   REPORT_ACTIONED
+  SKILL_MATCH_NEED
 }
 
 enum RedemptionStatus {

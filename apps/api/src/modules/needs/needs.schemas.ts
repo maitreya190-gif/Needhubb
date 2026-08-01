@@ -44,6 +44,7 @@ export const feedQuery = z.object({
   lng: z.coerce.number().optional(),
   take: z.coerce.number().min(1).max(100).default(30),
   skip: z.coerce.number().min(0).default(0),
+  status: status.optional(),
 })
 
 export const respondBody = z.object({

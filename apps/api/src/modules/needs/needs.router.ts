@@ -9,6 +9,7 @@ import {
   embedBatch, cosineSimilarity, needSignalText, userSignalText, embeddingsAvailable,
 } from '../../lib/embeddings'
 import { pushNotification } from '../../lib/notifications'
+import { notifyMatchingSkillUsers } from '../../lib/skill-matching'
 import { getIo, emitToUser } from '../../lib/socket'
 import { getSystemUserId } from '../../lib/system-user'
 import { computeTrustScore } from '../../lib/trust-score'
@@ -119,6 +120,14 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
     const isFirstNeed = priorNeedCount === 0
 
     const created = await prisma.$transaction(async (tx) => {
+      const profile = await tx.profile.findUnique({
+        where: { userId },
+        select: { lat: true, lng: true, locationText: true },
+      })
+      const defaultLat = profile?.lat ?? null
+      const defaultLng = profile?.lng ?? null
+      const defaultLoc = profile?.locationText ?? null
+
       const [first, ...rest] = needs
       const parent = await tx.need.create({
         data: {
@@ -131,9 +140,9 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
           budgetMin: first.budgetMin,
           budgetMax: first.budgetMax,
           deadline: first.deadline ? new Date(first.deadline) : null,
-          locationText: first.locationText ?? null,
-          lat: first.lat ?? null,
-          lng: first.lng ?? null,
+          locationText: first.locationText ?? defaultLoc,
+          lat: first.lat ?? defaultLat,
+          lng: first.lng ?? defaultLng,
           isPaid: first.budgetMin != null || first.budgetMax != null,
         },
       })
@@ -150,9 +159,9 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
             budgetMin: n.budgetMin,
             budgetMax: n.budgetMax,
             deadline: n.deadline ? new Date(n.deadline) : null,
-            locationText: n.locationText ?? null,
-            lat: n.lat ?? null,
-            lng: n.lng ?? null,
+            locationText: n.locationText ?? defaultLoc,
+            lat: n.lat ?? defaultLat,
+            lng: n.lng ?? defaultLng,
             isPaid: n.budgetMin != null || n.budgetMax != null,
             parentNeedId: parent.id,
           },
@@ -202,6 +211,16 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
 
     // Broadcast new need to all connected users so feeds update instantly
     try { getIo()?.emit('new_need', created.parent) } catch {}
+
+    // Check & notify users whose selected skills match the new need
+    notifyMatchingSkillUsers(created.parent).catch((err) =>
+      console.error('[skill-matching] Error notifying for parent need:', err),
+    )
+    for (const sub of created.subs) {
+      notifyMatchingSkillUsers(sub).catch((err) =>
+        console.error('[skill-matching] Error notifying for sub need:', err),
+      )
+    }
 
     res.status(201).json({
       parent: created.parent,
@@ -253,7 +272,7 @@ needsRouter.get('/', async (req, res, next) => {
     // Neon's HTTP driver keeps this fast enough for the demo scale.
     const needsRaw = await prisma.need.findMany({
       where: {
-        status: 'OPEN',
+        status: q.status ?? 'OPEN',
         parentNeedId: null,
         ...(q.type ? { needType: q.type } : {}),
         ...(q.minBudget != null ? { budgetMax: { gte: q.minBudget } } : {}),
@@ -316,8 +335,10 @@ needsRouter.get('/', async (req, res, next) => {
 
       // Distance filter (hard cap — user's chosen radius).
       let distanceKm: number | null = null
-      if (userLat != null && userLng != null && n.lat != null && n.lng != null) {
-        distanceKm = haversineKm(userLat, userLng, n.lat, n.lng)
+      const needLat = n.lat ?? n.poster.profile?.lat ?? null
+      const needLng = n.lng ?? n.poster.profile?.lng ?? null
+      if (userLat != null && userLng != null && needLat != null && needLng != null) {
+        distanceKm = haversineKm(userLat, userLng, needLat, needLng)
         if (q.distanceKm != null && distanceKm > q.distanceKm) continue
       }
 
@@ -378,8 +399,12 @@ needsRouter.get('/', async (req, res, next) => {
 
     const list = ranked.map((r) => {
       const trustScore = trustScoreByPoster.get(r.need.posterId) ?? 0
+      const needLat = r.need.lat ?? r.need.poster.profile?.lat ?? null
+      const needLng = r.need.lng ?? r.need.poster.profile?.lng ?? null
       return {
         ...r.need,
+        lat: needLat,
+        lng: needLng,
         poster: {
           ...r.need.poster,
           profile: r.need.poster.profile ? { ...r.need.poster.profile, trustScore } : r.need.poster.profile,
