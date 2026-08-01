@@ -42,6 +42,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late TextEditingController _promptCollabController;
   late TextEditingController _promptNeedController;
   String? _gender;
+  double? _lat;
+  double? _lng;
 
   final Set<String> _selectedInterests = {
     'DSA', 'Coffee', 'Flutter', 'Startups', 'Photography',
@@ -61,7 +63,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       ),
     );
     if (result != null && mounted) {
-      setState(() => _locationController.text = result.label);
+      setState(() {
+        _lat = result.latitude;
+        _lng = result.longitude;
+        _locationController.text = result.label;
+      });
     }
   }
 
@@ -185,6 +191,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
       if (!mounted) return;
       setState(() {
+        _lat = pos!.latitude;
+        _lng = pos.longitude;
         _locationController.text = label;
       });
     } catch (e) {
@@ -212,6 +220,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _promptNeedController =
         TextEditingController(text: promptNeedNotifier.value);
     _gender = genderNotifier.value;
+    _lat = myProfileNotifier.value?.lat;
+    _lng = myProfileNotifier.value?.lng;
 
     final currentInterests = myProfileNotifier.value?.interestLabels.isNotEmpty == true
         ? myProfileNotifier.value!.interestLabels
@@ -345,6 +355,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           bio: _bioController.text.trim(),
           gender: _gender,
           location: _locationController.text.trim(),
+          lat: _lat,
+          lng: _lng,
           promptSkill: _promptSkillController.text.trim(),
           promptCollab: _promptCollabController.text.trim(),
           promptNeed: _promptNeedController.text.trim(),

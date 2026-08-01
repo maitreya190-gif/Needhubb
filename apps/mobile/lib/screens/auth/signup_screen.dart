@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -62,6 +63,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   // Step 4 — location
   final _locationController = TextEditingController();
+  double? _lat;
+  double? _lng;
   double _maxDistanceKm = 5.0;
 
   // Step 5 — about you (bio + prompts)
@@ -234,6 +237,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
       if (!mounted) return;
       setState(() {
+        _lat = pos!.latitude;
+        _lng = pos.longitude;
         _locationController.text = label;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -259,7 +264,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       ),
     );
     if (result != null && mounted) {
-      setState(() => _locationController.text = result.label);
+      setState(() {
+        _lat = result.latitude;
+        _lng = result.longitude;
+        _locationController.text = result.label;
+      });
     }
   }
 
@@ -358,6 +367,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       addCustomSkill(s);
     }
 
+    final email = _emailController.text.trim().toLowerCase();
+    final fallbackUserId = 'usr_${email.replaceAll(RegExp(r'[^\w]'), '_')}';
+    final token =
+        _savedToken ?? 'demo_token_${DateTime.now().millisecondsSinceEpoch}';
+    final userId = _savedUserId ?? fallbackUserId;
+
+    // Write token to secure storage manually so API client can use it immediately.
+    // This allows us to update the profile *before* triggering the global auth state change.
+    await const FlutterSecureStorage().write(key: 'auth_token', value: token);
+
     try {
       final profilesApi = ref.read(profilesApiProvider);
       await profilesApi.update(
@@ -366,18 +385,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
         gender: _gender,
         location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+        lat: _lat,
+        lng: _lng,
         promptSkill: _promptSkillController.text.trim().isEmpty ? null : _promptSkillController.text.trim(),
         promptCollab: _promptCollabController.text.trim().isEmpty ? null : _promptCollabController.text.trim(),
         promptNeed: _promptNeedController.text.trim().isEmpty ? null : _promptNeedController.text.trim(),
       );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Profile update failed after signup: $e');
+    }
 
-    final email = _emailController.text.trim().toLowerCase();
-    final fallbackUserId = 'usr_${email.replaceAll(RegExp(r'[^\w]'), '_')}';
-    final token =
-        _savedToken ?? 'demo_token_${DateTime.now().millisecondsSinceEpoch}';
-    final userId = _savedUserId ?? fallbackUserId;
-
+    // Now trigger the global auth state change. This will trigger the router to navigate
+    // and main.dart to start hydration, which will now fetch the fully updated profile!
     await ref.read(authProvider.notifier).login(
           token: token,
           userId: userId,

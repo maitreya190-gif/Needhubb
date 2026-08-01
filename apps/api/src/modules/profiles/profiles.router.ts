@@ -51,10 +51,12 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
 profilesRouter.patch('/me', authenticate, async (req, res, next) => {
   try {
     const userId = (req as AuthedRequest).userId!
-    const { bio, location, gender, promptSkill, promptCollab, promptNeed, displayName, interests, skills } =
+    const { bio, location, lat, lng, gender, promptSkill, promptCollab, promptNeed, displayName, interests, skills } =
       req.body as {
         bio?: string
         location?: string
+        lat?: number
+        lng?: number
         gender?: string
         promptSkill?: string
         promptCollab?: string
@@ -73,12 +75,14 @@ profilesRouter.patch('/me', authenticate, async (req, res, next) => {
       update: {
         ...(bio !== undefined && { bio }),
         ...(location !== undefined && { locationText: location }),
+        ...(lat !== undefined && { lat }),
+        ...(lng !== undefined && { lng }),
         ...(gender !== undefined && { gender }),
         ...(promptSkill !== undefined && { promptSkill }),
         ...(promptCollab !== undefined && { promptCollab }),
         ...(promptNeed !== undefined && { promptNeed }),
       },
-      create: { userId, bio, locationText: location, gender, promptSkill, promptCollab, promptNeed },
+      create: { userId, bio, locationText: location, lat, lng, gender, promptSkill, promptCollab, promptNeed },
     })
 
     if (Array.isArray(interests)) {

@@ -35,6 +35,14 @@ Future<void> _persistMessages(String key, List<_Message> messages) async {
       'remoteId': m.remoteId,
       'senderName': m.senderName,
       'isRead': m.isRead,
+      'reactionsMap': m.reactionsMap,
+      'replyTo': m.replyTo == null ? null : {
+        'text': m.replyTo!.text,
+        'isMe': m.replyTo!.isMe,
+        'time': m.replyTo!.time.toIso8601String(),
+        'senderName': m.replyTo!.senderName,
+        'remoteId': m.replyTo!.remoteId,
+      },
     }).toList());
     await prefs.setString('msg_cache_$key', encoded);
   } catch (_) {}
@@ -46,15 +54,30 @@ Future<List<_Message>> _loadPersistedMessages(String key) async {
     final raw = prefs.getString('msg_cache_$key');
     if (raw == null) return [];
     final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
-    return list.map((m) => _Message(
-      text: m['text'] as String?,
-      imageUrl: m['imageUrl'] as String?,
-      isMe: m['isMe'] as bool? ?? false,
-      time: DateTime.tryParse(m['time'] as String? ?? '') ?? DateTime.now(),
-      remoteId: m['remoteId'] as String?,
-      senderName: m['senderName'] as String? ?? '',
-      isRead: m['isRead'] as bool? ?? false,
-    )).toList();
+    return list.map((m) {
+      _Message? replyTo;
+      if (m['replyTo'] is Map) {
+        final r = (m['replyTo'] as Map).cast<String, dynamic>();
+        replyTo = _Message(
+          text: r['text'] as String?,
+          isMe: r['isMe'] as bool? ?? false,
+          time: DateTime.tryParse(r['time'] as String? ?? '') ?? DateTime.now(),
+          senderName: r['senderName'] as String? ?? '',
+          remoteId: r['remoteId'] as String?,
+        );
+      }
+      return _Message(
+        text: m['text'] as String?,
+        imageUrl: m['imageUrl'] as String?,
+        isMe: m['isMe'] as bool? ?? false,
+        time: DateTime.tryParse(m['time'] as String? ?? '') ?? DateTime.now(),
+        remoteId: m['remoteId'] as String?,
+        senderName: m['senderName'] as String? ?? '',
+        isRead: m['isRead'] as bool? ?? false,
+        reactionsMap: m['reactionsMap'] is Map ? (m['reactionsMap'] as Map).cast<String, String>() : const {},
+        replyTo: replyTo,
+      );
+    }).toList();
   } catch (_) { return []; }
 }
 
@@ -179,12 +202,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     imageUrl: m.imageUrl,
                     isMe: myId != null && m.senderId == myId,
                     time: m.createdAt,
+                    senderName: m.senderName,
                     reactionsMap: _parseReactionsMap(m.reactions),
                     replyTo: m.replyTo != null ? _Message(
                       text: m.replyTo!.body.isEmpty ? null : m.replyTo!.body,
                       isMe: myId != null && m.replyTo!.senderId == myId,
                       time: m.replyTo!.createdAt,
                       senderName: m.replyTo!.senderName,
+                      remoteId: m.replyTo!.id,
                     ) : null,
                     isRead: m.readAt != null,
                     remoteId: m.id,
@@ -193,6 +218,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         final cacheKey = _resolvedThreadId ?? widget.userId ?? '';
         _threadMessageCache[cacheKey] = loaded;
         _persistMessages(cacheKey, loaded);
+        _saveCache();
         setState(() { _messages = loaded; _loading = false; });
         _scrollToBottom();
       } catch (_) {/* keep empty */}
@@ -200,94 +226,150 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       if (mounted) setState(() { _loading = false; });
     }
 
-    // Join socket room for instant message delivery
-    final socket = SocketService();
-    if (_resolvedThreadId != null) {
-      socket.joinThread(_resolvedThreadId!);
-      socket.onNewMessage((data) {
-        final msgId = data['id'] as String?;
-        if (!mounted) return;
-        // Already have this exact id — skip.
-        if (msgId != null && _messages.any((m) => m.remoteId == msgId)) return;
-        final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
-        final body = data['body'] as String? ?? '';
-        final imageUrl = data['imageUrl'] as String?;
-        final senderId = data['senderId'] as String?;
-        final createdAt = data['createdAt'] != null
-            ? DateTime.tryParse(data['createdAt'] as String) ?? DateTime.now()
-            : DateTime.now();
-        final isMine = myId != null && senderId == myId;
-
-        // For my own messages: the send flow already appended an optimistic
-        // bubble with remoteId=null. Stamp its remoteId instead of appending
-        // a duplicate.
-        if (isMine) {
-          final optimisticIdx = _messages.lastIndexWhere((m) =>
-              m.isMe &&
-              m.remoteId == null &&
-              (m.text ?? '') == body &&
-              (m.imageUrl ?? '') == (imageUrl ?? ''));
-          if (optimisticIdx != -1) {
-            setState(() {
-              _messages[optimisticIdx] =
-                  _messages[optimisticIdx].copyWith(remoteId: msgId);
-            });
-            final ck = _resolvedThreadId ?? widget.userId ?? '';
-            _threadMessageCache[ck] = List.from(_messages);
-            _persistMessages(ck, _messages);
-            return;
-          }
-        }
-
-        final newMsg = _Message(
-          text: body.isEmpty ? null : body,
-          imageUrl: imageUrl,
-          isMe: isMine,
-          time: createdAt,
-          remoteId: msgId,
-        );
-        setState(() => _messages.add(newMsg));
-        final ck = _resolvedThreadId ?? widget.userId ?? '';
-        _threadMessageCache[ck] = List.from(_messages);
-        _persistMessages(ck, _messages);
-        Future.microtask(_scrollToBottom);
-        // If this message is from the other person and I'm in the thread,
-        // mark it read immediately so their tick turns blue right away.
-        if (!isMine && _resolvedThreadId != null) {
-          ref.read(messagingApiProvider).markRead(_resolvedThreadId!);
-        }
-      });
-
-      // Read receipts — flip isRead on my messages the moment they're read.
-      socket.onMessagesRead((data) {
-        if (!mounted) return;
-        final ids = (data['messageIds'] as List?)?.cast<String>() ?? const [];
-        if (ids.isEmpty) return;
-        final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
-        if (myId == null) return;
-        final readerId = data['readerId'] as String?;
-        if (readerId == myId) return; // ignore my own reads
-        var changed = false;
-        setState(() {
-          for (var i = 0; i < _messages.length; i++) {
-            final m = _messages[i];
-            if (m.isMe && !m.isRead && m.remoteId != null && ids.contains(m.remoteId)) {
-              _messages[i] = m.copyWith(isRead: true);
-              changed = true;
-            }
-          }
-        });
-        if (changed) {
-          final ck = _resolvedThreadId ?? widget.userId ?? '';
-          _threadMessageCache[ck] = List.from(_messages);
-          _persistMessages(ck, _messages);
-        }
-      });
-    }
+    _setupSocketListeners();
 
     // Fallback poll every 30s in case socket drops
     _tailPoller?.cancel();
     _tailPoller = Timer.periodic(const Duration(seconds: 30), (_) => _tail());
+  }
+
+  void _saveCache() {
+    final keys = <String>{
+      if (_resolvedThreadId != null) _resolvedThreadId!,
+      if (widget.threadId != null) widget.threadId!,
+      if (widget.userId != null) widget.userId!,
+    };
+    for (final k in keys) {
+      if (k.isNotEmpty) {
+        _threadMessageCache[k] = List.from(_messages);
+        _persistMessages(k, _messages);
+      }
+    }
+  }
+
+  bool _socketListenersRegistered = false;
+
+  void _setupSocketListeners() {
+    if (_resolvedThreadId == null || _socketListenersRegistered) return;
+    _socketListenersRegistered = true;
+    final socket = SocketService();
+    socket.joinThread(_resolvedThreadId!);
+
+    socket.onNewMessage((data) {
+      final msgId = data['id'] as String?;
+      if (!mounted) return;
+      if (msgId != null && _messages.any((m) => m.remoteId == msgId)) return;
+      final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
+      final body = data['body'] as String? ?? '';
+      final imageUrl = data['imageUrl'] as String?;
+      final senderId = data['senderId'] as String?;
+      final senderData = data['sender'] is Map ? Map<String, dynamic>.from(data['sender'] as Map) : null;
+      final msgSenderName = senderData?['displayName'] as String? ?? widget.name;
+      final createdAt = data['createdAt'] != null
+          ? DateTime.tryParse(data['createdAt'] as String) ?? DateTime.now()
+          : DateTime.now();
+      final isMine = myId != null && senderId == myId;
+
+      _Message? replyToRef;
+      final replyToData = data['replyTo'];
+      if (replyToData is Map) {
+        final rMap = Map<String, dynamic>.from(replyToData);
+        final rBody = rMap['body'] as String? ?? '';
+        final rSenderId = rMap['senderId'] as String?;
+        final rCreatedAt = rMap['createdAt'] != null
+            ? DateTime.tryParse(rMap['createdAt'] as String) ?? DateTime.now()
+            : DateTime.now();
+        final rSender = rMap['sender'] is Map ? Map<String, dynamic>.from(rMap['sender'] as Map) : null;
+        final rSenderName = rSender?['displayName'] as String? ?? widget.name;
+        replyToRef = _Message(
+          text: rBody.isEmpty ? null : rBody,
+          isMe: myId != null && rSenderId == myId,
+          time: rCreatedAt,
+          senderName: rSenderName,
+          remoteId: rMap['id'] as String?,
+        );
+      }
+
+      final reactionsMap = _parseReactionsMap(
+        data['reactions'] is Map ? Map<String, dynamic>.from(data['reactions'] as Map) : null,
+      );
+
+      if (isMine) {
+        final optimisticIdx = _messages.lastIndexWhere((m) =>
+            m.isMe &&
+            m.remoteId == null &&
+            (m.text ?? '') == body &&
+            (m.imageUrl ?? '') == (imageUrl ?? ''));
+        if (optimisticIdx != -1) {
+          setState(() {
+            _messages[optimisticIdx] = _messages[optimisticIdx].copyWith(
+              remoteId: msgId,
+              reactionsMap: reactionsMap.isNotEmpty ? reactionsMap : null,
+              replyTo: replyToRef ?? _messages[optimisticIdx].replyTo,
+            );
+          });
+          _saveCache();
+          return;
+        }
+      }
+
+      final newMsg = _Message(
+        text: body.isEmpty ? null : body,
+        imageUrl: imageUrl,
+        isMe: isMine,
+        time: createdAt,
+        remoteId: msgId,
+        senderName: msgSenderName,
+        replyTo: replyToRef,
+        reactionsMap: reactionsMap,
+      );
+      setState(() => _messages.add(newMsg));
+      _saveCache();
+      Future.microtask(_scrollToBottom);
+      if (!isMine && _resolvedThreadId != null) {
+        ref.read(messagingApiProvider).markRead(_resolvedThreadId!);
+      }
+    });
+
+    socket.onMessageReaction((data) {
+      if (!mounted) return;
+      final msgId = data['messageId'] as String?;
+      if (msgId == null) return;
+      final rawReactions = data['reactions'];
+      final updatedMap = _parseReactionsMap(
+        rawReactions is Map ? Map<String, dynamic>.from(rawReactions) : null,
+      );
+      final idx = _messages.indexWhere((m) => m.remoteId == msgId);
+      if (idx != -1) {
+        setState(() {
+          _messages[idx] = _messages[idx].copyWith(reactionsMap: updatedMap);
+        });
+        _saveCache();
+      }
+    });
+
+    socket.onMessagesRead((data) {
+      if (!mounted) return;
+      final ids = (data['messageIds'] as List?)?.cast<String>() ?? const [];
+      if (ids.isEmpty) return;
+      final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
+      if (myId == null) return;
+      final readerId = data['readerId'] as String?;
+      if (readerId == myId) return;
+      var changed = false;
+      setState(() {
+        for (var i = 0; i < _messages.length; i++) {
+          final m = _messages[i];
+          if (m.isMe && !m.isRead && m.remoteId != null && ids.contains(m.remoteId)) {
+            _messages[i] = m.copyWith(isRead: true);
+            changed = true;
+          }
+        }
+      });
+      if (changed) {
+        _saveCache();
+      }
+    });
   }
 
   Future<void> _tail() async {
@@ -303,6 +385,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       bool hasNewMessage = false;
       setState(() {
         for (final m in newer.reversed) {
+          final replyToMsg = m.replyTo != null ? _Message(
+            text: m.replyTo!.body.isEmpty ? null : m.replyTo!.body,
+            isMe: myId != null && m.replyTo!.senderId == myId,
+            time: m.replyTo!.createdAt,
+            senderName: m.replyTo!.senderName,
+            remoteId: m.replyTo!.id,
+          ) : null;
           final existingIdx = _messages.indexWhere((existing) =>
               existing.remoteId == m.id ||
               (existing.remoteId == null &&
@@ -315,9 +404,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               remoteId: m.id,
               reactionsMap: _parseReactionsMap(m.reactions),
               isRead: m.readAt != null,
+              replyTo: replyToMsg ?? _messages[existingIdx].replyTo,
             );
           } else {
-            // Add new message
             hasNewMessage = true;
             _messages.add(_Message(
               text: m.body.isEmpty ? null : m.body,
@@ -328,18 +417,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               remoteId: m.id,
               senderName: m.senderName,
               reactionsMap: _parseReactionsMap(m.reactions),
-              replyTo: m.replyTo != null ? _Message(
-                text: m.replyTo!.body.isEmpty ? null : m.replyTo!.body,
-                isMe: myId != null && m.replyTo!.senderId == myId,
-                time: m.replyTo!.createdAt,
-                senderName: m.replyTo!.senderName,
-              ) : null,
+              replyTo: replyToMsg,
             ));
           }
         }
-        if (newer.isNotEmpty) {
-        }
       });
+      _saveCache();
       if (hasNewMessage) {
         _scrollToBottom();
       }
@@ -352,6 +435,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final socket = SocketService();
     if (_resolvedThreadId != null) socket.leaveThread(_resolvedThreadId!);
     socket.off('new_message');
+    socket.off('message_reaction');
+    socket.off('messages_read');
     friendsNotifier.removeListener(_bump);
     blockedNotifier.removeListener(_bump);
     friendUserIdsNotifier.removeListener(_bump);
@@ -373,42 +458,80 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     });
   }
 
-  Future<void> _sendToApi({String? text, String? imagePath}) async {
+  Future<void> _sendToApi({String? text, String? imagePath, String? replyToId}) async {
     if (widget.userId == null) return;
+    debugPrint('[CHAT] _sendToApi called: text=$text, replyToId=$replyToId');
     final api = ref.read(apiClientProvider);
     Map<String, dynamic> res;
     if (imagePath != null) {
       final form = FormData.fromMap({
         if (text != null && text.isNotEmpty) 'body': text,
-        if (_replyingTo?.remoteId != null) 'replyToId': _replyingTo!.remoteId,
+        if (replyToId != null) 'replyToId': replyToId,
         'image': await MultipartFile.fromFile(imagePath,
             filename: imagePath.split('/').last),
       });
       res = await api.postForm('/chats/dm/${widget.userId}/messages', form);
     } else if (text != null && text.isNotEmpty) {
-      res = await api.post(
-          '/chats/dm/${widget.userId}/messages', {
-            'body': text,
-            if (_replyingTo?.remoteId != null) 'replyToId': _replyingTo!.remoteId,
-          });
+      final body = {
+        'body': text,
+        if (replyToId != null) 'replyToId': replyToId,
+      };
+      debugPrint('[CHAT] Sending POST body: $body');
+      res = await api.post('/chats/dm/${widget.userId}/messages', body);
     } else {
       return;
     }
+    debugPrint('[CHAT] Server response: replyTo=${res['replyTo']}, id=${res['id']}');
     // Remember thread + last-message id so the tail poller skips our own
     // just-sent message and hydrates without duplicates.
     final threadId = res['threadId'] as String? ??
         (res['thread'] as Map<String, dynamic>?)?['id'] as String?;
     final msgId = res['id'] as String?;
-    if (threadId != null) _resolvedThreadId = threadId;
+    if (threadId != null) {
+      final wasNull = _resolvedThreadId == null;
+      _resolvedThreadId = threadId;
+      if (wasNull) _setupSocketListeners();
+    }
     if (msgId != null && mounted) {
-      // Stamp the just-appended local bubble with the server id so tail
-      // dedupe recognises it.
+      _Message? replyToRef;
+      final replyToData = res['replyTo'];
+      if (replyToData is Map) {
+        final rMap = Map<String, dynamic>.from(replyToData);
+        final rBody = rMap['body'] as String? ?? '';
+        final rSenderId = rMap['senderId'] as String?;
+        final rCreatedAt = rMap['createdAt'] != null
+            ? DateTime.tryParse(rMap['createdAt'] as String) ?? DateTime.now()
+            : DateTime.now();
+        final rSender = rMap['sender'] is Map ? Map<String, dynamic>.from(rMap['sender'] as Map) : null;
+        final rSenderName = rSender?['displayName'] as String? ?? widget.name;
+        final myId = ref.read(authProvider).userId ?? myProfileNotifier.value?.id;
+        replyToRef = _Message(
+          text: rBody.isEmpty ? null : rBody,
+          isMe: myId != null && rSenderId == myId,
+          time: rCreatedAt,
+          senderName: rSenderName,
+          remoteId: rMap['id'] as String?,
+        );
+      }
+
       setState(() {
-        if (_messages.isNotEmpty) {
-          _messages[_messages.length - 1] =
-              _messages.last.copyWith(remoteId: msgId);
+        final idx = _messages.lastIndexWhere((m) =>
+            m.isMe &&
+            m.remoteId == null &&
+            ((text != null && m.text == text) || (imagePath != null && m.imagePath == imagePath)));
+        if (idx != -1) {
+          _messages[idx] = _messages[idx].copyWith(
+            remoteId: msgId,
+            replyTo: replyToRef ?? _messages[idx].replyTo,
+          );
+        } else if (_messages.isNotEmpty) {
+          _messages[_messages.length - 1] = _messages.last.copyWith(
+            remoteId: msgId,
+            replyTo: replyToRef ?? _messages.last.replyTo,
+          );
         }
       });
+      _saveCache();
     }
     // Kick off the poller if this send happened before hydration finished.
     _tailPoller ??=
@@ -438,14 +561,24 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final replyRef = _replyingTo;
     setState(() => _replyingTo = null);
     
+    String? sendReplyToId = replyRef?.remoteId;
+    if (replyRef != null && sendReplyToId == null) {
+      final match = _messages.firstWhere(
+        (m) => m.text == replyRef.text && m.remoteId != null,
+        orElse: () => replyRef,
+      );
+      sendReplyToId = match.remoteId;
+    }
+
     final msg = _Message(text: text, isMe: true, time: DateTime.now(), replyTo: replyRef);
     setState(() { _messages.add(msg); _isTyping = !_hasRealApi; });
+    _saveCache();
     _scrollToBottom();
 
     if (_hasRealApi) {
       setState(() => _sending = true);
       try {
-        await _sendToApi(text: text);
+        await _sendToApi(text: text, replyToId: sendReplyToId);
       } catch (e) {
         if (mounted) {
           setState(() => _messages.removeLast());
@@ -493,7 +626,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     if (_hasRealApi) {
       setState(() => _sending = true);
       try {
-        await _sendToApi(imagePath: path);
+        await _sendToApi(imagePath: path, replyToId: replyRef?.remoteId);
       } catch (e) {
         if (mounted) {
           setState(() => _messages.removeLast());
@@ -523,6 +656,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       }
       _messages[idx] = msg.copyWith(reactionsMap: updatedMap);
     });
+    _saveCache();
 
     if (msg.remoteId != null) {
       try {
@@ -536,6 +670,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               );
             }
           });
+          _saveCache();
         }
       } catch (_) {}
     }

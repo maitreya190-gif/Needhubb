@@ -18,6 +18,9 @@ class LocationPickResult {
   final double lng;
   final String label;
   const LocationPickResult({required this.lat, required this.lng, required this.label});
+
+  double get latitude => lat;
+  double get longitude => lng;
 }
 
 class _LocationPickerScreenState extends State<LocationPickerScreen> {

@@ -22,6 +22,7 @@ import '../../needs/need_detail_screen.dart';
 import '../../connect/connect_detail_screen.dart';
 import '../../person/person_screen.dart';
 import '../conversation_screen.dart';
+import '../view_on_map_screen.dart';
 import 'package:needhub/services/messaging_api.dart';
 
 class FeedTab extends ConsumerStatefulWidget {
@@ -125,6 +126,33 @@ class _FeedTabState extends ConsumerState<FeedTab> {
                       ],
                     ),
                   ),
+                  // View on Map Button
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ViewOnMapScreen(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: t.card,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: t.ink.withValues(alpha: 0.09),
+                          width: 1,
+                        ),
+                      ),
+                      child: Center(
+                        child: Icon(Icons.map_rounded, size: 20, color: NeedHubTokens.clay),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
                   // Bell button — badge count is live from unreadCountNotifier.
                   GestureDetector(
                     onTap: () async {

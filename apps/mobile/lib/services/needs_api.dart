@@ -167,6 +167,8 @@ Need _needFromJson(Map<String, dynamic> j) {
         : null,
     posterPersonalityNickname: profile['personalityNickname'] as String?,
     status: j['status'] as String? ?? 'OPEN',
+    lat: j['lat'] is num ? (j['lat'] as num).toDouble() : null,
+    lng: j['lng'] is num ? (j['lng'] as num).toDouble() : null,
   );
 }
 

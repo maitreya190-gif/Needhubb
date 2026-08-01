@@ -282,6 +282,7 @@ messagingRouter.post('/dm/:userId/messages', authenticate, upload.single('image'
 
     // Real-time: push to thread room + recipient's personal room
     emitToThread(message.thread.id, 'new_message', message)
+    emitToUser(recipientId, 'new_message', message)
     emitToUser(recipientId, 'new_notification', { type: 'MESSAGE_RECEIVED' })
 
     res.status(201).json(message)
@@ -349,6 +350,10 @@ messagingRouter.post('/messages/:id/react', authenticate, async (req, res, next)
     }
 
     emitToThread(msg.threadId, 'message_reaction', { messageId: msgId, reactions: updated.reactions })
+    // Also emit to the other user's personal room so they see the reaction
+    // even if they are not currently viewing the conversation.
+    const otherUserId = thread.userAId === userId ? thread.userBId : thread.userAId
+    emitToUser(otherUserId, 'message_reaction', { messageId: msgId, threadId: msg.threadId, reactions: updated.reactions })
     res.json({ ok: true, reactions: updated.reactions })
   } catch (err) { next(err) }
 })

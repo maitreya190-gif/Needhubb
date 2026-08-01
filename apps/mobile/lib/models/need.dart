@@ -97,6 +97,8 @@ class Need {
   final Map<String, dynamic>? posterPersonalityTraits;
   final String? posterPersonalityNickname;
   final String status;
+  final double? lat;
+  final double? lng;
 
   const Need({
     required this.id,
@@ -121,6 +123,8 @@ class Need {
     this.posterPersonalityTraits,
     this.posterPersonalityNickname,
     this.status = 'OPEN',
+    this.lat,
+    this.lng,
   });
 
   bool get isFrozen => status.toUpperCase() != 'OPEN';
