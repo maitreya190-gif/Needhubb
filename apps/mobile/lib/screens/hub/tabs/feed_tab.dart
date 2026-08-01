@@ -426,11 +426,42 @@ class _ConnectFeedState extends State<_ConnectFeed> {
       if (n.distanceKm != null && n.distanceKm! > filter.maxDistanceKm) {
         return false;
       }
+      if (filter.minBudget != null &&
+          (n.budgetMin == null || n.budgetMin! < filter.minBudget!)) {
+        return false;
+      }
+      if (filter.maxBudget != null &&
+          n.budgetMin != null &&
+          n.budgetMin! > filter.maxBudget!) {
+        return false;
+      }
+      if (filter.genders.isNotEmpty &&
+          n.posterGender != null &&
+          !filter.genders.contains(n.posterGender)) {
+        return false;
+      }
+      if (filter.interests.isNotEmpty) {
+        final haystack = [...n.posterInterests, ...n.tags];
+        final hasMatch = haystack.any(
+          (h) => filter.interests.any(
+            (fi) =>
+                h.toLowerCase().contains(fi.toLowerCase()) ||
+                fi.toLowerCase().contains(h.toLowerCase()),
+          ),
+        );
+        if (!hasMatch) return false;
+      }
+      if (filter.skills.isNotEmpty) {
+        final hasSkill = filter.skills.any(
+          (sk) =>
+              n.title.toLowerCase().contains(sk.toLowerCase()) ||
+              n.description.toLowerCase().contains(sk.toLowerCase()) ||
+              n.tags.any((t) => t.toLowerCase().contains(sk.toLowerCase())),
+        );
+        if (!hasSkill) return false;
+      }
       return true;
     }).toList();
-    if (needs.isEmpty && widget.needs.isNotEmpty) {
-      needs = widget.needs;
-    }
     final activeCount = filter.filterCount;
 
     if (_loading) {
@@ -834,14 +865,19 @@ class _EarnFeedState extends State<_EarnFeed> {
         return false;
       }
       if (filter.interests.isNotEmpty) {
-        final hasTag = n.tags.any(
-          (tag) => filter.interests.any(
+        // Match against the poster's actual declared interests AND the
+        // need's category tags — the filter chips (Flutter, Chess, Coffee…)
+        // are interest labels, not category names, so posterInterests is
+        // the field that's actually comparable; tags is kept as a fallback.
+        final haystack = [...n.posterInterests, ...n.tags];
+        final hasMatch = haystack.any(
+          (h) => filter.interests.any(
             (fi) =>
-                tag.toLowerCase().contains(fi.toLowerCase()) ||
-                fi.toLowerCase().contains(tag.toLowerCase()),
+                h.toLowerCase().contains(fi.toLowerCase()) ||
+                fi.toLowerCase().contains(h.toLowerCase()),
           ),
         );
-        if (!hasTag) return false;
+        if (!hasMatch) return false;
       }
       if (filter.skills.isNotEmpty) {
         final hasSkill = filter.skills.any(
@@ -854,10 +890,6 @@ class _EarnFeedState extends State<_EarnFeed> {
       }
       return true;
     }).toList();
-
-    if (needs.isEmpty && widget.needs.isNotEmpty) {
-      needs = widget.needs;
-    }
 
     if (filter.sortBy == 'nearest') {
       needs
