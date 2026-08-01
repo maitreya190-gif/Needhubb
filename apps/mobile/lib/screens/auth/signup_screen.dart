@@ -44,6 +44,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _referralCodeController = TextEditingController();
   String? _gender;
 
   // Step 1 — verification
@@ -89,6 +90,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _referralCodeController.dispose();
     for (final c in _codeControllers) c.dispose();
     for (final f in _codeFocus) f.dispose();
     _interestAddController.dispose();
@@ -266,6 +268,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         password: _passwordController.text,
         displayName: _nameController.text.trim(),
         username: _usernameController.text.trim().toLowerCase(),
+        referralCode: _referralCodeController.text.trim().isEmpty
+            ? null
+            : _referralCodeController.text.trim(),
       );
       _savedUserId = response.userId;
       // Auto-fill the OTP boxes with the code the backend returned in demo
@@ -642,6 +647,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 24),
+        NhTextField(
+          label: 'Referral code (optional)',
+          hint: 'e.g. MAI72X',
+          controller: _referralCodeController,
+          textInputAction: TextInputAction.done,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Have a friend\'s code? Both of you earn 15 points when you post your first need.',
+          style: GoogleFonts.hankenGrotesk(
+            fontSize: 12,
+            color: t.muted,
+            height: 1.4,
+          ),
         ),
         const SizedBox(height: 32),
         if (_error != null) ...[

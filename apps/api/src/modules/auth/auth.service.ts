@@ -57,7 +57,22 @@ function bypassAllowed(): boolean {
   return raw !== 'false' && raw !== '0' && raw !== 'no' && raw !== 'off'
 }
 
-export async function signup({ email, password, displayName, username }: SignupBody) {
+function generateReferralCode(displayName: string): string {
+  const prefix = displayName.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase()
+  const suffix = Math.random().toString(36).substring(2, 5).toUpperCase()
+  return (prefix + suffix).padEnd(6, 'X').slice(0, 6)
+}
+
+async function uniqueReferralCode(displayName: string): Promise<string> {
+  for (let i = 0; i < 10; i++) {
+    const code = generateReferralCode(displayName)
+    const existing = await prisma.user.findUnique({ where: { referralCode: code } })
+    if (!existing) return code
+  }
+  return Math.random().toString(36).substring(2, 8).toUpperCase()
+}
+
+export async function signup({ email, password, displayName, username, referralCode }: SignupBody) {
   const existing = await prisma.user.findUnique({ where: { email } })
   if (existing) throw conflict('Email already registered', 'EMAIL_TAKEN')
 
@@ -66,6 +81,15 @@ export async function signup({ email, password, displayName, username }: SignupB
     if (taken) throw conflict('Username already taken', 'USERNAME_TAKEN')
   }
 
+  // Validate referral code if provided — resolve to referrer id
+  let referrerId: string | null = null
+  if (referralCode) {
+    const referrer = await prisma.user.findUnique({ where: { referralCode: referralCode.toUpperCase() } })
+    if (referrer) referrerId = referrer.id
+    // Silently ignore invalid codes — it's optional
+  }
+
+  const myReferralCode = await uniqueReferralCode(displayName)
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
   const user = await prisma.user.create({
     data: {
@@ -74,16 +98,23 @@ export async function signup({ email, password, displayName, username }: SignupB
       displayName,
       username: username ?? null,
       emailVerifiedAt: null,
+      referralCode: myReferralCode,
+      referredBy: referrerId,
       profile: { create: {} },
     },
   })
+
+  // Create a PENDING referral record so the referrer can track it
+  if (referrerId) {
+    await prisma.referral.create({
+      data: { referrerId, refereeId: user.id },
+    })
+  }
 
   const otp = await issueOtp(user.id, user.email)
   return {
     userId: user.id,
     requiresVerification: true as const,
-    // When bypass is enabled (demo mode) also return the actual OTP so the
-    // client can auto-fill it. Never exposed in strict prod mode.
     ...(bypassAllowed() ? { devOtp: otp } : {}),
   }
 }

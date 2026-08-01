@@ -101,6 +101,8 @@ model User {
   displayName       String
   passwordHash      String
   verificationLevel VerificationLevel @default(EMAIL)
+  referralCode      String?           @unique
+  referredBy        String?
   createdAt         DateTime          @default(now())
 
   profile                Profile?
@@ -122,6 +124,7 @@ model User {
   friendRequestsReceived FriendRequest[]    @relation("FriendReqTo")
   blocksMade             Block[]            @relation("Blocker")
   blocksReceived         Block[]            @relation("Blocked")
+  referralsMade          Referral[]         @relation("ReferralsMade")
 }
 
 model Profile {
@@ -489,4 +492,22 @@ model Redemption {
   item RedemptionItem @relation(fields: [itemId], references: [id])
 
   @@index([userId, createdAt])
+}
+
+enum ReferralStatus {
+  PENDING
+  ACTIVATED
+}
+
+model Referral {
+  id          String         @id @default(cuid())
+  referrerId  String
+  refereeId   String         @unique
+  status      ReferralStatus @default(PENDING)
+  activatedAt DateTime?
+  createdAt   DateTime       @default(now())
+
+  referrer User @relation("ReferralsMade", fields: [referrerId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId, status])
 }

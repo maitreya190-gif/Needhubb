@@ -14,6 +14,7 @@ import { notificationsRouter } from './modules/notifications/notifications.route
 import { reviewsRouter } from './modules/reviews/reviews.router'
 import { redemptionsRouter } from './modules/redemptions/redemptions.router'
 import { achievementsRouter } from './modules/achievements/achievements.router'
+import { referralsRouter } from './modules/referrals/referrals.router'
 import { adminAuth } from './middleware/adminAuth'
 import { authenticate } from './middleware/authenticate'
 import { errorHandler } from './middleware/errorHandler'
@@ -282,6 +283,9 @@ app.use('/redemptions', redemptionsRouter)
 
 // Achievements — user-submitted achievement claims.
 app.use('/achievements', achievementsRouter)
+
+// Referrals — code + stats for the You screen.
+app.use('/referrals', referralsRouter)
 
 // Protected sub-app. Feature routers that need blanket authenticate mount into this.
 export const protectedRouter: ExpressRouter = Router()

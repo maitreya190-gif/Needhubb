@@ -113,6 +113,10 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
       return next(unprocessable('Content violates community guidelines', 'MODERATION_BLOCKED'))
     }
 
+    // Check before tx — if this is the user's first need, activate any pending referral
+    const priorNeedCount = await prisma.need.count({ where: { posterId: userId } })
+    const isFirstNeed = priorNeedCount === 0
+
     const created = await prisma.$transaction(async (tx) => {
       const [first, ...rest] = needs
       const parent = await tx.need.create({
@@ -153,6 +157,45 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
           },
         }),
       ))
+
+      // Activate referral on first-ever need post
+      if (isFirstNeed) {
+        const referral = await tx.referral.findUnique({
+          where: { refereeId: userId },
+        })
+        if (referral && referral.status === 'PENDING') {
+          const REFERRAL_PTS = 15
+          await tx.referral.update({
+            where: { refereeId: userId },
+            data: { status: 'ACTIVATED', activatedAt: new Date() },
+          })
+          // Points to referee
+          await tx.pointsLedger.create({
+            data: { userId, delta: REFERRAL_PTS, reason: 'REFERRAL_BONUS', refId: referral.id },
+          })
+          await tx.profile.update({
+            where: { userId },
+            data: { pointsTotal: { increment: REFERRAL_PTS } },
+          })
+          // Points to referrer
+          await tx.pointsLedger.create({
+            data: { userId: referral.referrerId, delta: REFERRAL_PTS, reason: 'REFERRAL_ACTIVATED', refId: referral.id },
+          })
+          await tx.profile.update({
+            where: { userId: referral.referrerId },
+            data: { pointsTotal: { increment: REFERRAL_PTS } },
+          })
+          await pushNotification(tx, {
+            userId: referral.referrerId,
+            type: 'POINTS_AWARDED',
+            title: 'Referral activated! 🎉',
+            body: 'Someone you referred just posted their first need. +15 points!',
+            refType: 'USER',
+            refId: userId,
+          })
+        }
+      }
+
       return { parent, subs }
     })
 

@@ -1,14 +1,17 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart' show Share;
 import '../../models/need.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/needs_api.dart';
+import '../../services/referrals_api.dart';
 import '../../services/personality_api.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
@@ -425,6 +428,11 @@ class YouScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // ── Refer a Friend card ──────────────────────────────────
+                  _ReferAFriendCard(ref: ref, t: t),
+
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
@@ -2647,6 +2655,190 @@ class _PersonalitySection extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+// ── Refer a Friend card ───────────────────────────────────────────────────────
+
+class _ReferAFriendCard extends ConsumerStatefulWidget {
+  final WidgetRef ref;
+  final NeedHubTokens t;
+  const _ReferAFriendCard({required this.ref, required this.t});
+
+  @override
+  ConsumerState<_ReferAFriendCard> createState() => _ReferAFriendCardState();
+}
+
+class _ReferAFriendCardState extends ConsumerState<_ReferAFriendCard> {
+  ReferralMe? _data;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final data = await ref.read(referralsApiProvider).me();
+      if (mounted) setState(() { _data = data; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _share() {
+    final code = _data?.referralCode ?? '';
+    if (code.isEmpty) return;
+    Share.share(
+      'Join me on NeedHub! Sign up with my code $code and both of us earn 15 bonus points when you post your first need.\n\nhttps://play.google.com/store/apps/details?id=com.needhub.app',
+      subject: 'Join me on NeedHub',
+    );
+  }
+
+  void _copyCode() {
+    final code = _data?.referralCode ?? '';
+    if (code.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: code));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Referral code copied!'), duration: Duration(seconds: 2)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    final code = _data?.referralCode ?? '------';
+    final stats = _data?.stats;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [NeedHubTokens.forest, NeedHubTokens.forest.withValues(alpha: 0.80)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: _loading
+          ? const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)))
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Refer a Friend',
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (stats != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${stats.activated}/${stats.total} active',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Both of you earn 15 points when they post their first need.',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 13,
+                    color: Colors.white.withValues(alpha: 0.85),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                // Code pill
+                GestureDetector(
+                  onTap: _copyCode,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          code,
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 4,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Icon(Icons.copy_rounded, color: Colors.white.withValues(alpha: 0.7), size: 16),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: GestureDetector(
+                    onTap: _share,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.share_rounded, size: 16, color: NeedHubTokens.forest),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Share your code',
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: NeedHubTokens.forest,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (stats != null && stats.pointsEarned > 0) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    '${stats.pointsEarned} pts earned from referrals so far',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.75),
+                    ),
+                  ),
+                ],
+              ],
+            ),
     );
   }
 }

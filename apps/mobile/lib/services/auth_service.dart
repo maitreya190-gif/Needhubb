@@ -16,12 +16,14 @@ class AuthService {
     required String password,
     required String displayName,
     String? username,
+    String? referralCode,
   }) async {
     final data = await _client.post('/auth/signup', {
       'email': email,
       'password': password,
       'displayName': displayName,
       if (username != null && username.isNotEmpty) 'username': username,
+      if (referralCode != null && referralCode.isNotEmpty) 'referralCode': referralCode.toUpperCase(),
     });
     return SignupResponse.fromJson(data);
   }
