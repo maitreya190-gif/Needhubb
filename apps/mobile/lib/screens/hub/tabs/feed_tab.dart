@@ -462,6 +462,13 @@ class _ConnectFeedState extends State<_ConnectFeed> {
       }
       return true;
     }).toList();
+
+    if (filter.sortBy == 'newest') {
+      needs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } else if (filter.sortBy == 'nearest') {
+      needs.sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
+    }
+
     final activeCount = filter.filterCount;
 
     if (_loading) {
@@ -891,7 +898,9 @@ class _EarnFeedState extends State<_EarnFeed> {
       return true;
     }).toList();
 
-    if (filter.sortBy == 'nearest') {
+    if (filter.sortBy == 'newest') {
+      needs.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } else if (filter.sortBy == 'nearest') {
       needs
           .sort((a, b) => (a.distanceKm ?? 999).compareTo(b.distanceKm ?? 999));
     } else if (filter.sortBy == 'highest_points') {
