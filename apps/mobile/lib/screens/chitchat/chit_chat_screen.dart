@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/user_state.dart';
+import '../../providers/language_provider.dart';
 import '../../services/chitchat_api.dart';
 import '../../services/messaging_api.dart';
 import '../../services/social_providers.dart';
@@ -23,6 +25,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
     super.initState();
     chitChatAvailableNotifier.addListener(_bump);
     chitchatRosterNotifier.addListener(_bump);
+    uiLanguageNotifier.addListener(_bump);
     // Trigger an immediate refresh — main.dart's poller runs every 15s but we
     // want the screen to feel snappy on open.
     Future.microtask(() async {
@@ -40,6 +43,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
   void dispose() {
     chitChatAvailableNotifier.removeListener(_bump);
     chitchatRosterNotifier.removeListener(_bump);
+    uiLanguageNotifier.removeListener(_bump);
     super.dispose();
   }
 
@@ -81,6 +85,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     final available = chitChatAvailableNotifier.value;
 
     return Scaffold(
@@ -127,9 +132,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      available
-                          ? "You're available for a chat right now"
-                          : 'Mark yourself available',
+                      available ? s.youreAvailableForChat : s.markYourselfAvailableChat,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -144,11 +147,11 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
           const SizedBox(height: 20),
 
           // Friends' DMs & Messages Section
-          _ChitChatFriendsDmsHeader(t: t),
+          _ChitChatFriendsDmsHeader(t: t, s: s),
 
           if (available) ...[
             Text(
-              'UP FOR A CHAT RIGHT NOW',
+              s.upForAChatRightNow,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -158,7 +161,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
             ),
             const SizedBox(height: 12),
 
-            _SelfTile(t: t),
+            _SelfTile(t: t, s: s),
             const SizedBox(height: 10),
 
             SizedBox(
@@ -166,7 +169,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
               child: chitchatRosterNotifier.value.isEmpty
                   ? Center(
                       child: Text(
-                        'No one else is up for a chat right now',
+                        s.noOneElseUpForChat,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 13,
                           color: t.muted,
@@ -176,7 +179,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
                   : ListView(
                       scrollDirection: Axis.horizontal,
                       children: chitchatRosterNotifier.value
-                          .map((p) => _RealPersonCuboidalTile(person: p, t: t))
+                          .map((p) => _RealPersonCuboidalTile(person: p, t: t, s: s))
                           .toList(),
                     ),
             ),
@@ -199,7 +202,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Chit-chat is for casual hellos only. Each session is visible for 24 hours. You can turn it off anytime.',
+                    s.chitchatInfoText,
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 12.5,
                         color: t.muted2,
@@ -217,8 +220,9 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
 
 class _SelfTile extends StatelessWidget {
   final NeedHubTokens t;
+  final S s;
 
-  const _SelfTile({required this.t});
+  const _SelfTile({required this.t, required this.s});
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +246,7 @@ class _SelfTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(13),
               ),
               alignment: Alignment.center,
-              child: Text('YOU',
+              child: Text(s.you.toUpperCase(),
                   style: GoogleFonts.bricolageGrotesque(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -253,13 +257,13 @@ class _SelfTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('You (visible for 24h)',
+                  Text(s.visibleFor24h,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: t.ink)),
                   const SizedBox(height: 3),
-                  Text('Nearby people will see you first',
+                  Text(s.nearbyWillSeeYouFirst,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 12, color: t.muted)),
                 ],
@@ -280,7 +284,7 @@ class _SelfTile extends StatelessWidget {
                         color: Colors.white, shape: BoxShape.circle),
                   ),
                   const SizedBox(width: 6),
-                  Text('Live',
+                  Text(s.live,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
@@ -300,8 +304,9 @@ class _SelfTile extends StatelessWidget {
 class _RealPersonCuboidalTile extends ConsumerWidget {
   final ChitchatPerson person;
   final NeedHubTokens t;
+  final S s;
 
-  const _RealPersonCuboidalTile({required this.person, required this.t});
+  const _RealPersonCuboidalTile({required this.person, required this.t, required this.s});
 
   String get _initials {
     final parts = person.displayName.trim().split(RegExp(r'\s+'));
@@ -395,7 +400,7 @@ class _RealPersonCuboidalTile extends ConsumerWidget {
                     Text(
                       person.distanceLabel.isNotEmpty
                           ? person.distanceLabel
-                          : 'Nearby',
+                          : s.nearby,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11,
                         color: t.muted,
@@ -418,8 +423,9 @@ class _RealPersonCuboidalTile extends ConsumerWidget {
 
 class _ChitChatFriendsDmsHeader extends ConsumerWidget {
   final NeedHubTokens t;
+  final S s;
 
-  const _ChitChatFriendsDmsHeader({required this.t});
+  const _ChitChatFriendsDmsHeader({required this.t, required this.s});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -434,7 +440,7 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
         Row(
           children: [
             Text(
-              "FRIENDS' DMs",
+              s.friendsDMs,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -444,7 +450,7 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
             ),
             const Spacer(),
             Text(
-              "Direct Messages",
+              s.directMessages,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
@@ -527,7 +533,7 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              c.lastMessageBody ?? 'Tap to chat',
+                              c.lastMessageBody ?? s.tapToChat,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 12,
                                 color: t.muted,

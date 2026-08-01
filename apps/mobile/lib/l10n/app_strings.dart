@@ -156,6 +156,71 @@ class S {
     // Impact screen
     'impact': 'Impact',
     'certificates': 'Certificates',
+    // Signup headings
+    'yourIdentity': 'YOUR IDENTITY',
+    'whatsYourName': "What's your name?",
+    'yourNameDesc': 'Your name is how others find and recognise you on NeedHub.',
+    'yourInterests': 'YOUR INTERESTS',
+    'whatAreYouInto': 'What are you into?',
+    'pickWhatYouEnjoy': "Pick what you genuinely enjoy. This is how you'll find people near you.",
+    'addYourOwn': 'Add your own…',
+    'yourSkills': 'YOUR SKILLS',
+    'whatCanYouHelpWith': 'What can you help with?',
+    'skillsYoureWilling': "Skills you're willing to offer on NeedHub.",
+    'yourLocation': 'YOUR LOCATION',
+    'whereAreYouBased': 'Where are you based?',
+    'locationDesc': "NeedHub surfaces needs near you. Your exact address is never shared — only your city or neighbourhood.",
+    'continueLabel': 'Continue',
+    'alreadyHaveAccount': 'Already have an account? Log in',
+    'add': 'Add',
+    'aboutYou': 'ABOUT YOU',
+    'bioHint': 'A short bio about yourself',
+    'rulesTitle': "Before you dive in",
+    'rulesSubtitle': 'A few things that make NeedHub work well for everyone.',
+    'verifyEmailKicker': 'VERIFY YOUR EMAIL',
+    'weSentYouACode': 'We sent you a code',
+    // Edit profile
+    'editProfile': 'Edit profile',
+    'displayName': 'Display Name',
+    'saveChanges': 'Save changes',
+    'addOther': 'Add other',
+    'gettingLocation': 'Getting location…',
+    'useMyCurrentLocation': 'Use my current location',
+    'pickOnMap': 'Pick on map',
+    // Settings
+    'appearance': 'APPEARANCE',
+    'privacyAlerts': 'PRIVACY & ALERTS',
+    'activitySection': 'ACTIVITY',
+    'accountSection': 'ACCOUNT',
+    'notificationsLabel': 'Notifications',
+    'alertsWhenResponds': 'Alerts when someone responds',
+    'hidePreciseLocation': 'Hide precise location',
+    'showNeighbourhoodOnly': 'Show only neighbourhood level',
+    'blockedUsers': 'Blocked users',
+    'logOut': 'Log out',
+    'noOneIsBlocked': 'No one is blocked',
+    'unblock': 'Unblock',
+    // ChitChat
+    'youreAvailableForChat': "You're available for a chat right now",
+    'markYourselfAvailableChat': 'Mark yourself available',
+    'upForAChatRightNow': 'UP FOR A CHAT RIGHT NOW',
+    'visibleFor24h': 'You (visible for 24h)',
+    'nearbyWillSeeYouFirst': 'Nearby people will see you first',
+    'live': 'Live',
+    'chitchatInfoText': 'Chit-chat is for casual hellos only. Each session is visible for 24 hours. You can turn it off anytime.',
+    'noOneElseUpForChat': 'No one else is up for a chat right now',
+    'friendsDMs': "FRIENDS' DMs",
+    'directMessages': 'Direct Messages',
+    'tapToChat': 'Tap to chat',
+    // Personality test
+    'personalityQuizTitle': 'PERSONALITY QUIZ · POWERED BY LYZR',
+    'submitTest': 'Submit test',
+    'yourPersonalityTitle': 'Your Personality',
+    'youAre': 'YOU ARE',
+    'traitProfile': 'TRAIT PROFILE',
+    'backToNeedHub': 'Back to NeedHub',
+    'pickAnAnswer': 'Pick an answer to continue.',
+    'yourProfileHelps': 'Your profile helps us surface a compatibility % on Connect. You can retake anytime from your You tab.',
   };
 
   /// Live Groq-translated cache for the current language.
@@ -316,6 +381,66 @@ class S {
   String get acceptRequest => _get('acceptRequest');
   String get impact => _get('impact');
   String get certificates => _get('certificates');
+  String get yourIdentity => _get('yourIdentity');
+  String get whatsYourName => _get('whatsYourName');
+  String get yourNameDesc => _get('yourNameDesc');
+  String get yourInterests => _get('yourInterests');
+  String get whatAreYouInto => _get('whatAreYouInto');
+  String get pickWhatYouEnjoy => _get('pickWhatYouEnjoy');
+  String get addYourOwn => _get('addYourOwn');
+  String get yourSkills => _get('yourSkills');
+  String get whatCanYouHelpWith => _get('whatCanYouHelpWith');
+  String get skillsYoureWilling => _get('skillsYoureWilling');
+  String get yourLocation => _get('yourLocation');
+  String get whereAreYouBased => _get('whereAreYouBased');
+  String get locationDesc => _get('locationDesc');
+  String get continueLabel => _get('continueLabel');
+  String get alreadyHaveAccount => _get('alreadyHaveAccount');
+  String get add => _get('add');
+  String get aboutYou => _get('aboutYou');
+  String get bioHint => _get('bioHint');
+  String get rulesTitle => _get('rulesTitle');
+  String get rulesSubtitle => _get('rulesSubtitle');
+  String get verifyEmailKicker => _get('verifyEmailKicker');
+  String get weSentYouACode => _get('weSentYouACode');
+  String get editProfile => _get('editProfile');
+  String get displayName => _get('displayName');
+  String get saveChanges => _get('saveChanges');
+  String get addOther => _get('addOther');
+  String get gettingLocation => _get('gettingLocation');
+  String get useMyCurrentLocation => _get('useMyCurrentLocation');
+  String get pickOnMap => _get('pickOnMap');
+  String get appearance => _get('appearance');
+  String get privacyAlerts => _get('privacyAlerts');
+  String get activitySection => _get('activitySection');
+  String get accountSection => _get('accountSection');
+  String get notificationsLabel => _get('notificationsLabel');
+  String get alertsWhenResponds => _get('alertsWhenResponds');
+  String get hidePreciseLocation => _get('hidePreciseLocation');
+  String get showNeighbourhoodOnly => _get('showNeighbourhoodOnly');
+  String get blockedUsers => _get('blockedUsers');
+  String get logOut => _get('logOut');
+  String get noOneIsBlocked => _get('noOneIsBlocked');
+  String get unblock => _get('unblock');
+  String get youreAvailableForChat => _get('youreAvailableForChat');
+  String get markYourselfAvailableChat => _get('markYourselfAvailableChat');
+  String get upForAChatRightNow => _get('upForAChatRightNow');
+  String get visibleFor24h => _get('visibleFor24h');
+  String get nearbyWillSeeYouFirst => _get('nearbyWillSeeYouFirst');
+  String get live => _get('live');
+  String get chitchatInfoText => _get('chitchatInfoText');
+  String get noOneElseUpForChat => _get('noOneElseUpForChat');
+  String get friendsDMs => _get('friendsDMs');
+  String get directMessages => _get('directMessages');
+  String get tapToChat => _get('tapToChat');
+  String get personalityQuizTitle => _get('personalityQuizTitle');
+  String get submitTest => _get('submitTest');
+  String get yourPersonalityTitle => _get('yourPersonalityTitle');
+  String get youAre => _get('youAre');
+  String get traitProfile => _get('traitProfile');
+  String get backToNeedHub => _get('backToNeedHub');
+  String get pickAnAnswer => _get('pickAnAnswer');
+  String get yourProfileHelps => _get('yourProfileHelps');
 
   /// Load all UI strings for [langCode] from Groq and store in cache.
   static Future<void> loadTranslations(String langCode) async {

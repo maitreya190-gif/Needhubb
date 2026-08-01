@@ -560,13 +560,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: [
                       _buildLangStep(t, s),
-                      _buildStep0(t),
-                      _buildStep1(t),
-                      _buildStep2(t),
-                      _buildStep3(t),
-                      _buildStep4Location(t),
-                      _buildStep5AboutYou(t),
-                      _buildStep5Rules(t),
+                      _buildStep0(t, s),
+                      _buildStep1(t, s),
+                      _buildStep2(t, s),
+                      _buildStep3(t, s),
+                      _buildStep4Location(t, s),
+                      _buildStep5AboutYou(t, s),
+                      _buildStep5Rules(t, s),
                     ][_step],
                   ),
                 ),
@@ -647,15 +647,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   // ── Step 0: Name / Email / Password ────────────────────────────────────────
 
-  Widget _buildStep0(NeedHubTokens t) {
+  Widget _buildStep0(NeedHubTokens t, S s) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 36),
-        _Kicker(label: 'YOUR IDENTITY'),
+        _Kicker(label: s.yourIdentity),
         const SizedBox(height: 10),
         Text(
-          "What's your name?",
+          s.whatsYourName,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -664,7 +664,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Your name is how others find and recognise you on NeedHub.',
+          s.yourNameDesc,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 15,
             fontWeight: FontWeight.w400,
@@ -716,7 +716,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 20),
         Text(
-          'GENDER',
+          s.gender.toUpperCase(),
           style: GoogleFonts.hankenGrotesk(
               fontSize: 11,
               fontWeight: FontWeight.w700,
@@ -775,7 +775,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           const SizedBox(height: 16),
         ],
         NhPrimaryButton(
-          label: 'Continue',
+          label: s.continueLabel,
           loading: _loading,
           onPressed: _step0Valid ? _doSignup : null,
         ),
@@ -784,7 +784,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           child: TextButton(
             onPressed: () => context.pop(),
             child: Text(
-              'Already have an account? Log in',
+              s.alreadyHaveAccount,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
@@ -800,15 +800,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   // ── Step 1: Verify Email ───────────────────────────────────────────────────
 
-  Widget _buildStep1(NeedHubTokens t) {
+  Widget _buildStep1(NeedHubTokens t, S s) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 36),
-        _Kicker(label: 'VERIFY YOUR EMAIL'),
+        _Kicker(label: s.verifyEmailKicker),
         const SizedBox(height: 10),
         Text(
-          'We sent you a code',
+          s.weSentYouACode,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -876,7 +876,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           const SizedBox(height: 16),
         ],
         NhPrimaryButton(
-          label: 'Continue',
+          label: s.continueLabel,
           loading: _loading,
           onPressed: _step1Valid ? _submitSignup : null,
         ),
@@ -887,15 +887,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   // ── Step 2: Interests ──────────────────────────────────────────────────────
 
-  Widget _buildStep2(NeedHubTokens t) {
+  Widget _buildStep2(NeedHubTokens t, S s) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 36),
-        _Kicker(label: 'YOUR INTERESTS'),
+        _Kicker(label: s.yourInterests),
         const SizedBox(height: 10),
         Text(
-          "What are you into?",
+          s.whatAreYouInto,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -904,7 +904,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          "Pick what you genuinely enjoy. This is how you'll find people near you.",
+          s.pickWhatYouEnjoy,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 15,
             fontWeight: FontWeight.w400,
@@ -943,7 +943,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   color: t.ink,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Add your own…',
+                  hintText: s.addYourOwn,
                   hintStyle: GoogleFonts.hankenGrotesk(
                     fontSize: 14,
                     color: t.muted,
@@ -988,7 +988,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Text(
-                  'Add',
+                  s.add,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1001,7 +1001,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 36),
         NhPrimaryButton(
-          label: 'Continue',
+          label: s.continueLabel,
           onPressed: _goNext,
         ),
         const SizedBox(height: 32),
@@ -1011,15 +1011,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   // ── Step 3: Skills ─────────────────────────────────────────────────────────
 
-  Widget _buildStep3(NeedHubTokens t) {
+  Widget _buildStep3(NeedHubTokens t, S s) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 36),
-        _Kicker(label: 'YOUR SKILLS'),
+        _Kicker(label: s.yourSkills),
         const SizedBox(height: 10),
         Text(
-          "What can you help with?",
+          s.whatCanYouHelpWith,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -1028,7 +1028,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          "Skills you're willing to offer on NeedHub.",
+          s.skillsYoureWilling,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 15,
             fontWeight: FontWeight.w400,
@@ -1067,7 +1067,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   color: t.ink,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Add your own…',
+                  hintText: s.addYourOwn,
                   hintStyle: GoogleFonts.hankenGrotesk(
                     fontSize: 14,
                     color: t.muted,
@@ -1112,7 +1112,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Text(
-                  'Add',
+                  s.add,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -1125,7 +1125,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 36),
         NhPrimaryButton(
-          label: 'Continue',
+          label: s.continueLabel,
           onPressed: _goNext,
         ),
         const SizedBox(height: 32),
@@ -1135,15 +1135,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   // ── Step 4: Location ──────────────────────────────────────────────────────
 
-  Widget _buildStep4Location(NeedHubTokens t) {
+  Widget _buildStep4Location(NeedHubTokens t, S s) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 36),
-        _Kicker(label: 'YOUR LOCATION'),
+        _Kicker(label: s.yourLocation),
         const SizedBox(height: 10),
         Text(
-          'Where are you based?',
+          s.whereAreYouBased,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -1152,7 +1152,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'NeedHub surfaces needs near you. Your exact address is never shared — only your city or neighbourhood.',
+          s.locationDesc,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 15,
             color: t.muted2,
@@ -1212,7 +1212,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 : const Icon(Icons.my_location_rounded,
                     size: 18, color: NeedHubTokens.clay),
             label: Text(
-              _locating ? 'Getting location…' : 'Use my current location',
+              _locating ? s.gettingLocation : s.useMyCurrentLocation,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -1236,7 +1236,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             onPressed: _openMapPicker,
             icon: const Icon(Icons.map_outlined, size: 18, color: NeedHubTokens.clay),
             label: Text(
-              'Pick on map',
+              s.pickOnMap,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -1328,7 +1328,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         const SizedBox(height: 36),
 
         NhPrimaryButton(
-          label: 'Continue',
+          label: s.continueLabel,
           onPressed: _goNext,
         ),
         const SizedBox(height: 32),
@@ -1338,12 +1338,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   // ── Step 5: About You (bio + prompts) ────────────────────────────────────
 
-  Widget _buildStep5AboutYou(NeedHubTokens t) {
+  Widget _buildStep5AboutYou(NeedHubTokens t, S s) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 36),
-        _Kicker(label: 'ABOUT YOU'),
+        _Kicker(label: s.aboutYou),
         const SizedBox(height: 10),
         Text(
           'Tell people who you are',
@@ -1370,7 +1370,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 16),
         _SignupPromptField(
-          label: "THE SKILL I'D LOVE TO TEACH",
+          label: s.skillIdLoveToTeach,
           hint: 'e.g. DSA — I love breaking down complex algorithms…',
           controller: _promptSkillController,
           onChanged: () => setState(() {}),
@@ -1378,7 +1378,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 16),
         _SignupPromptField(
-          label: 'MY IDEAL COLLAB',
+          label: s.myIdealCollab,
           hint: 'e.g. Someone who ships fast and loves late-night brainstorming.',
           controller: _promptCollabController,
           onChanged: () => setState(() {}),
@@ -1386,14 +1386,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 16),
         _SignupPromptField(
-          label: "THE NEED I'D POST RIGHT NOW",
+          label: s.needIdPostRightNow,
           hint: 'e.g. A designer for my side project.',
           controller: _promptNeedController,
           onChanged: () => setState(() {}),
           t: t,
         ),
         const SizedBox(height: 32),
-        NhPrimaryButton(label: 'Continue', onPressed: _goNext),
+        NhPrimaryButton(label: s.continueLabel, onPressed: _goNext),
         const SizedBox(height: 20),
       ],
     );
@@ -1401,7 +1401,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   // ── Step 6: Rules ──────────────────────────────────────────────────────────
 
-  Widget _buildStep5Rules(NeedHubTokens t) {
+  Widget _buildStep5Rules(NeedHubTokens t, S s) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

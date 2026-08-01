@@ -5,8 +5,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/language_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/profiles_api.dart';
 import '../../theme/tokens.dart';
@@ -229,6 +231,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
+    uiLanguageNotifier.addListener(_bump);
     final auth = ref.read(authProvider);
     _nameController = TextEditingController(text: auth.displayName ?? '');
     _bioController = TextEditingController(text: bioNotifier.value);
@@ -261,8 +264,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     }
   }
 
+  void _bump() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    uiLanguageNotifier.removeListener(_bump);
     _nameController.dispose();
     _bioController.dispose();
     _locationController.dispose();
@@ -419,6 +427,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
 
     return Scaffold(
       backgroundColor: t.paper,
@@ -431,7 +440,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Edit profile',
+          s.editProfile,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -488,8 +497,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
             // Display Name
             NhTextField(
-              label: 'Display Name',
-              hint: 'Your display name',
+              label: s.displayName,
+              hint: s.displayName,
               controller: _nameController,
               textInputAction: TextInputAction.next,
               onChanged: (_) => setState(() {}),
@@ -531,7 +540,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     : const Icon(Icons.my_location_rounded,
                         size: 18, color: NeedHubTokens.clay),
                 label: Text(
-                  _locating ? 'Getting location…' : 'Use my current location',
+                  _locating ? s.gettingLocation : s.useMyCurrentLocation,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -555,7 +564,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 onPressed: _openMapPicker,
                 icon: const Icon(Icons.map_outlined, size: 18, color: NeedHubTokens.clay),
                 label: Text(
-                  'Pick on map',
+                  s.pickOnMap,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -576,7 +585,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
             // Interests section
             Text(
-              'INTERESTS',
+              s.interests.toUpperCase(),
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -627,7 +636,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     );
                   }),
                   _AddChip(
-                    label: 'Add other',
+                    label: s.addOther,
                     color: NeedHubTokens.forest,
                     onTap: () => _promptAdd(context, isSkill: false),
                     t: t,
@@ -639,7 +648,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
             // Skills section
             Text(
-              'SKILLS',
+              s.skills.toUpperCase(),
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -690,7 +699,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     );
                   }),
                   _AddChip(
-                    label: 'Add other',
+                    label: s.addOther,
                     color: NeedHubTokens.ochre,
                     onTap: () => _promptAdd(context, isSkill: true),
                     t: t,
@@ -702,7 +711,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
             // Gender
             Text(
-              'GENDER',
+              s.gender.toUpperCase(),
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -732,7 +741,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
             // Prompt fields
             Text(
-              "THE SKILL I'D LOVE TO TEACH",
+              s.skillIdLoveToTeach,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -751,7 +760,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'MY IDEAL COLLAB',
+              s.myIdealCollab,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -770,7 +779,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              "THE NEED I'D POST RIGHT NOW",
+              s.needIdPostRightNow,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -791,7 +800,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
             // Save button
             NhPrimaryButton(
-              label: 'Save changes',
+              label: s.saveChanges,
               onPressed: _save,
               loading: _saving,
             ),

@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../l10n/app_strings.dart';
+import '../../providers/language_provider.dart';
 import '../../services/personality_api.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
+import '../../services/translate_api.dart';
 import '../../theme/tokens.dart';
 
 /// A 10-question personality quiz that hands off to the Lyzr analyzer agent
@@ -113,7 +116,11 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
     ),
   ];
 
-  final List<String?> _answers = List<String?>.filled(_questions.length, null);
+  // Indices into _questions[i].options — keeps English answers for API submission
+  final List<int?> _answerIndices = List<int?>.filled(_questions.length, null);
+  // Groq-translated display questions; falls back to _questions when English
+  List<({String prompt, List<String> options})> _displayQuestions = _questions;
+  bool _translatingQuestions = false;
   int _step = 0;
   bool _submitting = false;
   String? _error;
@@ -121,11 +128,45 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
   @override
   void initState() {
     super.initState();
+    uiLanguageNotifier.addListener(_onLangChange);
+    _loadTranslations();
+  }
+
+  @override
+  void dispose() {
+    uiLanguageNotifier.removeListener(_onLangChange);
+    super.dispose();
+  }
+
+  void _onLangChange() => _loadTranslations();
+
+  Future<void> _loadTranslations() async {
+    final lang = uiLanguageNotifier.value;
+    if (lang == 'en') {
+      if (mounted) setState(() => _displayQuestions = _questions);
+      return;
+    }
+    if (mounted) setState(() => _translatingQuestions = true);
+    // Flatten all strings: [q1prompt, q1opt1..q1opt4, q2prompt, ...]
+    final flat = <String>[];
+    for (final q in _questions) {
+      flat.add(q.prompt);
+      flat.addAll(q.options);
+    }
+    final translated = await translateBatch(flat, lang);
+    final display = <({String prompt, List<String> options})>[];
+    var idx = 0;
+    for (final q in _questions) {
+      final prompt = translated[idx++];
+      final opts = [translated[idx++], translated[idx++], translated[idx++], translated[idx++]];
+      display.add((prompt: prompt, options: opts));
+    }
+    if (mounted) setState(() { _displayQuestions = display; _translatingQuestions = false; });
   }
 
   Future<void> _submit() async {
     // Jump to the first unanswered question instead of just showing an error
-    final firstMissing = _answers.indexWhere((a) => a == null || a.isEmpty);
+    final firstMissing = _answerIndices.indexWhere((a) => a == null);
     if (firstMissing != -1) {
       setState(() {
         _step = firstMissing;
@@ -138,13 +179,19 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
       _error = null;
     });
 
+    // Always submit original English answers regardless of display language
+    final englishAnswers = List.generate(
+      _questions.length,
+      (i) => _questions[i].options[_answerIndices[i]!],
+    );
+
     PersonalityProfile? profile;
     Object? failure;
     // Belt-and-suspenders: wrap the whole flow so even a widget/parse crash
     // during the profile refresh can't red-screen the app.
     try {
       final api = ref.read(personalityApiProvider);
-      profile = await api.submit(_answers.cast<String>());
+      profile = await api.submit(englishAnswers);
       // Cache the profile on the app-wide notifier so downstream widgets
       // (Home CTA, feed match badge) pick it up on the next rebuild.
       myPersonalityNotifier.value = profile;
@@ -224,9 +271,19 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
-    final q = _questions[_step];
+    final s = S.current;
+    final q = _displayQuestions[_step];
     final isLast = _step == _questions.length - 1;
     final progress = (_step + 1) / _questions.length;
+
+    if (_translatingQuestions) {
+      return Scaffold(
+        backgroundColor: t.paper,
+        body: Center(
+          child: CircularProgressIndicator(color: NeedHubTokens.clay),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: t.paper,
@@ -273,7 +330,7 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'PERSONALITY QUIZ · POWERED BY LYZR',
+                      s.personalityQuizTitle,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -292,12 +349,14 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    ...q.options.map((opt) {
-                      final selected = _answers[_step] == opt;
+                    ...q.options.asMap().entries.map((entry) {
+                      final j = entry.key;
+                      final opt = entry.value;
+                      final selected = _answerIndices[_step] == j;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: GestureDetector(
-                          onTap: () => setState(() => _answers[_step] = opt),
+                          onTap: () => setState(() => _answerIndices[_step] = j),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 140),
                             padding: const EdgeInsets.symmetric(
@@ -365,8 +424,8 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                             : () {
                                 if (isLast) {
                                   _submit();
-                                } else if (_answers[_step] == null) {
-                                  setState(() => _error = 'Pick an answer to continue.');
+                                } else if (_answerIndices[_step] == null) {
+                                  setState(() => _error = s.pickAnAnswer);
                                 } else {
                                   setState(() {
                                     _error = null;
@@ -395,7 +454,7 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                                         size: 20, color: Colors.white),
                                   if (isLast) const SizedBox(width: 8),
                                   Text(
-                                    isLast ? 'Submit test' : 'Next',
+                                    isLast ? s.submitTest : s.next,
                                     style: GoogleFonts.hankenGrotesk(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w800,
@@ -424,7 +483,7 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14)),
                           ),
-                          child: Text('Back',
+                          child: Text(s.back,
                               style: GoogleFonts.hankenGrotesk(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700)),
@@ -484,7 +543,7 @@ class PersonalityResultScreen extends StatelessWidget {
             },
           ),
           title: Text(
-            'Your Personality',
+            S.current.yourPersonalityTitle,
             style: GoogleFonts.hankenGrotesk(
                 fontSize: 16, fontWeight: FontWeight.w800, color: t.ink),
           ),
@@ -509,7 +568,7 @@ class PersonalityResultScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'YOU ARE',
+                    S.current.youAre,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -564,7 +623,7 @@ class PersonalityResultScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'TRAIT PROFILE',
+              S.current.traitProfile,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -592,8 +651,7 @@ class PersonalityResultScreen extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Your profile helps us surface a compatibility % on Connect. '
-                      'You can retake anytime from your You tab.',
+                      S.current.yourProfileHelps,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 12.5, color: t.muted, height: 1.4),
                     ),
@@ -619,7 +677,7 @@ class PersonalityResultScreen extends StatelessWidget {
                     ),
                   ),
                   child: Text(
-                    'Back to NeedHub',
+                    S.current.backToNeedHub,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,

@@ -240,7 +240,7 @@ class _FeedTabState extends ConsumerState<FeedTab> {
     unreadCountNotifier.addListener(_bump);
     earnFilterNotifier.addListener(_onFilterChanged);
     connectFilterNotifier.addListener(_onFilterChanged);
-    feedLanguageNotifier.addListener(_bump);
+    feedLanguageNotifier.addListener(_onFeedLangChange);
     uiLanguageNotifier.addListener(_bump);
     Future.microtask(_fetchFeed);
   }
@@ -252,9 +252,29 @@ class _FeedTabState extends ConsumerState<FeedTab> {
     unreadCountNotifier.removeListener(_bump);
     earnFilterNotifier.removeListener(_onFilterChanged);
     connectFilterNotifier.removeListener(_onFilterChanged);
-    feedLanguageNotifier.removeListener(_bump);
+    feedLanguageNotifier.removeListener(_onFeedLangChange);
     uiLanguageNotifier.removeListener(_bump);
     super.dispose();
+  }
+
+  void _onFeedLangChange() {
+    _bump();
+    _batchTranslateFeed();
+  }
+
+  /// One Groq call to translate ALL need titles at once — eliminates the
+  /// 20+ concurrent individual calls that were getting rate-limited.
+  Future<void> _batchTranslateFeed() async {
+    final lang = feedLanguageNotifier.value;
+    if (lang == 'en') return;
+    final needs = feedNeedsNotifier.value;
+    final uncached = needs.where((n) => translationCache[n.id]?[lang] == null).toList();
+    if (uncached.isEmpty) return;
+    final translated = await translateBatch(uncached.map((n) => n.title).toList(), lang);
+    for (int i = 0; i < uncached.length; i++) {
+      translationCache.putIfAbsent(uncached[i].id, () => {})[lang] = translated[i];
+    }
+    if (mounted) setState(() {});
   }
 
   void _bump() {
@@ -290,6 +310,8 @@ class _FeedTabState extends ConsumerState<FeedTab> {
         feedRankerNotifier.value = result.ranker;
       }
     } catch (_) {}
+    // Batch-translate all need titles in one Groq call after the feed loads.
+    _batchTranslateFeed();
   }
 
   @override
@@ -1317,30 +1339,16 @@ class _TranslatedEarnCardState extends State<_TranslatedEarnCard> {
   @override
   void initState() {
     super.initState();
-    feedLanguageNotifier.addListener(_onLangChange);
-    _translateIfNeeded();
+    feedLanguageNotifier.addListener(_bump);
   }
 
   @override
   void dispose() {
-    feedLanguageNotifier.removeListener(_onLangChange);
+    feedLanguageNotifier.removeListener(_bump);
     super.dispose();
   }
 
-  void _onLangChange() => _translateIfNeeded();
-
-  Future<void> _translateIfNeeded() async {
-    final lang = feedLanguageNotifier.value;
-    if (lang == 'en') {
-      if (mounted) setState(() {});
-      return;
-    }
-    if (translationCache[widget.need.id]?[lang] != null) {
-      if (mounted) setState(() {});
-      return;
-    }
-    final translated = await globalTranslateApi.translate(widget.need.title, lang);
-    translationCache.putIfAbsent(widget.need.id, () => {})[lang] = translated;
+  void _bump() {
     if (mounted) setState(() {});
   }
 

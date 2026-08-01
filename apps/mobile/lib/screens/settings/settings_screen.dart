@@ -93,7 +93,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SectionLabel(label: 'APPEARANCE'),
+                child: _SectionLabel(label: s.appearance),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -196,7 +196,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SectionLabel(label: 'PRIVACY & ALERTS'),
+                child: _SectionLabel(label: s.privacyAlerts),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -213,8 +213,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     children: [
                       _ToggleRow(
                         icon: Icons.notifications_outlined,
-                        title: 'Notifications',
-                        subtitle: 'Alerts when someone responds',
+                        title: s.notificationsLabel,
+                        subtitle: s.alertsWhenResponds,
                         value: _notificationsEnabled,
                         onChanged: (v) =>
                             setState(() => _notificationsEnabled = v),
@@ -222,8 +222,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       _ToggleRow(
                         icon: Icons.location_off_outlined,
-                        title: 'Hide precise location',
-                        subtitle: 'Show only neighbourhood level',
+                        title: s.hidePreciseLocation,
+                        subtitle: s.showNeighbourhoodOnly,
                         value: _hidePreciseLocation,
                         onChanged: (v) =>
                             setState(() => _hidePreciseLocation = v),
@@ -241,7 +241,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SectionLabel(label: 'ACTIVITY'),
+                child: _SectionLabel(label: s.activitySection),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -258,7 +258,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     children: [
                       _ActionRow(
                         icon: Icons.handshake_outlined,
-                        title: "People you've helped",
+                        title: s.peopleYouveHelped,
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute(
                               builder: (_) => HistoryScreen(
@@ -272,7 +272,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         builder: (_, blocked, __) => _ActionRow(
                           icon: Icons.block_rounded,
                           title:
-                              'Blocked users${blocked.isEmpty ? "" : " (${blocked.length})"}',
+                              '${s.blockedUsers}${blocked.isEmpty ? "" : " (${blocked.length})"}',
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
                                 builder: (_) => const _BlockedListScreen()),
@@ -291,7 +291,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _SectionLabel(label: 'ACCOUNT'),
+                child: _SectionLabel(label: s.accountSection),
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
@@ -321,7 +321,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               color: NeedHubTokens.clay, size: 20),
                           const SizedBox(width: 14),
                           Text(
-                            'Log out',
+                            s.logOut,
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -654,7 +654,7 @@ class _BlockedListScreenState extends ConsumerState<_BlockedListScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Blocked users',
+          S.current.blockedUsers,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -718,7 +718,7 @@ class _BlockedListScreenState extends ConsumerState<_BlockedListScreen> {
                       ),
                       TextButton(
                         onPressed: () => _unblockReal(u),
-                        child: Text('Unblock',
+                        child: Text(S.current.unblock,
                             style: GoogleFonts.hankenGrotesk(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
@@ -740,7 +740,7 @@ class _BlockedListScreenState extends ConsumerState<_BlockedListScreen> {
                   children: [
                     Icon(Icons.shield_outlined, size: 48, color: t.muted2),
                     const SizedBox(height: 12),
-                    Text('No one is blocked',
+                    Text(S.current.noOneIsBlocked,
                         style: GoogleFonts.bricolageGrotesque(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
@@ -807,7 +807,7 @@ class _BlockedListScreenState extends ConsumerState<_BlockedListScreen> {
                           SnackBar(content: Text('$name unblocked')),
                         );
                       },
-                      child: Text('Unblock',
+                      child: Text(S.current.unblock,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
