@@ -153,6 +153,65 @@ List<Need> filterAndSortNeeds(List<Need> source, FeedFilter filter) {
   return matched;
 }
 
+/// Needs that satisfy at least one selected chip but not all of them.
+///
+/// [filterAndSortNeeds] is a strict AND by design, so it can legitimately
+/// return nothing — pick "Flutter" and "Cooking" and no need is both. Rather
+/// than leave a dead feed, the surfaces render these underneath, clearly
+/// labelled as *not* exact matches. The user's AND result always comes first
+/// and is never padded, so a partial match can't be mistaken for one that
+/// satisfied every chip.
+///
+/// Deliberately not the silent fallback to the unfiltered list that was
+/// removed in fbb9f8e: the hard filters still apply, and a need matching zero
+/// chips never appears here. Ordered by how many chips each need does satisfy.
+List<Need> partialMatchNeeds(List<Need> source, FeedFilter filter) {
+  final chips = {...filter.interests, ...filter.skills};
+  if (chips.isEmpty) return const [];
+
+  final scored = <({Need need, int hits})>[];
+  for (final n in source) {
+    if (!passesHardFilters(n, filter)) continue;
+    final hits = chipHits(needHaystack(n), chips);
+    if (hits > 0 && hits < chips.length) scored.add((need: n, hits: hits));
+  }
+  scored.sort((a, b) => a.hits != b.hits
+      ? b.hits.compareTo(a.hits)
+      : compareBySort(a.need, b.need, filter));
+  return scored.map((s) => s.need).toList();
+}
+
+/// Separator introducing the partial matches below an exact-AND result, so
+/// the two groups can never be visually confused.
+class _PartialMatchDivider extends StatelessWidget {
+  final String title;
+  final NeedHubTokens t;
+
+  const _PartialMatchDivider({required this.title, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Container(height: 1, color: t.rail)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(
+            title,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+              color: t.ink.withValues(alpha: 0.55),
+            ),
+          ),
+        ),
+        Expanded(child: Container(height: 1, color: t.rail)),
+      ],
+    );
+  }
+}
+
 class FeedTab extends ConsumerStatefulWidget {
   final String initialSurface;
 
@@ -579,6 +638,9 @@ class _ConnectFeedState extends State<_ConnectFeed> {
     });
 
     final needs = filterAndSortNeeds(widget.needs, filter);
+    // Chips are a strict AND, so `needs` can be empty even when related needs
+    // exist. These are shown below it, always labelled as inexact.
+    final partialNeeds = partialMatchNeeds(widget.needs, filter);
 
     final activeCount = filter.filterCount;
 
@@ -699,24 +761,35 @@ class _ConnectFeedState extends State<_ConnectFeed> {
             ],
           ),
           const SizedBox(height: 12),
-          ...needs.asMap().entries.map((e) {
-            final i = e.key;
-            final need = e.value;
-            return Padding(
-              padding: EdgeInsets.only(bottom: i < needs.length - 1 ? 14 : 0),
-              child: _EarnCard(
-                need: need,
-                t: t,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                      builder: (_) => NeedDetailScreen(need: need)),
-                ),
-              ),
-            );
-          }),
+          ..._needCards(context, needs, t),
+        ],
+        if (partialNeeds.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          _PartialMatchDivider(
+              title: needs.isEmpty ? 'CLOSEST MATCHES' : 'MATCHES SOME FILTERS',
+              t: t),
+          const SizedBox(height: 16),
+          ..._needCards(context, partialNeeds, t),
         ],
       ],
     );
+  }
+
+  List<Widget> _needCards(
+      BuildContext context, List<Need> list, NeedHubTokens t) {
+    return list.asMap().entries.map((e) {
+      final need = e.value;
+      return Padding(
+        padding: EdgeInsets.only(bottom: e.key < list.length - 1 ? 14 : 0),
+        child: _EarnCard(
+          need: need,
+          t: t,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
+          ),
+        ),
+      );
+    }).toList();
   }
 }
 
@@ -965,6 +1038,9 @@ class _EarnFeedState extends State<_EarnFeed> {
     final t = widget.t;
     final filter = earnFilterNotifier.value;
     final needs = filterAndSortNeeds(widget.needs, filter);
+    // Chips are a strict AND, so `needs` can be empty even when related needs
+    // exist. These are shown below it, always labelled as inexact.
+    final partials = partialMatchNeeds(widget.needs, filter);
 
     final activeCount = filter.filterCount;
 
@@ -996,6 +1072,12 @@ class _EarnFeedState extends State<_EarnFeed> {
                 ? 'Tap "Edit filters" or "Clear all" above to change your search'
                 : 'Try expanding the radius or check back soon',
           ),
+          if (partials.isNotEmpty) ...[
+            const SizedBox(height: 30),
+            _PartialMatchDivider(title: 'CLOSEST MATCHES', t: t),
+            const SizedBox(height: 16),
+            ..._earnCards(context, partials, t),
+          ],
         ],
       );
     }
@@ -1051,22 +1133,32 @@ class _EarnFeedState extends State<_EarnFeed> {
         ),
         const SizedBox(height: 12),
         _ActiveFilterRibbon(filter: filter, surface: 'earn', t: t),
-        ...needs.asMap().entries.map((e) {
-          final i = e.key;
-          final need = e.value;
-          return Padding(
-            padding: EdgeInsets.only(bottom: i < needs.length - 1 ? 14 : 0),
-            child: _EarnCard(
-              need: need,
-              t: t,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
-              ),
-            ),
-          );
-        }),
+        ..._earnCards(context, needs, t),
+        if (partials.isNotEmpty) ...[
+          const SizedBox(height: 26),
+          _PartialMatchDivider(title: 'MATCHES SOME FILTERS', t: t),
+          const SizedBox(height: 16),
+          ..._earnCards(context, partials, t),
+        ],
       ],
     );
+  }
+
+  List<Widget> _earnCards(
+      BuildContext context, List<Need> list, NeedHubTokens t) {
+    return list.asMap().entries.map((e) {
+      final need = e.value;
+      return Padding(
+        padding: EdgeInsets.only(bottom: e.key < list.length - 1 ? 14 : 0),
+        child: _EarnCard(
+          need: need,
+          t: t,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
+          ),
+        ),
+      );
+    }).toList();
   }
 }
 

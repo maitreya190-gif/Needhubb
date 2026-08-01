@@ -279,6 +279,78 @@ void main() {
     });
   });
 
+  group('partialMatchNeeds', () {
+    // Strict AND can legitimately return nothing. These back the "closest
+    // matches" section so the feed is never dead — without reintroducing the
+    // silent fallback to an unfiltered list that fbb9f8e removed.
+    test('returns needs matching some chips but not all', () {
+      final needs = [
+        makeNeed('both', tags: const ['Flutter', 'Tutoring']),
+        makeNeed('one', tags: const ['Flutter']),
+        makeNeed('none', tags: const ['Chess']),
+      ];
+      final filter =
+          FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
+      expect(idsOf(partialMatchNeeds(needs, filter)), ['one']);
+    });
+
+    test('never includes an exact match — those belong to the AND result', () {
+      final needs = [makeNeed('both', tags: const ['Flutter', 'Tutoring'])];
+      final filter =
+          FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
+      expect(partialMatchNeeds(needs, filter), isEmpty);
+      expect(idsOf(filterAndSortNeeds(needs, filter)), ['both']);
+    });
+
+    test('never includes a need matching zero chips', () {
+      final needs = [makeNeed('none', tags: const ['Chess'])];
+      final filter =
+          FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
+      expect(partialMatchNeeds(needs, filter), isEmpty);
+    });
+
+    test('is empty when no chips are selected, so nothing is padded', () {
+      final needs = [makeNeed('a'), makeNeed('b')];
+      expect(partialMatchNeeds(needs, const FeedFilter()), isEmpty);
+    });
+
+    test('still honours hard filters — distance, budget, gender', () {
+      final needs = [
+        makeNeed('near', distanceKm: 2, tags: const ['Flutter']),
+        makeNeed('far', distanceKm: 90, tags: const ['Flutter']),
+      ];
+      final filter = FeedFilter(
+        maxDistanceKm: 10,
+        interests: const {'Flutter', 'Cooking'},
+      );
+      expect(idsOf(partialMatchNeeds(needs, filter)), ['near']);
+    });
+
+    test('orders by how many chips each need satisfies', () {
+      final needs = [
+        makeNeed('one', tags: const ['Flutter']),
+        makeNeed('two', tags: const ['Flutter', 'Tutoring']),
+      ];
+      final filter = FeedFilter(
+        interests: const {'Flutter'},
+        skills: const {'Tutoring', 'Python'},
+      );
+      expect(idsOf(partialMatchNeeds(needs, filter)), ['two', 'one']);
+    });
+
+    test('exact and partial results never overlap', () {
+      final needs = [
+        makeNeed('both', tags: const ['Flutter', 'Tutoring']),
+        makeNeed('one', tags: const ['Flutter']),
+      ];
+      final filter =
+          FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
+      final exact = idsOf(filterAndSortNeeds(needs, filter)).toSet();
+      final partial = idsOf(partialMatchNeeds(needs, filter)).toSet();
+      expect(exact.intersection(partial), isEmpty);
+    });
+  });
+
   group('serverSortFor', () {
     // "Newest" used to sort a page the server had already truncated to the 60
     // most *relevant* needs, so a brand-new low-relevance need never arrived
