@@ -10,6 +10,7 @@ import '../../services/api_client.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_report_sheet.dart';
+import '../../widgets/nh_urgent_badge.dart';
 import '../hub/conversation_screen.dart';
 import '../../widgets/nh_full_screen_image_viewer.dart';
 import '../../services/social_providers.dart';
@@ -92,6 +93,49 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
 
   bool get _isNeedFrozen =>
       need.isFrozen || _realOffers.any((o) => o.status == 'ACCEPTED');
+
+  bool _renewing = false;
+
+  /// Reposts an expired urgent need with a fresh deadline — the owner-only
+  /// counterpart to Rescue Mode's expiry (see POST /needs/:id/renew, and
+  /// lib/urgency.ts on the API for why nothing auto-renews on its own).
+  Future<void> _renewNeed() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(hours: 3)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 30)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 3))),
+    );
+    if (time == null || !mounted) return;
+    final deadline =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
+
+    setState(() => _renewing = true);
+    try {
+      final api = ref.read(apiClientProvider);
+      await api.post('/needs/${need.id}/renew', {
+        'deadline': deadline.toIso8601String(),
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Renewed! Your need is live again with a fresh deadline.'),
+        backgroundColor: NeedHubTokens.forest,
+      ));
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _renewing = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Could not renew right now. Please try again.'),
+      ));
+    }
+  }
 
   @override
   void initState() {
@@ -504,6 +548,25 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                           if (_isPoster) ...[
                             Row(
                               children: [
+                                if (need.isExpiredUrgent) ...[
+                                  TextButton.icon(
+                                    onPressed: _renewing ? null : _renewNeed,
+                                    icon: _renewing
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2),
+                                          )
+                                        : const Icon(Icons.replay_rounded,
+                                            size: 18),
+                                    label: const Text('Renew'),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: NeedHubTokens.clay,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                ],
                                 IconButton(
                                   icon: const Icon(Icons.edit_outlined, size: 20),
                                   color: t.ink,
@@ -647,26 +710,65 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
                                                       horizontal: 10,
                                                       vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: cat,
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                _categoryLabel.toUpperCase(),
-                                                style:
-                                                    GoogleFonts.hankenGrotesk(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w800,
-                                                  letterSpacing: 0.06 * 11,
-                                                  color: Colors.white,
+                                                  decoration: BoxDecoration(
+                                                    color: cat,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            6),
+                                                  ),
+                                                  child: Text(
+                                                    _categoryLabel
+                                                        .toUpperCase(),
+                                                    style: GoogleFonts
+                                                        .hankenGrotesk(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                      letterSpacing:
+                                                          0.06 * 11,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
+                                                if (need.isUrgent) ...[
+                                                  const SizedBox(width: 8),
+                                                  NhUrgentBadge(need: need),
+                                                ] else if (need
+                                                    .isExpiredUrgent) ...[
+                                                  const SizedBox(width: 8),
+                                                  Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: t.muted
+                                                          .withValues(
+                                                              alpha: 0.15),
+                                                      borderRadius:
+                                                          BorderRadius
+                                                              .circular(20),
+                                                    ),
+                                                    child: Text(
+                                                      'Expired',
+                                                      style: GoogleFonts
+                                                          .hankenGrotesk(
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        color: t.muted,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
                                             const SizedBox(height: 12),
                                             Text(
@@ -1028,7 +1130,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                             ),
                             const SizedBox(height: 12),
                             if (displayOffers.isEmpty)
-                              NhEmptyState(
+                              const NhEmptyState(
                                 icon: Icons.inbox_outlined,
                                 title: 'No offers yet',
                                 subtitle:
@@ -2699,7 +2801,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                                   NeedHubTokens.forest.withValues(alpha: 0.3)),
                         ),
                         child: _suggesting
-                            ? SizedBox(
+                            ? const SizedBox(
                                 width: 12,
                                 height: 12,
                                 child: CircularProgressIndicator(

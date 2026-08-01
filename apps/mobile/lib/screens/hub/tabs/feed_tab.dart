@@ -18,6 +18,7 @@ import '../../../widgets/nh_skeleton.dart';
 import '../../../widgets/nh_empty_state.dart';
 import '../../../widgets/nh_report_sheet.dart';
 import '../../../widgets/nh_filter_sheet.dart';
+import '../../../widgets/nh_urgent_badge.dart';
 import '../../needs/need_detail_screen.dart';
 import '../../connect/connect_detail_screen.dart';
 import '../../person/person_screen.dart';
@@ -1443,22 +1444,30 @@ class _EarnCard extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: cat,
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text(
-                                _catLabel,
-                                style: GoogleFonts.hankenGrotesk(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 0.06 * 10.5,
-                                  color: Colors.white,
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: cat,
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(
+                                    _catLabel,
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.06 * 10.5,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (need.isUrgent) ...[
+                                  const SizedBox(width: 6),
+                                  NhUrgentBadge(need: need, compact: true),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 9),
                             Text(

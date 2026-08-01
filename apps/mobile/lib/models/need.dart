@@ -101,6 +101,12 @@ class Need {
   final double? lat;
   final double? lng;
 
+  /// Whether the poster marked this need as urgent. Off by default, and the
+  /// only thing about Urgency Mode ever visible to anyone — the server never
+  /// returns its internal confidence score. See lib/urgency.ts on the API.
+  final bool isUrgent;
+  final DateTime? deadline;
+
   const Need({
     required this.id,
     this.posterId = '',
@@ -127,6 +133,8 @@ class Need {
     this.status = 'OPEN',
     this.lat,
     this.lng,
+    this.isUrgent = false,
+    this.deadline,
   });
 
   Need copyWith({String? title}) => Need(
@@ -158,6 +166,18 @@ class Need {
       );
 
   bool get isFrozen => status.toUpperCase() != 'OPEN';
+  bool get isExpiredUrgent => status.toUpperCase() == 'EXPIRED';
+
+  /// Short "3h left" / "45m left" for an urgent need's deadline. Null once it
+  /// has passed — callers should prefer isExpiredUrgent for that case.
+  String? get urgencyCountdown {
+    if (!isUrgent || deadline == null) return null;
+    final remaining = deadline!.difference(DateTime.now());
+    if (remaining.isNegative) return null;
+    if (remaining.inHours >= 24) return '${remaining.inDays}d left';
+    if (remaining.inHours >= 1) return '${remaining.inHours}h left';
+    return '${remaining.inMinutes.clamp(1, 59)}m left';
+  }
 
   String get timeAgo {
     final diff = DateTime.now().difference(createdAt);

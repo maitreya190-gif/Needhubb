@@ -173,6 +173,10 @@ Need _needFromJson(Map<String, dynamic> j) {
     status: j['status'] as String? ?? 'OPEN',
     lat: j['lat'] is num ? (j['lat'] as num).toDouble() : null,
     lng: j['lng'] is num ? (j['lng'] as num).toDouble() : null,
+    isUrgent: j['isUrgent'] as bool? ?? false,
+    deadline: j['deadline'] != null
+        ? DateTime.tryParse(j['deadline'] as String)
+        : null,
   );
 }
 

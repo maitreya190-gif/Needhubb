@@ -199,7 +199,6 @@ class S {
     'blockedUsers': 'Blocked users',
     'logOut': 'Log out',
     'noOneIsBlocked': 'No one is blocked',
-    'unblock': 'Unblock',
     // ChitChat
     'youreAvailableForChat': "You're available for a chat right now",
     'markYourselfAvailableChat': 'Mark yourself available',
@@ -421,7 +420,6 @@ class S {
   String get blockedUsers => _get('blockedUsers');
   String get logOut => _get('logOut');
   String get noOneIsBlocked => _get('noOneIsBlocked');
-  String get unblock => _get('unblock');
   String get youreAvailableForChat => _get('youreAvailableForChat');
   String get markYourselfAvailableChat => _get('markYourselfAvailableChat');
   String get upForAChatRightNow => _get('upForAChatRightNow');

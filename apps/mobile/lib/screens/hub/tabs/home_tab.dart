@@ -6,6 +6,7 @@ import '../../../models/user_state.dart';
 import '../../../services/needs_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
+import '../../../widgets/nh_urgent_badge.dart';
 import '../../needs/need_detail_screen.dart';
 
 class HomeTab extends ConsumerStatefulWidget {
@@ -394,6 +395,10 @@ class NeedCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (need.isUrgent) ...[
+                  const SizedBox(width: 6),
+                  NhUrgentBadge(need: need, compact: true),
+                ],
                 const Spacer(),
                 Text(
                   need.timeAgo,

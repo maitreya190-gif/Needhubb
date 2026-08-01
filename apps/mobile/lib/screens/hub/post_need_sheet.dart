@@ -99,6 +99,11 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
   bool _posting = false;
   String? _error;
 
+  // Urgency Mode — off by default. Only applies to the manual single-need
+  // path: decomposed sub-needs post as-is, without a per-need urgent toggle.
+  bool _isUrgent = false;
+  DateTime? _urgentDeadline;
+
   // Decomposed needs from the API — each item matches the /needs/decompose response shape.
   List<Map<String, dynamic>> _subNeeds = [];
   Set<int> _selectedSubNeedIndexes = {};
@@ -115,10 +120,34 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
 
   bool get _canPost =>
       _titleController.text.trim().length >= 5 &&
-      _descController.text.trim().length >= 10;
+      _descController.text.trim().length >= 10 &&
+      // Urgency Mode requires a deadline before it can be posted — the
+      // toggle alone isn't enough (matches the API's own validation).
+      (!_isUrgent || _decomposed || _urgentDeadline != null);
 
   bool get _canDecompose =>
       _descController.text.trim().length >= 20 && !_decomposed;
+
+  Future<void> _pickUrgentDeadline() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _urgentDeadline ?? now.add(const Duration(hours: 3)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 30)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(
+          _urgentDeadline ?? now.add(const Duration(hours: 3))),
+    );
+    if (time == null || !mounted) return;
+    setState(() {
+      _urgentDeadline =
+          DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
 
   Future<void> _decompose() async {
     setState(() { _decomposing = true; _error = null; });
@@ -200,7 +229,8 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
         'connectCategory': isEarn ? null : 'OTHER',
         'budgetMin': budgetMin,
         'budgetMax': budgetMax,
-        'deadline': null,
+        'deadline': _isUrgent ? _urgentDeadline!.toIso8601String() : null,
+        if (_isUrgent) 'isUrgent': true,
       }];
     }
 
@@ -219,6 +249,10 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
       createdAt: DateTime.tryParse(n['createdAt'] as String? ?? '') ?? DateTime.now(),
       budgetMin: (n['budgetMin'] as num?)?.toInt(),
       budgetMax: (n['budgetMax'] as num?)?.toInt(),
+      isUrgent: n['isUrgent'] as bool? ?? false,
+      deadline: n['deadline'] != null
+          ? DateTime.tryParse(n['deadline'] as String)
+          : null,
     );
 
     try {
@@ -261,6 +295,8 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
           createdAt: DateTime.now(),
           budgetMin: int.tryParse(_budgetMinController.text.trim()),
           budgetMax: int.tryParse(_budgetMaxController.text.trim()),
+          isUrgent: _isUrgent,
+          deadline: _isUrgent ? _urgentDeadline : null,
         ));
       }
     }
@@ -372,6 +408,13 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
               subNeeds: _subNeeds,
               selectedSubNeedIndexes: _selectedSubNeedIndexes,
               canPost: _canPost,
+              isUrgent: _isUrgent,
+              urgentDeadline: _urgentDeadline,
+              onToggleUrgent: (v) => setState(() {
+                _isUrgent = v;
+                if (!v) _urgentDeadline = null;
+              }),
+              onPickDeadline: _pickUrgentDeadline,
               onCategoryChanged: (v) => setState(() {
                 _category = v;
                 _decomposed = false;
@@ -414,6 +457,10 @@ class _NeedForm extends StatelessWidget {
   final List<Map<String, dynamic>> subNeeds;
   final Set<int> selectedSubNeedIndexes;
   final bool canPost;
+  final bool isUrgent;
+  final DateTime? urgentDeadline;
+  final ValueChanged<bool> onToggleUrgent;
+  final VoidCallback onPickDeadline;
   final ValueChanged<String> onCategoryChanged;
   final VoidCallback onChanged;
   final VoidCallback onDecompose;
@@ -441,6 +488,10 @@ class _NeedForm extends StatelessWidget {
     required this.subNeeds,
     required this.selectedSubNeedIndexes,
     required this.canPost,
+    required this.isUrgent,
+    required this.urgentDeadline,
+    required this.onToggleUrgent,
+    required this.onPickDeadline,
     required this.onCategoryChanged,
     required this.onChanged,
     required this.onDecompose,
@@ -575,6 +626,109 @@ class _NeedForm extends StatelessWidget {
               ),
             ],
           ),
+        ],
+
+        // Urgency Mode — manual single-need path only. Hidden once decomposed
+        // since sub-needs post as-is without a per-need urgent toggle.
+        if (!decomposed) ...[
+          const SizedBox(height: 14),
+          InkWell(
+            onTap: () => onToggleUrgent(!isUrgent),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: isUrgent
+                    ? Colors.red.withValues(alpha: 0.08)
+                    : t.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isUrgent
+                      ? Colors.red.withValues(alpha: 0.35)
+                      : t.rail,
+                  width: 1.5,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.bolt_rounded,
+                      size: 18,
+                      color: isUrgent ? Colors.red.shade600 : t.muted),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Mark as Urgent',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: isUrgent ? Colors.red.shade700 : t.ink,
+                          ),
+                        ),
+                        Text(
+                          'Boosts visibility as your deadline nears',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 11,
+                            color: t.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: isUrgent,
+                    onChanged: onToggleUrgent,
+                    activeTrackColor: Colors.red.shade400,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isUrgent) ...[
+            const SizedBox(height: 10),
+            InkWell(
+              onTap: onPickDeadline,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: t.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: urgentDeadline == null
+                        ? Colors.orange.shade300
+                        : t.rail,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.schedule_rounded, size: 17, color: t.muted),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        urgentDeadline == null
+                            ? 'Set a deadline (required)'
+                            : 'Due ${_formatDeadline(urgentDeadline!)}',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: urgentDeadline == null
+                              ? Colors.orange.shade800
+                              : t.ink,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 18, color: t.muted),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
 
         const SizedBox(height: 14),
@@ -755,6 +909,21 @@ class _NeedForm extends StatelessWidget {
       ],
     );
   }
+}
+
+String _formatDeadline(DateTime d) {
+  final now = DateTime.now();
+  final sameDay =
+      d.year == now.year && d.month == now.month && d.day == now.day;
+  final h = d.hour % 12 == 0 ? 12 : d.hour % 12;
+  final period = d.hour >= 12 ? 'PM' : 'AM';
+  final time = '$h:${d.minute.toString().padLeft(2, '0')} $period';
+  if (sameDay) return 'today, $time';
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return '${months[d.month - 1]} ${d.day}, $time';
 }
 
 // ── Sub-need card (from API response) ────────────────────────────────────────
