@@ -52,7 +52,9 @@ bool _termMatches(String haystack, String term) {
 List<String> _needHaystack(Need n) =>
     [...n.posterInterests, ...n.tags, n.title, n.description];
 
-bool _needMatchesFilter(Need n, FeedFilter filter) {
+/// Hard limits the user set explicitly — distance, budget, gender. Anything
+/// outside these is excluded outright; they are constraints, not preferences.
+bool _passesHardFilters(Need n, FeedFilter filter) {
   // The slider's top notch (50) is labelled "50+ km (Any)" in the filter
   // sheet, so it must mean no limit — not a hard 50km cut.
   if (filter.maxDistanceKm < 50 &&
@@ -79,30 +81,53 @@ bool _needMatchesFilter(Need n, FeedFilter filter) {
       return false;
     }
   }
-  // Interests and skills are AND: stacking chips narrows to needs common to
-  // every chip, rather than widening the list.
-  final haystack = _needHaystack(n);
-  if (filter.interests
-      .any((i) => !haystack.any((h) => _termMatches(h, i)))) {
-    return false;
-  }
-  if (filter.skills.any((s) => !haystack.any((h) => _termMatches(h, s)))) {
-    return false;
-  }
   return true;
 }
 
-List<Need> _filterAndSortNeeds(List<Need> source, FeedFilter filter) {
-  final out = source.where((n) => _needMatchesFilter(n, filter)).toList();
+/// How many of the selected topic chips this need satisfies.
+int _chipHits(List<String> haystack, Set<String> chips) =>
+    chips.where((c) => haystack.any((h) => _termMatches(h, c))).length;
+
+/// The user's explicit sort choice, used on its own and as the tie-breaker
+/// between needs that matched the same number of chips.
+int _compareBySort(Need a, Need b, FeedFilter filter) {
   if (filter.sortBy == 'nearest') {
-    out.sort((a, b) => (a.distanceKm ?? double.infinity)
-        .compareTo(b.distanceKm ?? double.infinity));
-  } else if (filter.sortBy == 'highest_points') {
-    out.sort((a, b) => (b.budgetMin ?? 0).compareTo(a.budgetMin ?? 0));
-  } else {
-    out.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return (a.distanceKm ?? double.infinity)
+        .compareTo(b.distanceKm ?? double.infinity);
   }
-  return out;
+  if (filter.sortBy == 'highest_points') {
+    return (b.budgetMin ?? 0).compareTo(a.budgetMin ?? 0);
+  }
+  return b.createdAt.compareTo(a.createdAt); // 'newest'
+}
+
+/// Applies the user's filters. This is deliberately independent of the
+/// server's AI relevance ranking (`_score`, surfaced as the "AI-ranked"
+/// badge): the AI decides what the raw feed contains and its base order,
+/// while these chips are the user's own explicit narrowing on top of it.
+///
+/// Topic chips (interests + skills) are treated as a union rather than a
+/// hard AND — a need shows if it matches at least one chip — but results
+/// are ordered by how many chips each need satisfies, so needs matching
+/// *every* chosen chip head the list and partial matches follow behind.
+List<Need> _filterAndSortNeeds(List<Need> source, FeedFilter filter) {
+  final pool = source.where((n) => _passesHardFilters(n, filter)).toList();
+  final chips = {...filter.interests, ...filter.skills};
+
+  if (chips.isEmpty) {
+    pool.sort((a, b) => _compareBySort(a, b, filter));
+    return pool;
+  }
+
+  final matched = <({Need need, int hits})>[];
+  for (final n in pool) {
+    final hits = _chipHits(_needHaystack(n), chips);
+    if (hits > 0) matched.add((need: n, hits: hits));
+  }
+  matched.sort((a, b) => a.hits != b.hits
+      ? b.hits.compareTo(a.hits)
+      : _compareBySort(a.need, b.need, filter));
+  return matched.map((m) => m.need).toList();
 }
 
 class FeedTab extends ConsumerStatefulWidget {
@@ -467,35 +492,39 @@ class _ConnectFeedState extends State<_ConnectFeed> {
     final t = widget.t;
     final filter = connectFilterNotifier.value;
     // Same rules as needs: 50 means "any distance", explicit gender filters
-    // exclude unknown-gender profiles, and interests/skills are AND.
-    var filteredPeople = mockPeople.where((p) {
+    // exclude unknown-gender profiles, and topic chips are a union ordered
+    // by how many chips each person matches.
+    final chips = {...filter.interests, ...filter.skills};
+    var peopleHits = <({Person person, int hits})>[];
+    for (final p in mockPeople) {
       if (filter.maxDistanceKm < 50 && p.distanceKm > filter.maxDistanceKm) {
-        return false;
+        continue;
       }
       if (filter.genders.isNotEmpty) {
         final g = p.gender;
-        if (g == null) return false;
+        if (g == null) continue;
         if (!filter.genders
             .any((f) => _normalizeTerm(f) == _normalizeTerm(g))) {
-          return false;
+          continue;
         }
       }
-      final haystack = [...p.interests, ...p.skills];
-      if (filter.interests
-          .any((i) => !haystack.any((h) => _termMatches(h, i)))) {
-        return false;
-      }
-      if (filter.skills.any((s) => !haystack.any((h) => _termMatches(h, s)))) {
-        return false;
-      }
-      return true;
-    }).toList();
-
-    if (filter.sortBy == 'nearest') {
-      filteredPeople.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
-    } else if (filter.sortBy == 'highest_points') {
-      filteredPeople.sort((a, b) => b.points.compareTo(a.points));
+      final hits = chips.isEmpty
+          ? 0
+          : _chipHits([...p.interests, ...p.skills], chips);
+      if (chips.isNotEmpty && hits == 0) continue;
+      peopleHits.add((person: p, hits: hits));
     }
+    peopleHits.sort((a, b) {
+      if (a.hits != b.hits) return b.hits.compareTo(a.hits);
+      if (filter.sortBy == 'nearest') {
+        return a.person.distanceKm.compareTo(b.person.distanceKm);
+      }
+      if (filter.sortBy == 'highest_points') {
+        return b.person.points.compareTo(a.person.points);
+      }
+      return 0;
+    });
+    var filteredPeople = peopleHits.map((e) => e.person).toList();
 
     final needs = _filterAndSortNeeds(widget.needs, filter);
 
