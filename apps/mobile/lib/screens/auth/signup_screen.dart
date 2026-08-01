@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -354,19 +355,19 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         _savedToken ?? 'demo_token_${DateTime.now().millisecondsSinceEpoch}';
     final userId = _savedUserId ?? fallbackUserId;
 
-    // Store token first so the profile update call below has auth.
-    await ref.read(authProvider.notifier).login(
-          token: token,
-          userId: userId,
-          displayName: _nameController.text.trim().isNotEmpty
-              ? _nameController.text.trim()
-              : 'New User',
-          email: email,
-        );
+    // Write the token to secure storage directly BEFORE calling login().
+    // login() flips auth state which triggers navigation → home mounts →
+    // _hydrateProfile() fires → GET /profile/me — if we call login() first
+    // the hydrate races with our PATCH and overwrites locationNotifier with
+    // stale null data. Doing the PATCH first guarantees the backend has the
+    // fresh profile by the time hydration runs.
+    const storage = FlutterSecureStorage();
+    await storage.write(key: 'auth_token', value: token);
+    await storage.write(key: 'auth_user_id', value: userId);
 
     try {
       final profilesApi = ref.read(profilesApiProvider);
-      await profilesApi.update(
+      final updated = await profilesApi.update(
         interests: _selectedInterests.toList(),
         skills: _selectedSkills.toList(),
         bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
@@ -378,7 +379,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         promptCollab: _promptCollabController.text.trim().isEmpty ? null : _promptCollabController.text.trim(),
         promptNeed: _promptNeedController.text.trim().isEmpty ? null : _promptNeedController.text.trim(),
       );
+      // Prime the profile notifier so the You screen paints correctly even
+      // if the subsequent _hydrateProfile fetch is slow.
+      myProfileNotifier.value = updated;
+      if (updated.locationText != null && updated.locationText!.isNotEmpty) {
+        locationNotifier.value = updated.locationText!;
+      }
     } catch (_) {}
+
+    // Now trigger the auth state change — home will mount and hydrate a
+    // profile that already has the location saved on the backend.
+    await ref.read(authProvider.notifier).login(
+          token: token,
+          userId: userId,
+          displayName: _nameController.text.trim().isNotEmpty
+              ? _nameController.text.trim()
+              : 'New User',
+          email: email,
+        );
   }
 
   String _friendlyError(Object e) {
