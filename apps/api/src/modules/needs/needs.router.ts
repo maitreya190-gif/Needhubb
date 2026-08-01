@@ -13,6 +13,8 @@ import { notifyMatchingSkillUsers } from '../../lib/skill-matching'
 import { getIo, emitToUser } from '../../lib/socket'
 import { getSystemUserId } from '../../lib/system-user'
 import { computeTrustScore } from '../../lib/trust-score'
+import { earnedBadgeCount } from '../../lib/badges'
+import { fetchTrackRecord, fetchTrackRecords, toBadgeInputs, totalFulfilledCount } from '../../lib/track-record'
 import { tagNeedsByEmbedding } from '../../lib/need-tagging'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { isBlockedBetween } from '../friends/friends.service'
@@ -303,28 +305,27 @@ needsRouter.get('/', async (req, res, next) => {
     })
 
     // Batch-fetch trust-score "track record" inputs for every poster on this
-    // page in 3 grouped queries instead of one per need (keeps the feed fast).
+    // page in one grouped round instead of one query per need (keeps the feed
+    // fast). Shared with the profile endpoints so a poster's trust score is
+    // identical wherever it appears.
     const posterIds = [...new Set(needsRaw.map((n) => n.posterId))]
-    const [certGroups, fulfilledGroups, reviewGroups] = await Promise.all([
-      prisma.certificate.groupBy({ by: ['userId'], where: { userId: { in: posterIds }, status: 'APPROVED' }, _count: { id: true } }),
-      prisma.need.groupBy({ by: ['posterId'], where: { posterId: { in: posterIds }, status: 'FULFILLED' }, _count: { id: true } }),
-      prisma.review.groupBy({ by: ['revieweeId'], where: { revieweeId: { in: posterIds } }, _avg: { rating: true }, _count: { id: true } }),
-    ])
-    const certByUser = new Map(certGroups.map((g) => [g.userId, g._count.id]))
-    const fulfilledByUser = new Map(fulfilledGroups.map((g) => [g.posterId, g._count.id]))
-    const reviewByUser = new Map(reviewGroups.map((g) => [g.revieweeId, { avg: g._avg.rating ?? 0, count: g._count.id }]))
+    const recordsByUser = await fetchTrackRecords(posterIds)
     const trustScoreByPoster = new Map(
       posterIds.map((id) => {
         const need = needsRaw.find((n) => n.posterId === id)!
-        const review = reviewByUser.get(id)
-        return [id, computeTrustScore({
+        const record = recordsByUser.get(id)!
+        const verification = {
           emailVerifiedAt: need.poster.emailVerifiedAt,
           phoneVerifiedAt: need.poster.phoneVerifiedAt,
           faceVerifiedAt: need.poster.profile?.faceVerifiedAt ?? null,
-          approvedCertificateCount: certByUser.get(id) ?? 0,
-          fulfilledNeedCount: fulfilledByUser.get(id) ?? 0,
-          avgRating: review?.avg ?? 0,
-          ratingCount: review?.count ?? 0,
+        }
+        return [id, computeTrustScore({
+          ...verification,
+          approvedCertificateCount: record.approvedCertificateCount,
+          fulfilledNeedCount: totalFulfilledCount(record),
+          avgRating: record.avgRating,
+          ratingCount: record.ratingCount,
+          earnedBadgeCount: earnedBadgeCount(toBadgeInputs(verification, record)),
         })]
       }),
     )
@@ -513,19 +514,19 @@ needsRouter.get('/:id', async (req, res, next) => {
     })
     if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
 
-    const [approvedCertificateCount, fulfilledNeedCount, reviewAgg] = await Promise.all([
-      prisma.certificate.count({ where: { userId: need.posterId, status: 'APPROVED' } }),
-      prisma.need.count({ where: { posterId: need.posterId, status: 'FULFILLED' } }),
-      prisma.review.aggregate({ where: { revieweeId: need.posterId }, _avg: { rating: true }, _count: { id: true } }),
-    ])
-    const trustScore = computeTrustScore({
+    const record = await fetchTrackRecord(need.posterId)
+    const posterVerification = {
       emailVerifiedAt: need.poster.emailVerifiedAt,
       phoneVerifiedAt: need.poster.phoneVerifiedAt,
       faceVerifiedAt: need.poster.profile?.faceVerifiedAt ?? null,
-      approvedCertificateCount,
-      fulfilledNeedCount,
-      avgRating: reviewAgg._avg.rating ?? 0,
-      ratingCount: reviewAgg._count.id,
+    }
+    const trustScore = computeTrustScore({
+      ...posterVerification,
+      approvedCertificateCount: record.approvedCertificateCount,
+      fulfilledNeedCount: totalFulfilledCount(record),
+      avgRating: record.avgRating,
+      ratingCount: record.ratingCount,
+      earnedBadgeCount: earnedBadgeCount(toBadgeInputs(posterVerification, record)),
     })
 
     res.json({

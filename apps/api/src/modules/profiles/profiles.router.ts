@@ -9,6 +9,8 @@ import { verifyFace } from '../../lib/face-verify'
 import { analyzePersonality } from '../../lib/lyzr'
 import { twilioVerifyConfigured, startPhoneVerification, checkPhoneVerification } from '../../lib/sms'
 import { computeTrustScore } from '../../lib/trust-score'
+import { computeBadges, earnedBadgeCount } from '../../lib/badges'
+import { fetchTrackRecord, toBadgeInputs, totalFulfilledCount } from '../../lib/track-record'
 import { otpLimiter } from '../../middleware/rateLimiter'
 
 export const profilesRouter: IRouter = Router()
@@ -54,33 +56,34 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
       },
     })
     if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'))
-    const [reviewsAgg, trustExtras] = await Promise.all([
-      prisma.review.aggregate({ where: { revieweeId: userId }, _avg: { rating: true }, _count: { id: true } }),
-      fetchTrustExtras(userId),
-    ])
-    const avgRating = reviewsAgg._avg.rating ? Math.round(reviewsAgg._avg.rating * 10) / 10 : 0
-    const ratingCount = reviewsAgg._count.id
+    const record = await fetchTrackRecord(userId)
+    const badgeInputs = toBadgeInputs({
+      emailVerifiedAt: user.emailVerifiedAt,
+      phoneVerifiedAt: user.phoneVerifiedAt,
+      faceVerifiedAt: user.profile?.faceVerifiedAt ?? null,
+    }, record)
+    const badges = computeBadges(badgeInputs)
     const trustScore = computeTrustScore({
       emailVerifiedAt: user.emailVerifiedAt,
       phoneVerifiedAt: user.phoneVerifiedAt,
       faceVerifiedAt: user.profile?.faceVerifiedAt ?? null,
-      ...trustExtras,
-      avgRating,
-      ratingCount,
+      approvedCertificateCount: record.approvedCertificateCount,
+      fulfilledNeedCount: totalFulfilledCount(record),
+      avgRating: record.avgRating,
+      ratingCount: record.ratingCount,
+      earnedBadgeCount: earnedBadgeCount(badgeInputs),
     })
-    res.json({ ...user, avgRating, ratingCount, trustScore })
+    res.json({
+      ...user,
+      avgRating: record.avgRating,
+      ratingCount: record.ratingCount,
+      trustScore,
+      badges,
+      helpedNeedCount: record.helpedNeedCount,
+      fulfilledPostedCount: record.fulfilledPostedCount,
+    })
   } catch (err) { next(err) }
 })
-
-// Certificates + fulfilled-need count feed the "track record" half of trust
-// score (see lib/trust-score.ts) — split out so both profile endpoints share it.
-async function fetchTrustExtras(userId: string) {
-  const [approvedCertificateCount, fulfilledNeedCount] = await Promise.all([
-    prisma.certificate.count({ where: { userId, status: 'APPROVED' } }),
-    prisma.need.count({ where: { posterId: userId, status: 'FULFILLED' } }),
-  ])
-  return { approvedCertificateCount, fulfilledNeedCount }
-}
 
 // ── PATCH /profile/me ─────────────────────────────────────────────────────────
 
@@ -491,20 +494,33 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       },
     })
     if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'))
-    const [reviewsAgg, trustExtras] = await Promise.all([
-      prisma.review.aggregate({ where: { revieweeId: req.params.userId }, _avg: { rating: true }, _count: { id: true } }),
-      fetchTrustExtras(req.params.userId),
-    ])
-    const avgRating = reviewsAgg._avg.rating ? Math.round(reviewsAgg._avg.rating * 10) / 10 : 0
-    const ratingCount = reviewsAgg._count.id
+    const record = await fetchTrackRecord(req.params.userId)
+    const badgeInputs = toBadgeInputs({
+      emailVerifiedAt: user.emailVerifiedAt,
+      phoneVerifiedAt: user.phoneVerifiedAt,
+      faceVerifiedAt: user.profile?.faceVerifiedAt ?? null,
+    }, record)
+    // Badges are public: the whole point is that someone deciding whether to
+    // meet this person can see what they have actually done.
+    const badges = computeBadges(badgeInputs)
     const trustScore = computeTrustScore({
       emailVerifiedAt: user.emailVerifiedAt,
       phoneVerifiedAt: user.phoneVerifiedAt,
       faceVerifiedAt: user.profile?.faceVerifiedAt ?? null,
-      ...trustExtras,
-      avgRating,
-      ratingCount,
+      approvedCertificateCount: record.approvedCertificateCount,
+      fulfilledNeedCount: totalFulfilledCount(record),
+      avgRating: record.avgRating,
+      ratingCount: record.ratingCount,
+      earnedBadgeCount: earnedBadgeCount(badgeInputs),
     })
-    res.json({ ...user, avgRating, ratingCount, trustScore })
+    res.json({
+      ...user,
+      avgRating: record.avgRating,
+      ratingCount: record.ratingCount,
+      trustScore,
+      badges,
+      helpedNeedCount: record.helpedNeedCount,
+      fulfilledPostedCount: record.fulfilledPostedCount,
+    })
   } catch (err) { next(err) }
 })
