@@ -30,14 +30,14 @@ import 'package:needhub/services/messaging_api.dart';
 
 /// Lowercases and collapses punctuation to single spaces so "Non-binary",
 /// "non binary" and "Non_Binary" all compare equal.
-String _normalizeTerm(String s) =>
+String normalizeTerm(String s) =>
     s.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
 
 /// Whole-word match with light plural tolerance, so "Sports" hits
 /// "local sports groups" but "Art" does not hit "Martial".
-bool _termMatches(String haystack, String term) {
-  final h = _normalizeTerm(haystack);
-  final tm = _normalizeTerm(term);
+bool termMatches(String haystack, String term) {
+  final h = normalizeTerm(haystack);
+  final tm = normalizeTerm(term);
   if (tm.isEmpty || h.isEmpty) return false;
   if (h == tm) return true;
   // Multi-word terms ("UI design") match as a contiguous phrase.
@@ -49,12 +49,17 @@ bool _termMatches(String haystack, String term) {
 }
 
 /// Every text signal a chip may legitimately match against.
-List<String> _needHaystack(Need n) =>
+///
+/// `tags` leads because the server now fills it with semantic tags drawn from
+/// the same vocabulary as the chips themselves (see `need-tagging.ts`), which
+/// is the signal a chip is really meant to match. Title and description stay in
+/// as a widener so a need still matches when tagging is unavailable.
+List<String> needHaystack(Need n) =>
     [...n.posterInterests, ...n.tags, n.title, n.description];
 
 /// Hard limits the user set explicitly — distance, budget, gender. Anything
 /// outside these is excluded outright; they are constraints, not preferences.
-bool _passesHardFilters(Need n, FeedFilter filter) {
+bool passesHardFilters(Need n, FeedFilter filter) {
   // The slider's top notch (50) is labelled "50+ km (Any)" in the filter
   // sheet, so it must mean no limit — not a hard 50km cut.
   if (filter.maxDistanceKm < 50 &&
@@ -77,7 +82,7 @@ bool _passesHardFilters(Need n, FeedFilter filter) {
   if (filter.genders.isNotEmpty) {
     final g = n.posterGender;
     if (g == null) return false;
-    if (!filter.genders.any((f) => _normalizeTerm(f) == _normalizeTerm(g))) {
+    if (!filter.genders.any((f) => normalizeTerm(f) == normalizeTerm(g))) {
       return false;
     }
   }
@@ -85,12 +90,11 @@ bool _passesHardFilters(Need n, FeedFilter filter) {
 }
 
 /// How many of the selected topic chips this need satisfies.
-int _chipHits(List<String> haystack, Set<String> chips) =>
-    chips.where((c) => haystack.any((h) => _termMatches(h, c))).length;
+int chipHits(List<String> haystack, Set<String> chips) =>
+    chips.where((c) => haystack.any((h) => termMatches(h, c))).length;
 
-/// The user's explicit sort choice, used on its own and as the tie-breaker
-/// between needs that matched the same number of chips.
-int _compareBySort(Need a, Need b, FeedFilter filter) {
+/// The user's explicit sort choice.
+int compareBySort(Need a, Need b, FeedFilter filter) {
   if (filter.sortBy == 'nearest') {
     return (a.distanceKm ?? double.infinity)
         .compareTo(b.distanceKm ?? double.infinity);
@@ -101,33 +105,52 @@ int _compareBySort(Need a, Need b, FeedFilter filter) {
   return b.createdAt.compareTo(a.createdAt); // 'newest'
 }
 
+/// Maps the user's sort choice onto the server's own sort parameter.
+///
+/// Sorting locally is not sufficient on its own. The server ranks the whole
+/// feed and then truncates to `take`, so a locally-sorted page of smart-ranked
+/// needs is only ever "the newest of the 60 most *relevant* needs" — a need
+/// posted a minute ago that scores low on relevance never arrives at all, and
+/// "Newest" looks like it does nothing. Asking the server to sort means we
+/// fetch the right 60 rows in the first place.
+///
+/// 'highest_points' has no server equivalent (the API cannot sort by budget),
+/// so it keeps the smart page and is sorted locally.
+String serverSortFor(String sortBy) {
+  switch (sortBy) {
+    case 'newest':
+      return 'newest';
+    case 'nearest':
+      return 'distance';
+    default:
+      return 'smart';
+  }
+}
+
 /// Applies the user's filters. This is deliberately independent of the
 /// server's AI relevance ranking (`_score`, surfaced as the "AI-ranked"
 /// badge): the AI decides what the raw feed contains and its base order,
 /// while these chips are the user's own explicit narrowing on top of it.
 ///
-/// Topic chips (interests + skills) are treated as a union rather than a
-/// hard AND — a need shows if it matches at least one chip — but results
-/// are ordered by how many chips each need satisfies, so needs matching
-/// *every* chosen chip head the list and partial matches follow behind.
-List<Need> _filterAndSortNeeds(List<Need> source, FeedFilter filter) {
-  final pool = source.where((n) => _passesHardFilters(n, filter)).toList();
+/// Topic chips (interests + skills) combine as a strict AND — a need must
+/// satisfy *every* selected chip to show. Selecting more chips therefore
+/// always narrows, never widens, and picking chips with no overlap correctly
+/// yields nothing rather than a grab-bag of partial matches.
+///
+/// With no chips selected nothing is excluded here, so an untouched filter
+/// leaves the feed exactly as the server sent it, only re-sorted.
+List<Need> filterAndSortNeeds(List<Need> source, FeedFilter filter) {
+  final pool = source.where((n) => passesHardFilters(n, filter)).toList();
   final chips = {...filter.interests, ...filter.skills};
 
-  if (chips.isEmpty) {
-    pool.sort((a, b) => _compareBySort(a, b, filter));
-    return pool;
-  }
+  final matched = chips.isEmpty
+      ? pool
+      : pool
+          .where((n) => chipHits(needHaystack(n), chips) == chips.length)
+          .toList();
 
-  final matched = <({Need need, int hits})>[];
-  for (final n in pool) {
-    final hits = _chipHits(_needHaystack(n), chips);
-    if (hits > 0) matched.add((need: n, hits: hits));
-  }
-  matched.sort((a, b) => a.hits != b.hits
-      ? b.hits.compareTo(a.hits)
-      : _compareBySort(a.need, b.need, filter));
-  return matched.map((m) => m.need).toList();
+  matched.sort((a, b) => compareBySort(a, b, filter));
+  return matched;
 }
 
 class FeedTab extends ConsumerStatefulWidget {
@@ -141,6 +164,11 @@ class FeedTab extends ConsumerStatefulWidget {
 
 class _FeedTabState extends ConsumerState<FeedTab> {
   late String _surface;
+
+  /// Server sort the currently-held feed was fetched with, so we only go back
+  /// to the network when the sort actually changes — not on every chip tap.
+  String _fetchedSort = '';
+
   @override
   void initState() {
     super.initState();
@@ -148,16 +176,9 @@ class _FeedTabState extends ConsumerState<FeedTab> {
     feedNeedsNotifier.addListener(_bump);
     feedRankerNotifier.addListener(_bump);
     unreadCountNotifier.addListener(_bump);
-    Future.microtask(() async {
-      try {
-        final api = ref.read(needsApiProvider);
-        final result = await api.feed(sort: 'smart', take: 60);
-        if (result.needs.isNotEmpty) {
-          feedNeedsNotifier.value = result.needs;
-          feedRankerNotifier.value = result.ranker;
-        }
-      } catch (_) {}
-    });
+    earnFilterNotifier.addListener(_onFilterChanged);
+    connectFilterNotifier.addListener(_onFilterChanged);
+    Future.microtask(_fetchFeed);
   }
 
   @override
@@ -165,11 +186,44 @@ class _FeedTabState extends ConsumerState<FeedTab> {
     feedNeedsNotifier.removeListener(_bump);
     feedRankerNotifier.removeListener(_bump);
     unreadCountNotifier.removeListener(_bump);
+    earnFilterNotifier.removeListener(_onFilterChanged);
+    connectFilterNotifier.removeListener(_onFilterChanged);
     super.dispose();
   }
 
   void _bump() {
     if (mounted) setState(() {});
+  }
+
+  FeedFilter get _activeFilter => _surface == 'connect'
+      ? connectFilterNotifier.value
+      : earnFilterNotifier.value;
+
+  /// Distance, budget, gender and chips are all applied locally, so a filter
+  /// change needs no new data. A *sort* change does — see [serverSortFor].
+  void _onFilterChanged() {
+    if (serverSortFor(_activeFilter.sortBy) != _fetchedSort) _fetchFeed();
+  }
+
+  /// Earn and Connect keep separate filters, so switching surface can also
+  /// change the active sort and require a differently-sorted page.
+  void _setSurface(String surface) {
+    setState(() => _surface = surface);
+    _onFilterChanged();
+  }
+
+  Future<void> _fetchFeed() async {
+    final sort = serverSortFor(_activeFilter.sortBy);
+    _fetchedSort = sort;
+    try {
+      final api = ref.read(needsApiProvider);
+      final result = await api.feed(sort: sort, take: 60);
+      if (!mounted) return;
+      if (result.needs.isNotEmpty) {
+        feedNeedsNotifier.value = result.needs;
+        feedRankerNotifier.value = result.ranker;
+      }
+    } catch (_) {}
   }
 
   @override
@@ -344,19 +398,19 @@ class _FeedTabState extends ConsumerState<FeedTab> {
                     _SurfaceBtn(
                       label: 'Connect',
                       active: _surface == 'connect',
-                      onTap: () => setState(() => _surface = 'connect'),
+                      onTap: () => _setSurface('connect'),
                       t: t,
                     ),
                     _SurfaceBtn(
                       label: 'Earn',
                       active: _surface == 'earn',
-                      onTap: () => setState(() => _surface = 'earn'),
+                      onTap: () => _setSurface('earn'),
                       t: t,
                     ),
                     _SurfaceBtn(
                       label: 'Chit-chat',
                       active: _surface == 'chitchat',
-                      onTap: () => setState(() => _surface = 'chitchat'),
+                      onTap: () => _setSurface('chitchat'),
                       t: t,
                     ),
                   ],
@@ -492,10 +546,10 @@ class _ConnectFeedState extends State<_ConnectFeed> {
     final t = widget.t;
     final filter = connectFilterNotifier.value;
     // Same rules as needs: 50 means "any distance", explicit gender filters
-    // exclude unknown-gender profiles, and topic chips are a union ordered
-    // by how many chips each person matches.
+    // exclude unknown-gender profiles, and topic chips combine as a strict
+    // AND — a person must satisfy every selected chip.
     final chips = {...filter.interests, ...filter.skills};
-    var peopleHits = <({Person person, int hits})>[];
+    var filteredPeople = <Person>[];
     for (final p in mockPeople) {
       if (filter.maxDistanceKm < 50 && p.distanceKm > filter.maxDistanceKm) {
         continue;
@@ -504,29 +558,27 @@ class _ConnectFeedState extends State<_ConnectFeed> {
         final g = p.gender;
         if (g == null) continue;
         if (!filter.genders
-            .any((f) => _normalizeTerm(f) == _normalizeTerm(g))) {
+            .any((f) => normalizeTerm(f) == normalizeTerm(g))) {
           continue;
         }
       }
-      final hits = chips.isEmpty
-          ? 0
-          : _chipHits([...p.interests, ...p.skills], chips);
-      if (chips.isNotEmpty && hits == 0) continue;
-      peopleHits.add((person: p, hits: hits));
+      if (chips.isNotEmpty &&
+          chipHits([...p.interests, ...p.skills], chips) != chips.length) {
+        continue;
+      }
+      filteredPeople.add(p);
     }
-    peopleHits.sort((a, b) {
-      if (a.hits != b.hits) return b.hits.compareTo(a.hits);
+    filteredPeople.sort((a, b) {
       if (filter.sortBy == 'nearest') {
-        return a.person.distanceKm.compareTo(b.person.distanceKm);
+        return a.distanceKm.compareTo(b.distanceKm);
       }
       if (filter.sortBy == 'highest_points') {
-        return b.person.points.compareTo(a.person.points);
+        return b.points.compareTo(a.points);
       }
       return 0;
     });
-    var filteredPeople = peopleHits.map((e) => e.person).toList();
 
-    final needs = _filterAndSortNeeds(widget.needs, filter);
+    final needs = filterAndSortNeeds(widget.needs, filter);
 
     final activeCount = filter.filterCount;
 
@@ -912,7 +964,7 @@ class _EarnFeedState extends State<_EarnFeed> {
   Widget build(BuildContext context) {
     final t = widget.t;
     final filter = earnFilterNotifier.value;
-    final needs = _filterAndSortNeeds(widget.needs, filter);
+    final needs = filterAndSortNeeds(widget.needs, filter);
 
     final activeCount = filter.filterCount;
 

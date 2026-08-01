@@ -178,6 +178,14 @@ Need _needFromJson(Map<String, dynamic> j) {
 
 List<String> _tagsFor(Map<String, dynamic> j) {
   final tags = <String>[];
+  // Semantic tags the server derived from the filter vocabulary (Flutter,
+  // Tutoring, Chess...). These are what the filter chips actually match
+  // against; absent when Cohere is unavailable, in which case the
+  // category-derived tags below are all a need carries — same as before.
+  final serverTags = j['tags'];
+  if (serverTags is List) {
+    tags.addAll(serverTags.whereType<String>());
+  }
   final earn = j['earnCategory'] as String?;
   final connect = j['connectCategory'] as String?;
   if (earn != null) tags.add(earn.toLowerCase().replaceAll('_', ' '));

@@ -13,6 +13,7 @@ import { notifyMatchingSkillUsers } from '../../lib/skill-matching'
 import { getIo, emitToUser } from '../../lib/socket'
 import { getSystemUserId } from '../../lib/system-user'
 import { computeTrustScore } from '../../lib/trust-score'
+import { tagNeedsByEmbedding } from '../../lib/need-tagging'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { isBlockedBetween } from '../friends/friends.service'
 import {
@@ -400,6 +401,11 @@ needsRouter.get('/', async (req, res, next) => {
       })
     }
 
+    // Semantic tags from the client's filter vocabulary, so chips can be
+    // intersected against `tags` directly. Empty map if Cohere is unavailable —
+    // the feed then serves untagged rather than failing.
+    const tagsById = await tagNeedsByEmbedding(ranked.map((r) => r.need))
+
     const list = ranked.map((r) => {
       const trustScore = trustScoreByPoster.get(r.need.posterId) ?? 0
       const needLat = r.need.lat ?? r.need.poster.profile?.lat ?? null
@@ -413,6 +419,7 @@ needsRouter.get('/', async (req, res, next) => {
           profile: r.need.poster.profile ? { ...r.need.poster.profile, trustScore } : r.need.poster.profile,
         },
         offerCount: r.need._count.responses,
+        tags: tagsById.get(r.need.id) ?? [],
         _score: Math.round(r.score * 100) / 100,
         _semantic: r.semantic != null ? Math.round(r.semantic * 100) / 100 : null,
         _distanceKm: r.distanceKm != null ? Math.round(r.distanceKm * 10) / 10 : null,
