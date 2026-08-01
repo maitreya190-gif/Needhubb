@@ -238,7 +238,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                             child: Text(
-                              'FRIEND REQUESTS',
+                              s.friendRequests,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -434,6 +434,7 @@ class _FriendRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.current;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       child: Container(
@@ -480,7 +481,7 @@ class _FriendRequestCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'wants to connect',
+                    s.wantsToConnect,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 12,
                       color: t.muted,
@@ -501,7 +502,7 @@ class _FriendRequestCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  'Accept',
+                  s.accept,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
@@ -522,7 +523,7 @@ class _FriendRequestCard extends StatelessWidget {
                   border: Border.all(color: t.rail, width: 1.5),
                 ),
                 child: Text(
-                  'Decline',
+                  s.decline,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -565,6 +566,7 @@ class _RealFriendRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.current;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       child: Container(
@@ -626,7 +628,7 @@ class _RealFriendRequestCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'wants to connect',
+                    s.wantsToConnect,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 12,
                       color: t.muted,
@@ -644,7 +646,7 @@ class _RealFriendRequestCard extends StatelessWidget {
                   color: NeedHubTokens.forest,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text('Accept',
+                child: Text(s.accept,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -661,7 +663,7 @@ class _RealFriendRequestCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: t.rail, width: 1.5),
                 ),
-                child: Text('Decline',
+                child: Text(s.decline,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -1459,6 +1461,7 @@ class _ChitChatChatsBannerState extends ConsumerState<_ChitChatChatsBanner> {
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
+    final s = S.current;
     final available = chitChatAvailableNotifier.value;
 
     return GestureDetector(
@@ -1488,7 +1491,7 @@ class _ChitChatChatsBannerState extends ConsumerState<_ChitChatChatsBanner> {
               child: Text(
                 available
                     ? "You're available for Chit-chat (24h)"
-                    : 'Mark yourself available for Chit-chat',
+                    : s.markAvailableForChitchat,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,

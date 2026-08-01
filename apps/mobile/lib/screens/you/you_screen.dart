@@ -339,7 +339,7 @@ class YouScreen extends ConsumerWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'People you\'ve helped — history & ratings',
+                                s.peopleYouveHelped,
                                 style: GoogleFonts.hankenGrotesk(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
@@ -409,7 +409,7 @@ class YouScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'RELIABILITY POINTS',
+                          s.reliabilityPoints,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -438,14 +438,14 @@ class YouScreen extends ConsumerWidget {
                         const SizedBox(height: 14),
 
                         // Breakdown pills
-                        const Wrap(
+                        Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           children: [
                             _BreakdownPill(
-                                label: 'Needs done', value: '+180'),
+                                label: s.needsDone, value: '+180'),
                             _BreakdownPill(
-                                label: 'Reviews', value: '+90'),
+                                label: s.reviews, value: '+90'),
                             _BreakdownPill(
                                 label: 'Certificates', value: '+70'),
                           ],
@@ -468,7 +468,7 @@ class YouScreen extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              'Redeem points',
+                              s.redeemPoints,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -493,7 +493,7 @@ class YouScreen extends ConsumerWidget {
                   Row(
                     children: [
                       Text(
-                        'SUSTAINABILITY CERTIFICATES',
+                        s.sustainabilityCerts,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -554,7 +554,7 @@ class YouScreen extends ConsumerWidget {
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
-                                  'No certificates yet — tap Add to upload one.',
+                                  s.noCertificates,
                                   style: GoogleFonts.hankenGrotesk(
                                       fontSize: 13, color: t.muted),
                                 ),
@@ -599,7 +599,7 @@ class YouScreen extends ConsumerWidget {
 
                   // ── Badges (earned, server-computed) ─────────────────────
                   Text(
-                    'BADGES',
+                    s.badges,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -623,7 +623,7 @@ class YouScreen extends ConsumerWidget {
                   Row(
                     children: [
                       Text(
-                        'ACHIEVEMENTS',
+                        s.achievements,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -680,7 +680,7 @@ class YouScreen extends ConsumerWidget {
                   // ── Quick links ──────────────────────────────────────────
                   _QuickLink(
                     icon: Icons.history_rounded,
-                    label: 'Past Work & Review History',
+                    label: s.pastWorkHistory,
                     color: NeedHubTokens.forest,
                     t: t,
                     onTap: () => Navigator.of(context).push(
@@ -694,7 +694,7 @@ class YouScreen extends ConsumerWidget {
 
                   // ── Interests ────────────────────────────────────────────
                   Text(
-                    'INTERESTS',
+                    s.interests.toUpperCase(),
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -727,7 +727,7 @@ class YouScreen extends ConsumerWidget {
 
                   // ── Skills ───────────────────────────────────────────────
                   Text(
-                    'SKILLS',
+                    s.skills.toUpperCase(),
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -762,7 +762,7 @@ class YouScreen extends ConsumerWidget {
 
                   // ── About me prompts ─────────────────────────────────────
                   Text(
-                    'ABOUT ME',
+                    s.aboutMe,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -774,7 +774,7 @@ class YouScreen extends ConsumerWidget {
                   ValueListenableBuilder<String>(
                     valueListenable: promptSkillNotifier,
                     builder: (_, a, __) => _PromptCard(
-                      q: 'THE SKILL I\'D LOVE TO TEACH',
+                      q: s.skillIdLoveToTeach,
                       a: a,
                       t: t,
                     ),
@@ -783,7 +783,7 @@ class YouScreen extends ConsumerWidget {
                   ValueListenableBuilder<String>(
                     valueListenable: promptCollabNotifier,
                     builder: (_, a, __) => _PromptCard(
-                      q: 'MY IDEAL COLLAB',
+                      q: s.myIdealCollab,
                       a: a,
                       t: t,
                     ),
@@ -792,7 +792,7 @@ class YouScreen extends ConsumerWidget {
                   ValueListenableBuilder<String>(
                     valueListenable: promptNeedNotifier,
                     builder: (_, a, __) => _PromptCard(
-                      q: 'THE NEED I\'D POST RIGHT NOW',
+                      q: s.needIdPostRightNow,
                       a: a,
                       t: t,
                     ),
@@ -822,7 +822,7 @@ class YouScreen extends ConsumerWidget {
                       ),
                     ),
                     child: Text(
-                      'Log out',
+                      s.logout,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -1716,6 +1716,7 @@ class _PromptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isEmpty = a.trim().isEmpty || a == '—';
+    final s = S.current;
     return GestureDetector(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const EditProfileScreen()),
@@ -1748,7 +1749,7 @@ class _PromptCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Tap to answer this prompt…',
+                      s.tapToAnswerPrompt,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 13.5,
                         fontStyle: FontStyle.italic,
@@ -1848,6 +1849,7 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
+    final s = S.current;
     return ValueListenableBuilder<ProfileMe?>(
       valueListenable: myProfileNotifier,
       builder: (_, me, __) {
@@ -1856,7 +1858,7 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'FACE VERIFICATION',
+              s.faceVerification,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -1904,7 +1906,7 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isVerified ? 'Face Verified' : 'Verify Your Face',
+                          isVerified ? s.faceVerified : s.verifyYourFace,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -1952,7 +1954,7 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
                                       size: 14, color: Colors.white),
                                   const SizedBox(width: 5),
                                   Text(
-                                    'Take selfie',
+                                    s.takeSelfie,
                                     style: GoogleFonts.hankenGrotesk(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
@@ -1992,6 +1994,7 @@ class _TrustScoreSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.current;
     return ValueListenableBuilder<ProfileMe?>(
       valueListenable: myProfileNotifier,
       builder: (_, me, __) {
@@ -2001,7 +2004,7 @@ class _TrustScoreSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'TRUST SCORE',
+              s.trustScore,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -2050,7 +2053,7 @@ class _TrustScoreSection extends StatelessWidget {
                       ),
                       const Spacer(),
                       Text(
-                        'Shown on your Connect cards',
+                        s.shownOnConnectCards,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 11,
                           color: t.muted,
@@ -2080,7 +2083,7 @@ class _TrustScoreSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Also grows with approved certificates, fulfilled needs, and review ratings.',
+                    s.trustScoreGrows,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11.5,
                       color: t.muted,
@@ -2160,6 +2163,7 @@ class _PhoneVerifySectionState extends ConsumerState<_PhoneVerifySection> {
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
+    final s = S.current;
     return ValueListenableBuilder<ProfileMe?>(
       valueListenable: myProfileNotifier,
       builder: (_, me, __) {
@@ -2197,7 +2201,7 @@ class _PhoneVerifySectionState extends ConsumerState<_PhoneVerifySection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isVerified ? 'Phone Verified' : 'Verify Your Phone',
+                      isVerified ? s.phoneVerified : s.verifyYourPhone,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -2234,7 +2238,7 @@ class _PhoneVerifySectionState extends ConsumerState<_PhoneVerifySection> {
                         const Icon(Icons.sms_rounded, size: 14, color: Colors.white),
                         const SizedBox(width: 5),
                         Text(
-                          'Verify',
+                          s.verify,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -2326,6 +2330,7 @@ class _PhoneVerifySheetState extends ConsumerState<_PhoneVerifySheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
@@ -2422,7 +2427,7 @@ class _PhoneVerifySheetState extends ConsumerState<_PhoneVerifySheet> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
                     : Text(
-                        _codeSent ? 'Verify' : 'Send code',
+                        _codeSent ? s.verify : 'Send code',
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
                       ),
@@ -2521,6 +2526,7 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
+    final s = S.current;
     final localMine = feedNeedsNotifier.value.where((n) => n.authorName == 'You' || n.authorInitials == 'ME').toList();
 
     // Merge API posted needs + local mine
@@ -2549,7 +2555,7 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
         Row(
           children: [
             Text(
-              'MY POSTED NEEDS & HISTORY',
+              s.myPostedNeeds,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -2617,7 +2623,7 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'No posted needs in this category',
+                        s.noPostedNeeds,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -2845,6 +2851,7 @@ class _UserReviewsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     return Container(
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.75,
@@ -2877,7 +2884,7 @@ class _UserReviewsSheet extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Ratings & Reviews',
+                s.ratingsAndReviews,
                 style: GoogleFonts.bricolageGrotesque(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -3055,13 +3062,14 @@ class _PersonalitySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.current;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Text(
-              'PERSONALITY',
+              s.personality,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -3132,7 +3140,7 @@ class _PersonalitySection extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Take the personality test',
+                              s.takePersonalityTest,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -3141,7 +3149,7 @@ class _PersonalitySection extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Powered by Lyzr AI · ~2 min',
+                              s.poweredByLyzr,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 12,
                                 color: t.muted,
@@ -3310,6 +3318,7 @@ class _ReferAFriendCardState extends ConsumerState<_ReferAFriendCard> {
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
+    final s = S.current;
     final code = _data?.referralCode ?? '------';
     final stats = _data?.stats;
 
@@ -3334,7 +3343,7 @@ class _ReferAFriendCardState extends ConsumerState<_ReferAFriendCard> {
                     const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'Refer a Friend',
+                      s.referAFriend,
                       style: GoogleFonts.bricolageGrotesque(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -3362,7 +3371,7 @@ class _ReferAFriendCardState extends ConsumerState<_ReferAFriendCard> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Both of you earn 15 points when they post their first need.',
+                  s.referralDesc,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 13,
                     color: Colors.white.withValues(alpha: 0.85),
@@ -3415,7 +3424,7 @@ class _ReferAFriendCardState extends ConsumerState<_ReferAFriendCard> {
                           const Icon(Icons.share_rounded, size: 16, color: NeedHubTokens.forest),
                           const SizedBox(width: 8),
                           Text(
-                            'Share your code',
+                            s.shareYourCode,
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
