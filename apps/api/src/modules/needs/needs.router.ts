@@ -273,7 +273,10 @@ needsRouter.get('/', async (req, res, next) => {
     const needsRaw = await prisma.need.findMany({
       where: {
         status: q.status ?? 'OPEN',
-        parentNeedId: null,
+        // Every selected need from a decomposition (parent AND its sub-needs)
+        // must be independently browsable — a decomposed "propose to my
+        // girlfriend" should surface photographer/florist/ring as separate,
+        // respondable needs, not hide them behind the umbrella parent.
         ...(q.type ? { needType: q.type } : {}),
         ...(q.minBudget != null ? { budgetMax: { gte: q.minBudget } } : {}),
         ...(q.maxBudget != null ? { budgetMin: { lte: q.maxBudget } } : {}),

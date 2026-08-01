@@ -20,6 +20,7 @@ class ProfileMe {
   final List<String> interestLabels;
   final List<String> skillLabels;
   final DateTime? faceVerifiedAt;
+  final DateTime? emailVerifiedAt;
   final DateTime? phoneVerifiedAt;
   final String? phone;
   final int trustScore;
@@ -46,6 +47,7 @@ class ProfileMe {
     required this.interestLabels,
     required this.skillLabels,
     this.faceVerifiedAt,
+    this.emailVerifiedAt,
     this.phoneVerifiedAt,
     this.phone,
     this.trustScore = 0,
@@ -106,8 +108,12 @@ class ProfileMe {
         ? DateTime.tryParse(faceVerifiedAtStr)
         : null;
 
-    // phone/phoneVerifiedAt/trustScore live on the User row, not the nested
-    // Profile — read from `j` directly (see apps/api profiles.router.ts).
+    // email/phone verifiedAt + trustScore live on the User row, not the
+    // nested Profile — read from `j` directly (see apps/api profiles.router.ts).
+    final emailVerifiedAtStr = j['emailVerifiedAt'] as String?;
+    final emailVerifiedAt = emailVerifiedAtStr != null
+        ? DateTime.tryParse(emailVerifiedAtStr)
+        : null;
     final phoneVerifiedAtStr = j['phoneVerifiedAt'] as String?;
     final phoneVerifiedAt = phoneVerifiedAtStr != null
         ? DateTime.tryParse(phoneVerifiedAtStr)
@@ -155,6 +161,7 @@ class ProfileMe {
       interestLabels: interests,
       skillLabels: skills,
       faceVerifiedAt: faceVerifiedAt,
+      emailVerifiedAt: emailVerifiedAt,
       phoneVerifiedAt: phoneVerifiedAt,
       phone: j['phone'] as String?,
       trustScore: (j['trustScore'] as num?)?.toInt() ?? 0,

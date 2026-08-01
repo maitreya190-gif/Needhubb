@@ -434,10 +434,10 @@ class YouScreen extends ConsumerWidget {
                         const SizedBox(height: 14),
 
                         // Breakdown pills
-                        Wrap(
+                        const Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: const [
+                          children: [
                             _BreakdownPill(
                                 label: 'Needs done', value: '+180'),
                             _BreakdownPill(
@@ -2001,7 +2001,7 @@ class _TrustScoreSection extends StatelessWidget {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _TrustChip(label: 'Email', done: me?.email != null),
+                      _TrustChip(label: 'Email', done: me?.emailVerifiedAt != null),
                       _TrustChip(label: 'Phone', done: me?.phoneVerifiedAt != null),
                       _TrustChip(label: 'Face', done: me?.faceVerifiedAt != null),
                     ],
