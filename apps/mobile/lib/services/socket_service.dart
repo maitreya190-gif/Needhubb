@@ -43,11 +43,13 @@ class SocketService {
     String url = _wsUrl;
     _setStatus('connecting to $_wsUrl (computed url: $url)');
 
-    // Try allowing polling first, as Railway might require it before upgrading.
+    // Native Flutter (socket_io_client 3.x) only supports WebSocket —
+    // polling silently fails on Android/iOS so we must set it explicitly.
     _socket = io.io(
       url,
       io.OptionBuilder()
           .disableAutoConnect()
+          .setTransports(['websocket'])
           .setAuth({'token': token})
           .setExtraHeaders({'Authorization': 'Bearer $token'})
           .setQuery({'token': token})

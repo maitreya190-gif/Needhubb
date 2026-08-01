@@ -143,28 +143,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           desiredAccuracy: LocationAccuracy.lowest,
           timeLimit: const Duration(seconds: 3),
         );
-      } catch (e) {
-        if (e.toString().contains('TimeoutException')) {
-          // Fallback mock location for emulators without GPS fix
-          pos = Position(
-            latitude: 19.0760,
-            longitude: 72.8777,
-            timestamp: DateTime.now(),
-            accuracy: 100,
-            altitude: 0,
-            altitudeAccuracy: 0,
-            heading: 0,
-            headingAccuracy: 0,
-            speed: 0,
-            speedAccuracy: 0,
-          );
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Emulator GPS timed out. Using mock location (Mumbai).')));
-          }
-        } else {
-          rethrow;
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Couldn't get GPS fix. Try picking on the map instead.")));
         }
+        return;
       }
       
       if (!mounted) return;
@@ -372,14 +356,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final token =
         _savedToken ?? 'demo_token_${DateTime.now().millisecondsSinceEpoch}';
     final userId = _savedUserId ?? fallbackUserId;
-
     // Write token to secure storage manually so API client can use it immediately.
     // This allows us to update the profile *before* triggering the global auth state change.
-    await const FlutterSecureStorage().write(key: 'auth_token', value: token);
+    const storage = FlutterSecureStorage();
+    await storage.write(key: 'auth_token', value: token);
+    await storage.write(key: 'auth_user_id', value: userId);
 
+    ProfileMe? updated;
     try {
       final profilesApi = ref.read(profilesApiProvider);
-      await profilesApi.update(
+      updated = await profilesApi.update(
         interests: _selectedInterests.toList(),
         skills: _selectedSkills.toList(),
         bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
@@ -395,8 +381,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       debugPrint('Profile update failed after signup: $e');
     }
 
-    // Now trigger the global auth state change. This will trigger the router to navigate
-    // and main.dart to start hydration, which will now fetch the fully updated profile!
+    // Trigger auth state change → home mounts. login() also calls
+    // resetAllUserNotifiersOnLogout() which wipes locationNotifier, so we
+    // MUST re-set our notifiers AFTER login returns.
     await ref.read(authProvider.notifier).login(
           token: token,
           userId: userId,
@@ -405,6 +392,27 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               : 'New User',
           email: email,
         );
+
+    // Post-login: force-set from the PATCH response so the profile is
+    // visible immediately, without waiting for the async _hydrateProfile.
+    if (updated != null) {
+      myProfileNotifier.value = updated;
+      if (updated.locationText != null && updated.locationText!.isNotEmpty) {
+        locationNotifier.value = updated.locationText!;
+      }
+      if (updated.bio != null && updated.bio!.isNotEmpty) {
+        bioNotifier.value = updated.bio!;
+      }
+      if (updated.avatarUrl != null && updated.avatarUrl!.isNotEmpty) {
+        avatarUrlNotifier.value = updated.avatarUrl;
+      }
+      if (updated.interestLabels.isNotEmpty) {
+        customInterestsNotifier.value = updated.interestLabels;
+      }
+      if (updated.skillLabels.isNotEmpty) {
+        customSkillsNotifier.value = updated.skillLabels;
+      }
+    }
   }
 
   String _friendlyError(Object e) {

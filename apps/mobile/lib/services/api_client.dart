@@ -5,12 +5,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-// Smart local dev fallback to bypass deleted railway prod server.
 String get _baseUrl {
   const envUrl = String.fromEnvironment('API_URL');
-  if (envUrl.isNotEmpty && !envUrl.contains('railway.app')) {
-    return envUrl;
-  }
+  if (envUrl.isNotEmpty) return envUrl;
   if (kIsWeb) return 'http://localhost:3000';
   try {
     if (Platform.isAndroid) return 'http://10.0.2.2:3000';
