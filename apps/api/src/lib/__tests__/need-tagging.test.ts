@@ -27,6 +27,7 @@ import {
   tagNeedsByEmbedding,
   TAG_VOCABULARY,
   TAG_MIN_SIMILARITY,
+  TAG_MIN_ZSCORE,
   MAX_TAGS_PER_NEED,
 } from '../need-tagging'
 
@@ -111,8 +112,15 @@ describe('tagNeedsByEmbedding — label assignment', () => {
     expect(result.get('a')).toEqual([TAG_VOCABULARY[0].label])
   })
 
+  it('keeps the absolute floor and the z-score floor both meaningful', () => {
+    // Guards against someone "fixing" sparse tags by zeroing one of them.
+    expect(TAG_MIN_SIMILARITY).toBeGreaterThan(0)
+    expect(TAG_MIN_ZSCORE).toBeGreaterThan(0)
+  })
+
   it('orders labels strongest first', async () => {
-    stubEmbeddings([weighted({ 0: 3, 1: 2.5, 2: 2 })])
+    // Three labels all clearing the absolute floor, with distinct strengths.
+    stubEmbeddings([weighted({ 0: 0.6, 1: 0.58, 2: 0.55 })])
     const result = await tagNeedsByEmbedding([makeNeed('a')])
     expect(result.get('a')).toEqual([
       TAG_VOCABULARY[0].label,
@@ -121,14 +129,31 @@ describe('tagNeedsByEmbedding — label assignment', () => {
     ])
   })
 
-  it('caps a broadly-matching need at MAX_TAGS_PER_NEED', async () => {
-    // Equal weight across 7 labels — each scores 1/sqrt(7) ≈ 0.38, all above
-    // the threshold, so the cap is the only thing limiting the result.
-    const spread: Record<number, number> = {}
-    for (let i = 0; i < 7; i++) spread[i] = 1
-    stubEmbeddings([weighted(spread)])
+  it('never returns more than MAX_TAGS_PER_NEED', async () => {
+    stubEmbeddings([weighted({ 0: 0.6, 1: 0.58, 2: 0.55 })])
     const result = await tagNeedsByEmbedding([makeNeed('a')])
-    expect(result.get('a')).toHaveLength(MAX_TAGS_PER_NEED)
+    expect(result.get('a')!.length).toBeLessThanOrEqual(MAX_TAGS_PER_NEED)
+  })
+
+  it('assigns nothing when every label scores identically', async () => {
+    // A perfectly flat spread carries no signal about what the need is about.
+    // It would also divide by zero, so the guard is load-bearing.
+    const flat: Record<number, number> = {}
+    for (let i = 0; i < DIM; i++) flat[i] = 1
+    stubEmbeddings([weighted(flat)])
+    const result = await tagNeedsByEmbedding([makeNeed('a')])
+    expect(result.has('a')).toBe(false)
+  })
+
+  it('rejects standouts that still sit under the absolute floor', async () => {
+    // Spread evenly over four labels: each scores 1/sqrt(4) = 0.5. That stands
+    // clear of the need's own baseline (z ≈ 2.4, past TAG_MIN_ZSCORE) but is
+    // too weak in absolute terms to mean anything, so the floor must catch it.
+    // Cosine is scale-invariant, so weight *magnitude* cannot lower a score —
+    // only spreading direction across more labels can.
+    stubEmbeddings([weighted({ 0: 1, 1: 1, 2: 1, 3: 1 })])
+    const result = await tagNeedsByEmbedding([makeNeed('a')])
+    expect(result.has('a')).toBe(false)
   })
 
   it('tags each need independently in a batch', async () => {

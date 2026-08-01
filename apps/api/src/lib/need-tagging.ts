@@ -23,17 +23,31 @@
 import { embedBatch, cosineSimilarity, embeddingsAvailable, needSignalText } from './embeddings'
 
 /**
- * Minimum cosine similarity for a label to be attached to a need.
+ * Absolute floor: a label this dissimilar is never worth attaching, however
+ * much it stands out from the rest.
  *
- * Tuned against real feed data — see the tagging step in the runbook. Too low
- * and every need collects unrelated tags; too high and needs come back bare
- * and the filters look broken again. Exported so it can be adjusted without
- * touching the logic below.
+ * Measured over 336 real need×label pairs from the live feed, Cohere's scores
+ * are compressed high and their *baseline shifts per need* — p50 0.44, p90
+ * 0.58, max 0.76. Correct labels landed at 0.61–0.76.
  */
-export const TAG_MIN_SIMILARITY = 0.28
+export const TAG_MIN_SIMILARITY = 0.55
+
+/**
+ * How many standard deviations above a need's *own* mean a label must sit.
+ *
+ * This is the load-bearing test, not the absolute floor. On real data one
+ * need's correct label ("Book travel" → Trekking, 0.612) scores *lower* than
+ * another need's pure noise ("Restaurant booking help" → Proofreading, 0.639),
+ * so no single absolute cutoff can separate signal from noise across needs.
+ * What does separate them is shape: a need that is genuinely about something
+ * has one or two labels standing clear of its own baseline, while a need the
+ * vocabulary does not cover produces a flat spread with no standout. Scoring
+ * each need against its own distribution normalises that baseline away.
+ */
+export const TAG_MIN_ZSCORE = 1.8
 
 /** Upper bound on tags per need, keeping the strongest. */
-export const MAX_TAGS_PER_NEED = 5
+export const MAX_TAGS_PER_NEED = 3
 
 /**
  * The label vocabulary, mirroring `_availableInterests` + `_availableSkills` in
@@ -121,13 +135,25 @@ export async function tagNeedsByEmbedding(
       const needVec = needVecs[i]
       if (!needVec) return
 
-      const scored: { label: string; score: number }[] = []
-      for (let j = 0; j < TAG_VOCABULARY.length; j++) {
-        const score = cosineSimilarity(needVec, labelVecs[j])
-        if (score >= TAG_MIN_SIMILARITY) {
-          scored.push({ label: TAG_VOCABULARY[j].label, score })
-        }
-      }
+      const scores = TAG_VOCABULARY.map((_, j) => cosineSimilarity(needVec, labelVecs[j]))
+
+      // This need's own baseline. Comparing against it rather than a fixed
+      // number is what stops a flat, uncovered need from collecting whatever
+      // happened to score highest.
+      const mean = scores.reduce((a, b) => a + b, 0) / scores.length
+      const variance =
+        scores.reduce((acc, s) => acc + (s - mean) ** 2, 0) / scores.length
+      const stdDev = Math.sqrt(variance)
+      // Degenerate spread (every label identical) carries no information —
+      // and would divide by zero below.
+      if (stdDev === 0) return
+
+      const scored = TAG_VOCABULARY.map((t, j) => ({ label: t.label, score: scores[j] }))
+        .filter(
+          (s) =>
+            s.score >= TAG_MIN_SIMILARITY &&
+            (s.score - mean) / stdDev >= TAG_MIN_ZSCORE,
+        )
       if (scored.length === 0) return
 
       scored.sort((a, b) => b.score - a.score)
