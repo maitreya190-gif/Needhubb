@@ -1,13 +1,28 @@
+import bcrypt from 'bcryptjs'
 import { Router, type IRouter } from 'express'
 import multer from 'multer'
 import { prisma } from '../../lib/prisma'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
-import { notFound, badRequest } from '../../lib/http-error'
+import { notFound, badRequest, tooMany } from '../../lib/http-error'
 import { uploadFile, deleteFile, storageKey } from '../../lib/storage'
 import { verifyFace } from '../../lib/face-verify'
 import { analyzePersonality } from '../../lib/lyzr'
+import { twilioVerifyConfigured, startPhoneVerification, checkPhoneVerification } from '../../lib/sms'
+import { computeTrustScore } from '../../lib/trust-score'
+import { otpLimiter } from '../../middleware/rateLimiter'
 
 export const profilesRouter: IRouter = Router()
+
+// Same dev-bypass policy as email OTP (auth.service.ts) — always on for the
+// hackathon demo, set ALLOW_DEV_OTP_BYPASS=false in prod to lock it down.
+function bypassAllowed(): boolean {
+  const raw = (process.env.ALLOW_DEV_OTP_BYPASS ?? 'true').trim().replace(/^["']|["']$/g, '').toLowerCase()
+  return raw !== 'false' && raw !== '0' && raw !== 'no' && raw !== 'off'
+}
+const DEV_BYPASS_CODE = '000000'
+const PHONE_OTP_TTL_MS = 10 * 60 * 1000
+const PHONE_OTP_MAX_ATTEMPTS = 5
+const PHONE_REGEX = /^\+?[1-9]\d{7,14}$/
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -25,7 +40,11 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
     const userId = (req as AuthedRequest).userId!
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
+      select: {
+        id: true, email: true, username: true, emailVerifiedAt: true,
+        phone: true, phoneVerifiedAt: true, displayName: true,
+        verificationLevel: true, referralCode: true, referredBy: true, createdAt: true,
+        // passwordHash deliberately excluded — never send it to any client, even your own.
         profile: {
           include: {
             interests: { include: { interest: true } },
@@ -35,16 +54,33 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
       },
     })
     if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'))
-    const reviewsAgg = await prisma.review.aggregate({
-      where: { revieweeId: userId },
-      _avg: { rating: true },
-      _count: { id: true },
-    })
+    const [reviewsAgg, trustExtras] = await Promise.all([
+      prisma.review.aggregate({ where: { revieweeId: userId }, _avg: { rating: true }, _count: { id: true } }),
+      fetchTrustExtras(userId),
+    ])
     const avgRating = reviewsAgg._avg.rating ? Math.round(reviewsAgg._avg.rating * 10) / 10 : 0
     const ratingCount = reviewsAgg._count.id
-    res.json({ ...user, avgRating, ratingCount })
+    const trustScore = computeTrustScore({
+      emailVerifiedAt: user.emailVerifiedAt,
+      phoneVerifiedAt: user.phoneVerifiedAt,
+      faceVerifiedAt: user.profile?.faceVerifiedAt ?? null,
+      ...trustExtras,
+      avgRating,
+      ratingCount,
+    })
+    res.json({ ...user, avgRating, ratingCount, trustScore })
   } catch (err) { next(err) }
 })
+
+// Certificates + fulfilled-need count feed the "track record" half of trust
+// score (see lib/trust-score.ts) — split out so both profile endpoints share it.
+async function fetchTrustExtras(userId: string) {
+  const [approvedCertificateCount, fulfilledNeedCount] = await Promise.all([
+    prisma.certificate.count({ where: { userId, status: 'APPROVED' } }),
+    prisma.need.count({ where: { posterId: userId, status: 'FULFILLED' } }),
+  ])
+  return { approvedCertificateCount, fulfilledNeedCount }
+}
 
 // ── PATCH /profile/me ─────────────────────────────────────────────────────────
 
@@ -232,6 +268,118 @@ profilesRouter.post('/me/face-verify', authenticate, upload.single('selfie'), as
   } catch (err) { next(err) }
 })
 
+// ── POST /profile/me/phone/send-otp ──────────────────────────────────────────
+// Trust Score, step 2 (after compulsory email verification at signup). Uses
+// Twilio Verify when configured (see lib/sms.ts — Twilio generates + sends
+// + owns the code, we never see it). Falls back to our own hashed code,
+// logged server-side, when Verify isn't configured or fails to start — same
+// "app works with the third party down" policy as email OTP.
+
+profilesRouter.post('/me/phone/send-otp', authenticate, otpLimiter, async (req, res, next) => {
+  try {
+    const userId = (req as AuthedRequest).userId!
+    const phone = String((req.body as { phone?: string })?.phone ?? '').trim()
+    if (!PHONE_REGEX.test(phone)) {
+      return next(badRequest('Enter a valid phone number in international format, e.g. +919876543210', 'INVALID_PHONE'))
+    }
+
+    const takenByOther = await prisma.user.findFirst({
+      where: { phone, NOT: { id: userId } },
+      select: { id: true },
+    })
+    if (takenByOther) return next(badRequest('This phone number is already verified on another account', 'PHONE_TAKEN'))
+
+    if (twilioVerifyConfigured()) {
+      const result = await startPhoneVerification(phone)
+      if (result.ok) {
+        // codeHash '' marks "Twilio owns this code" for verify-otp below —
+        // Twilio Verify never tells us the code, so there's nothing to hash.
+        await prisma.phoneVerification.upsert({
+          where: { userId },
+          create: { userId, phone, codeHash: '', expiresAt: new Date(Date.now() + PHONE_OTP_TTL_MS), attempts: 0 },
+          update: { phone, codeHash: '', expiresAt: new Date(Date.now() + PHONE_OTP_TTL_MS), attempts: 0 },
+        })
+        return res.json({ ok: true })
+      }
+      console.error('[phone-verify] Twilio Verify start failed, falling back to local OTP:', result.error)
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000))
+    const codeHash = await bcrypt.hash(code, 8)
+    await prisma.phoneVerification.upsert({
+      where: { userId },
+      create: { userId, phone, codeHash, expiresAt: new Date(Date.now() + PHONE_OTP_TTL_MS), attempts: 0 },
+      update: { phone, codeHash, expiresAt: new Date(Date.now() + PHONE_OTP_TTL_MS), attempts: 0 },
+    })
+    console.log(`[sms dev-fallback] OTP for ${phone}: ${code}`)
+
+    res.json({
+      ok: true,
+      ...(bypassAllowed() ? { devOtp: code } : {}),
+    })
+  } catch (err) { next(err) }
+})
+
+// ── POST /profile/me/phone/verify-otp ────────────────────────────────────────
+
+profilesRouter.post('/me/phone/verify-otp', authenticate, async (req, res, next) => {
+  try {
+    const userId = (req as AuthedRequest).userId!
+    const code = String((req.body as { code?: string })?.code ?? '').trim()
+    if (!/^\d{6}$/.test(code)) return next(badRequest('Code must be exactly 6 digits', 'INVALID_CODE'))
+
+    const row = await prisma.phoneVerification.findUnique({ where: { userId } })
+    if (!row) return next(badRequest('No pending phone verification. Request a new code.', 'OTP_NOT_ISSUED'))
+
+    // Dev bypass always works, regardless of which path issued the code —
+    // same policy as email OTP.
+    if (code === DEV_BYPASS_CODE && bypassAllowed()) {
+      const user = await markPhoneVerified(userId, row.phone)
+      return res.json({ verified: true, phone: user.phone, verificationLevel: user.verificationLevel })
+    }
+
+    if (row.expiresAt.getTime() < Date.now()) {
+      await prisma.phoneVerification.delete({ where: { userId } }).catch(() => {})
+      return next(badRequest('Code expired. Request a new one.', 'OTP_EXPIRED'))
+    }
+    if (row.attempts >= PHONE_OTP_MAX_ATTEMPTS) {
+      return next(tooMany('Too many attempts. Request a new code.', 'OTP_MAX_ATTEMPTS'))
+    }
+
+    let ok: boolean
+    if (row.codeHash === '') {
+      // Issued via Twilio Verify — Twilio is the source of truth for the code.
+      const result = await checkPhoneVerification(row.phone, code)
+      ok = result.approved
+    } else {
+      ok = await bcrypt.compare(code, row.codeHash)
+    }
+
+    if (!ok) {
+      await prisma.phoneVerification.update({ where: { userId }, data: { attempts: { increment: 1 } } })
+      return next(badRequest('Incorrect code', 'OTP_INVALID'))
+    }
+
+    const user = await markPhoneVerified(userId, row.phone)
+    res.json({ verified: true, phone: user.phone, verificationLevel: user.verificationLevel })
+  } catch (err) { next(err) }
+})
+
+async function markPhoneVerified(userId: string, phone: string) {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      phone,
+      phoneVerifiedAt: new Date(),
+      // Email is already required to have an account; phone is the next tier.
+      // ID verification (highest tier) isn't built yet, so this only ever climbs to PHONE.
+      verificationLevel: 'PHONE',
+    },
+  })
+  await prisma.phoneVerification.delete({ where: { userId } }).catch(() => {})
+  return user
+}
+
 // ── POST /profile/me/personality ─────────────────────────────────────────────
 // Accepts 10 quiz answers, sends them to the Lyzr personality analyzer agent,
 // and stores the resulting profile so we can compute compatibility % between
@@ -326,7 +474,14 @@ profilesRouter.get('/:userId', async (req, res, next) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.params.userId },
-      include: {
+      // Public + unauthenticated route: select only what other users' profile
+      // views actually need. No passwordHash, and no raw email/phone (the app
+      // never displays another user's contact info) — verifiedAt timestamps
+      // are kept since trust score needs them and they reveal nothing private.
+      select: {
+        id: true, username: true, displayName: true,
+        emailVerifiedAt: true, phoneVerifiedAt: true,
+        verificationLevel: true, createdAt: true,
         profile: {
           include: {
             interests: { include: { interest: true } },
@@ -336,13 +491,20 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       },
     })
     if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'))
-    const reviewsAgg = await prisma.review.aggregate({
-      where: { revieweeId: req.params.userId },
-      _avg: { rating: true },
-      _count: { id: true },
-    })
+    const [reviewsAgg, trustExtras] = await Promise.all([
+      prisma.review.aggregate({ where: { revieweeId: req.params.userId }, _avg: { rating: true }, _count: { id: true } }),
+      fetchTrustExtras(req.params.userId),
+    ])
     const avgRating = reviewsAgg._avg.rating ? Math.round(reviewsAgg._avg.rating * 10) / 10 : 0
     const ratingCount = reviewsAgg._count.id
-    res.json({ ...user, avgRating, ratingCount })
+    const trustScore = computeTrustScore({
+      emailVerifiedAt: user.emailVerifiedAt,
+      phoneVerifiedAt: user.phoneVerifiedAt,
+      faceVerifiedAt: user.profile?.faceVerifiedAt ?? null,
+      ...trustExtras,
+      avgRating,
+      ratingCount,
+    })
+    res.json({ ...user, avgRating, ratingCount, trustScore })
   } catch (err) { next(err) }
 })

@@ -91,6 +91,7 @@ class Need {
   final String? posterGender;
   final String? posterAvatarUrl;
   final bool posterFaceVerified;
+  final int posterTrustScore;
   final int offerCount;
   final String? posterBio;
   final List<String> posterInterests;
@@ -117,6 +118,7 @@ class Need {
     this.posterGender,
     this.posterAvatarUrl,
     this.posterFaceVerified = false,
+    this.posterTrustScore = 0,
     this.offerCount = 0,
     this.posterBio,
     this.posterInterests = const [],

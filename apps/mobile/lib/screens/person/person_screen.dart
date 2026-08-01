@@ -99,6 +99,7 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
       promptA3: m.promptCollab ?? '—',
       reviewCount: 0,
       points: m.pointsTotal,
+      trustScore: m.trustScore,
     );
   }
 
@@ -538,6 +539,11 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                                     : '0',
                               ),
                             ),
+                            if (person != null && person.trustScore > 0)
+                              _MiniStat(
+                                label: 'trust score',
+                                value: '${person.trustScore}',
+                              ),
                           ],
                         ),
                       ],

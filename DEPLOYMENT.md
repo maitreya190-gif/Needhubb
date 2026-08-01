@@ -27,19 +27,21 @@ Go to your service → **Variables** → paste each of these. **Do not put quote
 ```
 NODE_ENV=production
 PORT=3000
-AUTH_SECRET=REDACTED
-ADMIN_SECRET=REDACTED
+AUTH_SECRET=<generate a new random 96-char hex string — never commit the real value, paste it directly into Railway's Variables UI>
+ADMIN_SECRET=<generate a new random 48-char hex string — never commit the real value, paste it directly into Railway's Variables UI>
 CORS_ORIGIN=*
 API_BASE_URL=https://<your-railway-url>.up.railway.app
 ```
 
 (Update `API_BASE_URL` to your actual Railway domain after first deploy — see 1.4.)
 
+> **Do not paste real secret values into this file.** A previous version of this doc had the live `AUTH_SECRET`, `ADMIN_SECRET`, and Neon DB password committed in plaintext (see git history for commit `1cb25dd`) — those values must be treated as compromised and rotated. Set real values only in Railway's Variables UI and in a local, git-ignored `.env`.
+
 **Database (Neon):**
 
 ```
-DATABASE_URL=postgresql://neondb_owner:REDACTED@ep-silent-flower-azz6wbyg-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-DIRECT_URL=postgresql://neondb_owner:REDACTED@ep-silent-flower-azz6wbyg.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+DATABASE_URL=postgresql://<user>:<password>@<pooler-host>/<db>?sslmode=require&channel_binding=require
+DIRECT_URL=postgresql://<user>:<password>@<direct-host>/<db>?sslmode=require&channel_binding=require
 ```
 
 **Third-party APIs (copy from `apps/api/.env`):**

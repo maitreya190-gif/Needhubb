@@ -128,6 +128,7 @@ Need _needFromJson(Map<String, dynamic> j) {
       : DateTime.now();
   final profile = poster['profile'] as Map<String, dynamic>? ?? const {};
   final posterFaceVerified = profile['faceVerifiedAt'] != null;
+  final posterTrustScore = (profile['trustScore'] as num?)?.toInt() ?? 0;
 
   final posterInterestsRaw = profile['interests'];
   final posterInterests = posterInterestsRaw is List
@@ -160,6 +161,7 @@ Need _needFromJson(Map<String, dynamic> j) {
     tags: _tagsFor(j),
     posterAvatarUrl: posterProfile['avatarUrl'] as String?,
     posterFaceVerified: posterFaceVerified,
+    posterTrustScore: posterTrustScore,
     posterBio: profile['bio'] as String?,
     posterInterests: posterInterests,
     posterPersonalityTraits: personalityTraits is Map

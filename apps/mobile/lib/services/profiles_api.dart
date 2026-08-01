@@ -20,6 +20,9 @@ class ProfileMe {
   final List<String> interestLabels;
   final List<String> skillLabels;
   final DateTime? faceVerifiedAt;
+  final DateTime? phoneVerifiedAt;
+  final String? phone;
+  final int trustScore;
   final PersonalityTraits? personalityTraits;
   final String? personalityNickname;
   final String? personalitySummary;
@@ -43,6 +46,9 @@ class ProfileMe {
     required this.interestLabels,
     required this.skillLabels,
     this.faceVerifiedAt,
+    this.phoneVerifiedAt,
+    this.phone,
+    this.trustScore = 0,
     this.personalityTraits,
     this.personalityNickname,
     this.personalitySummary,
@@ -100,6 +106,13 @@ class ProfileMe {
         ? DateTime.tryParse(faceVerifiedAtStr)
         : null;
 
+    // phone/phoneVerifiedAt/trustScore live on the User row, not the nested
+    // Profile — read from `j` directly (see apps/api profiles.router.ts).
+    final phoneVerifiedAtStr = j['phoneVerifiedAt'] as String?;
+    final phoneVerifiedAt = phoneVerifiedAtStr != null
+        ? DateTime.tryParse(phoneVerifiedAtStr)
+        : null;
+
     // Personality data is defensive-parsed — a bad row must never crash
     // the whole ProfileMe factory because every screen listens to the
     // profile notifier and would red-screen on a single throw.
@@ -142,6 +155,9 @@ class ProfileMe {
       interestLabels: interests,
       skillLabels: skills,
       faceVerifiedAt: faceVerifiedAt,
+      phoneVerifiedAt: phoneVerifiedAt,
+      phone: j['phone'] as String?,
+      trustScore: (j['trustScore'] as num?)?.toInt() ?? 0,
       personalityTraits: personalityTraits,
       personalityNickname: profile['personalityNickname'] as String?,
       personalitySummary: profile['personalitySummary'] as String?,
@@ -195,6 +211,17 @@ class ProfilesApi {
 
   Future<List<Map<String, dynamic>>> pointsLedger({int take = 50}) async {
     return _api.getList('/points/ledger', query: {'take': take});
+  }
+
+  /// Trust Score, step 2: send a 6-digit OTP to [phone] (E.164, e.g. +919876543210).
+  /// Returns `devOtp` when the server's dev-bypass is on, so the UI can auto-fill it.
+  Future<Map<String, dynamic>> sendPhoneOtp(String phone) async {
+    return _api.post('/profile/me/phone/send-otp', {'phone': phone});
+  }
+
+  /// Verifies the 6-digit code and marks the phone verified server-side.
+  Future<Map<String, dynamic>> verifyPhoneOtp(String code) async {
+    return _api.post('/profile/me/phone/verify-otp', {'code': code});
   }
 }
 

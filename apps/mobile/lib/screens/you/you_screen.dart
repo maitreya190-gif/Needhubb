@@ -327,8 +327,16 @@ class YouScreen extends ConsumerWidget {
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
 
+                  // ── Trust Score ─────────────────────────────────────────────
+                  _TrustScoreSection(t: t),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
                   // ── Face Verification ─────────────────────────────────────
                   _FaceVerifySection(t: t),
+                  const SizedBox(height: 16),
+                  _PhoneVerifySection(t: t),
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
@@ -1841,6 +1849,477 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
           ],
         );
       },
+    );
+  }
+}
+
+// ── Trust Score Section ─────────────────────────────────────────────────────
+// Trust Score (0-100) blends identity verification — email (least, it's
+// compulsory), face, phone (most, hardest to fake) — with real track record:
+// approved certificates, fulfilled needs, and review rating. Shown here and
+// on Connect cards so people meeting strangers have a real safety signal.
+
+class _TrustScoreSection extends StatelessWidget {
+  final NeedHubTokens t;
+  const _TrustScoreSection({required this.t});
+
+  Color _colorFor(int score) {
+    if (score >= 70) return NeedHubTokens.forest;
+    if (score >= 40) return NeedHubTokens.clay;
+    return const Color(0xFF9CA3AF);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ProfileMe?>(
+      valueListenable: myProfileNotifier,
+      builder: (_, me, __) {
+        final score = me?.trustScore ?? 0;
+        final color = _colorFor(score);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'TRUST SCORE',
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: t.muted2,
+                letterSpacing: 0.7,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: t.card,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: t.rail, width: 1),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(Icons.shield_rounded, color: color, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '$score',
+                        style: GoogleFonts.bricolageGrotesque(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: color,
+                          height: 1,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 3),
+                        child: Text('/ 100',
+                            style: GoogleFonts.hankenGrotesk(
+                                fontSize: 12, color: t.muted)),
+                      ),
+                      const Spacer(),
+                      Text(
+                        'Shown on your Connect cards',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11,
+                          color: t.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: score / 100,
+                      minHeight: 6,
+                      backgroundColor: t.rail,
+                      valueColor: AlwaysStoppedAnimation(color),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _TrustChip(label: 'Email', done: me?.email != null),
+                      _TrustChip(label: 'Phone', done: me?.phoneVerifiedAt != null),
+                      _TrustChip(label: 'Face', done: me?.faceVerifiedAt != null),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Also grows with approved certificates, fulfilled needs, and review ratings.',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11.5,
+                      color: t.muted,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TrustChip extends StatelessWidget {
+  final String label;
+  final bool done;
+  const _TrustChip({required this.label, required this.done});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = done ? NeedHubTokens.forest : const Color(0xFF9CA3AF);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(done ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Phone Verification Section ────────────────────────────────────────────────
+
+class _PhoneVerifySection extends ConsumerStatefulWidget {
+  final NeedHubTokens t;
+  const _PhoneVerifySection({required this.t});
+
+  @override
+  ConsumerState<_PhoneVerifySection> createState() => _PhoneVerifySectionState();
+}
+
+class _PhoneVerifySectionState extends ConsumerState<_PhoneVerifySection> {
+  Future<void> _openSheet() async {
+    final verified = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _PhoneVerifySheet(),
+    );
+    if (verified == true) {
+      try {
+        final profilesApi = ref.read(profilesApiProvider);
+        myProfileNotifier.value = await profilesApi.me();
+      } catch (_) {}
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    return ValueListenableBuilder<ProfileMe?>(
+      valueListenable: myProfileNotifier,
+      builder: (_, me, __) {
+        final isVerified = me?.phoneVerifiedAt != null;
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isVerified ? NeedHubTokens.forest.withValues(alpha: 0.06) : t.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isVerified ? NeedHubTokens.forest.withValues(alpha: 0.30) : t.rail,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isVerified
+                      ? NeedHubTokens.forest.withValues(alpha: 0.12)
+                      : t.chip,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isVerified ? Icons.verified_user_rounded : Icons.phone_iphone_rounded,
+                  color: isVerified ? NeedHubTokens.forest : t.muted2,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isVerified ? 'Phone Verified' : 'Verify Your Phone',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: isVerified ? NeedHubTokens.forest : t.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      isVerified
+                          ? (me?.phone ?? 'Boosts your trust score')
+                          : 'Adds the biggest boost to your trust score',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 12,
+                        color: t.muted,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isVerified) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _openSheet,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: NeedHubTokens.forest,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.sms_rounded, size: 14, color: Colors.white),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Verify',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Two-step bottom sheet: enter phone → send OTP → enter 6-digit code → verify.
+/// Pops `true` on success so the caller can refresh the profile.
+class _PhoneVerifySheet extends ConsumerStatefulWidget {
+  const _PhoneVerifySheet();
+
+  @override
+  ConsumerState<_PhoneVerifySheet> createState() => _PhoneVerifySheetState();
+}
+
+class _PhoneVerifySheetState extends ConsumerState<_PhoneVerifySheet> {
+  final _phoneController = TextEditingController();
+  final _codeController = TextEditingController();
+  bool _codeSent = false;
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendCode() async {
+    final phone = _phoneController.text.trim();
+    if (!RegExp(r'^\+?[1-9]\d{7,14}$').hasMatch(phone)) {
+      setState(() => _error = 'Enter a valid number with country code, e.g. +919876543210');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final api = ref.read(profilesApiProvider);
+      final res = await api.sendPhoneOtp(phone);
+      final devOtp = res['devOtp'] as String?;
+      if (devOtp != null) _codeController.text = devOtp; // demo auto-fill, same as email OTP
+      if (mounted) setState(() => _codeSent = true);
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      setState(() => _error = (data is Map ? data['error'] : null) as String? ?? 'Could not send code');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _verifyCode() async {
+    final code = _codeController.text.trim();
+    if (!RegExp(r'^\d{6}$').hasMatch(code)) {
+      setState(() => _error = 'Enter the 6-digit code');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final api = ref.read(profilesApiProvider);
+      await api.verifyPhoneOtp(code);
+      if (mounted) Navigator.of(context).pop(true);
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      setState(() => _error = (data is Map ? data['error'] : null) as String? ?? 'Incorrect code');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        decoration: BoxDecoration(
+          color: t.paper,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: t.rail,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _codeSent ? 'Enter the code' : 'Verify your phone',
+              style: GoogleFonts.bricolageGrotesque(
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                color: t.ink,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _codeSent
+                  ? 'We sent a 6-digit code to ${_phoneController.text.trim()}'
+                  : 'Enter your number with country code — this adds the biggest boost to your trust score.',
+              style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted, height: 1.4),
+            ),
+            const SizedBox(height: 18),
+            if (!_codeSent)
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                autofocus: true,
+                style: GoogleFonts.hankenGrotesk(fontSize: 15, color: t.ink),
+                decoration: InputDecoration(
+                  hintText: '+919876543210',
+                  hintStyle: GoogleFonts.hankenGrotesk(color: t.muted),
+                  filled: true,
+                  fillColor: t.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: t.rail),
+                  ),
+                ),
+              )
+            else
+              TextField(
+                controller: _codeController,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                maxLength: 6,
+                style: GoogleFonts.hankenGrotesk(
+                    fontSize: 22, letterSpacing: 8, color: t.ink, fontWeight: FontWeight.w700),
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: '000000',
+                  filled: true,
+                  fillColor: t.card,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: t.rail),
+                  ),
+                ),
+              ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(_error!, style: GoogleFonts.hankenGrotesk(fontSize: 12.5, color: Colors.red)),
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _loading ? null : (_codeSent ? _verifyCode : _sendCode),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: NeedHubTokens.forest,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: _loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(
+                        _codeSent ? 'Verify' : 'Send code',
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+              ),
+            ),
+            if (_codeSent) ...[
+              const SizedBox(height: 10),
+              Center(
+                child: TextButton(
+                  onPressed: _loading ? null : _sendCode,
+                  child: Text('Resend code',
+                      style: GoogleFonts.hankenGrotesk(fontSize: 12.5, color: t.muted)),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1199,13 +1199,9 @@ class _EarnCard extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (need.posterFaceVerified && need.category == 'connect') ...[
+                                if (need.posterTrustScore > 0 && need.category == 'connect') ...[
                                   const SizedBox(width: 4),
-                                  const Icon(
-                                    Icons.verified_user_rounded,
-                                    size: 12,
-                                    color: Color(0xFF2563EB),
-                                  ),
+                                  _TrustBadge(score: need.posterTrustScore),
                                 ],
                                 if (need.category == 'connect') ...[
                                   const SizedBox(width: 6),
@@ -2574,6 +2570,47 @@ class _ActiveFilterRibbon extends StatelessWidget {
 /// quiz; otherwise falls back to interest-overlap + bio heuristic. Tapping
 /// jumps into the personality test when I haven't taken it yet — a nudge
 /// toward the deeper match signal.
+/// Trust Score badge — email + phone + face verification plus track record
+/// (approved certificates, fulfilled needs, review rating). Connect-only:
+/// this is the safety signal for people meeting strangers in person.
+class _TrustBadge extends StatelessWidget {
+  final int score; // 0-100
+  const _TrustBadge({required this.score});
+
+  Color get _color {
+    if (score >= 70) return const Color(0xFF2563EB); // strong trust — blue
+    if (score >= 40) return const Color(0xFFB85D19); // partial — clay/amber
+    return const Color(0xFF9CA3AF); // just getting started — grey
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: _color.withValues(alpha: 0.35), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.shield_rounded, size: 10, color: _color),
+          const SizedBox(width: 3),
+          Text(
+            '$score trust',
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              color: _color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MatchBadge extends StatelessWidget {
   final Need need;
   final NeedHubTokens t;

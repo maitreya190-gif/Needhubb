@@ -19,6 +19,7 @@ class Person {
   final String promptA3;
   final int reviewCount;
   final int points;
+  final int trustScore;
   final bool isOnline;
   final String? avatarUrl;
   final String? gender;
@@ -43,6 +44,7 @@ class Person {
     required this.promptA3,
     this.reviewCount = 0,
     this.points = 0,
+    this.trustScore = 0,
     this.isOnline = false,
   });
 

@@ -11,6 +11,7 @@ import {
 import { pushNotification } from '../../lib/notifications'
 import { getIo, emitToUser } from '../../lib/socket'
 import { getSystemUserId } from '../../lib/system-user'
+import { computeTrustScore } from '../../lib/trust-score'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { isBlockedBetween } from '../friends/friends.service'
 import {
@@ -261,7 +262,7 @@ needsRouter.get('/', async (req, res, next) => {
       include: {
         poster: {
           select: {
-            id: true, displayName: true,
+            id: true, displayName: true, emailVerifiedAt: true, phoneVerifiedAt: true,
             profile: { select: {
               avatarUrl: true, gender: true, lat: true, lng: true, faceVerifiedAt: true,
               bio: true,
@@ -277,6 +278,33 @@ needsRouter.get('/', async (req, res, next) => {
       take: q.take ?? 60,
       skip: q.skip,
     })
+
+    // Batch-fetch trust-score "track record" inputs for every poster on this
+    // page in 3 grouped queries instead of one per need (keeps the feed fast).
+    const posterIds = [...new Set(needsRaw.map((n) => n.posterId))]
+    const [certGroups, fulfilledGroups, reviewGroups] = await Promise.all([
+      prisma.certificate.groupBy({ by: ['userId'], where: { userId: { in: posterIds }, status: 'APPROVED' }, _count: { id: true } }),
+      prisma.need.groupBy({ by: ['posterId'], where: { posterId: { in: posterIds }, status: 'FULFILLED' }, _count: { id: true } }),
+      prisma.review.groupBy({ by: ['revieweeId'], where: { revieweeId: { in: posterIds } }, _avg: { rating: true }, _count: { id: true } }),
+    ])
+    const certByUser = new Map(certGroups.map((g) => [g.userId, g._count.id]))
+    const fulfilledByUser = new Map(fulfilledGroups.map((g) => [g.posterId, g._count.id]))
+    const reviewByUser = new Map(reviewGroups.map((g) => [g.revieweeId, { avg: g._avg.rating ?? 0, count: g._count.id }]))
+    const trustScoreByPoster = new Map(
+      posterIds.map((id) => {
+        const need = needsRaw.find((n) => n.posterId === id)!
+        const review = reviewByUser.get(id)
+        return [id, computeTrustScore({
+          emailVerifiedAt: need.poster.emailVerifiedAt,
+          phoneVerifiedAt: need.poster.phoneVerifiedAt,
+          faceVerifiedAt: need.poster.profile?.faceVerifiedAt ?? null,
+          approvedCertificateCount: certByUser.get(id) ?? 0,
+          fulfilledNeedCount: fulfilledByUser.get(id) ?? 0,
+          avgRating: review?.avg ?? 0,
+          ratingCount: review?.count ?? 0,
+        })]
+      }),
+    )
 
     // Filter first, then batch-embed the survivors.
     type Filtered = { need: (typeof needsRaw)[number]; distanceKm: number | null }
@@ -327,10 +355,11 @@ needsRouter.get('/', async (req, res, next) => {
     type Ranked = Filtered & { score: number; semantic: number | null }
     const ranked: Ranked[] = filtered.map((f) => {
       const semantic = needSimilarityById.get(f.need.id) ?? null
+      const trustScore = trustScoreByPoster.get(f.need.posterId) ?? 0
       return {
         ...f,
         semantic,
-        score: scoreNeed(f.need, f.distanceKm, userInterests, semantic),
+        score: scoreNeed(f.need, f.distanceKm, userInterests, semantic, trustScore),
       }
     })
 
@@ -347,13 +376,20 @@ needsRouter.get('/', async (req, res, next) => {
       })
     }
 
-    const list = ranked.map((r) => ({
-      ...r.need,
-      offerCount: r.need._count.responses,
-      _score: Math.round(r.score * 100) / 100,
-      _semantic: r.semantic != null ? Math.round(r.semantic * 100) / 100 : null,
-      _distanceKm: r.distanceKm != null ? Math.round(r.distanceKm * 10) / 10 : null,
-    }))
+    const list = ranked.map((r) => {
+      const trustScore = trustScoreByPoster.get(r.need.posterId) ?? 0
+      return {
+        ...r.need,
+        poster: {
+          ...r.need.poster,
+          profile: r.need.poster.profile ? { ...r.need.poster.profile, trustScore } : r.need.poster.profile,
+        },
+        offerCount: r.need._count.responses,
+        _score: Math.round(r.score * 100) / 100,
+        _semantic: r.semantic != null ? Math.round(r.semantic * 100) / 100 : null,
+        _distanceKm: r.distanceKm != null ? Math.round(r.distanceKm * 10) / 10 : null,
+      }
+    })
     res.json({
       needs: list,
       count: list.length,
@@ -367,24 +403,29 @@ needsRouter.get('/', async (req, res, next) => {
  * Compute a personalized relevance score in [0, 1] for a need.
  *
  * Weights (embeddings mode — when Cohere returned a similarity vector):
- *   0.60 × semantic match  — cosine similarity between user + need embeddings
- *   0.25 × proximity       — closer needs score higher (0 at 30km+, 1 at 0km)
- *   0.15 × freshness       — recency decay over 7 days
+ *   EARN:    0.60 semantic + 0.25 proximity + 0.15 freshness
+ *   CONNECT: 0.45 semantic + 0.20 proximity + 0.15 freshness + 0.20 trust score
  *
  * Weights (heuristic mode — Cohere unavailable):
- *   0.55 × interest match  — substring hits on title/description
- *   0.30 × proximity
- *   0.15 × freshness
+ *   EARN:    0.55 interest match + 0.30 proximity + 0.15 freshness
+ *   CONNECT: 0.40 interest match + 0.25 proximity + 0.15 freshness + 0.20 trust score
+ *
+ * Trust score (see lib/trust-score.ts) only factors into CONNECT ranking —
+ * meeting a stranger in person is the actual safety-sensitive surface; Earn
+ * stays purely skill/proximity/freshness driven. It's a meaningful slice
+ * (20%) but capped so relevance + proximity still dominate — a new, unverified
+ * user must stay discoverable, not buried (Needhub.txt §8/§11).
  *
  * The semantic path catches near-synonym matches ("need someone to fix my
  * code" vs. user with interest "coding" both rank high). The heuristic path
  * only catches literal substring hits.
  */
 function scoreNeed(
-  need: { title: string; description: string; createdAt: Date; earnCategory: string | null; connectCategory: string | null },
+  need: { title: string; description: string; createdAt: Date; earnCategory: string | null; connectCategory: string | null; needType: string },
   distanceKm: number | null,
   userInterestLabels: string[],
   semanticSimilarity: number | null,
+  trustScore: number, // 0-100, ignored for EARN needs
 ): number {
   // Proximity — 1 at 0km, 0 at 30km+, linear decay.
   const proximityScore = distanceKm == null
@@ -395,10 +436,15 @@ function scoreNeed(
   const hoursOld = (Date.now() - need.createdAt.getTime()) / 3_600_000
   const freshnessScore = Math.max(0, 1 - hoursOld / (24 * 7))
 
+  const isConnect = need.needType === 'CONNECT'
+  const trustScore01 = trustScore / 100
+
   if (semanticSimilarity != null) {
     // Cosine similarity is in [-1, 1]; normalize to [0, 1] for combining.
     const semanticScore = Math.max(0, (semanticSimilarity + 1) / 2)
-    return 0.60 * semanticScore + 0.25 * proximityScore + 0.15 * freshnessScore
+    return isConnect
+      ? 0.45 * semanticScore + 0.20 * proximityScore + 0.15 * freshnessScore + 0.20 * trustScore01
+      : 0.60 * semanticScore + 0.25 * proximityScore + 0.15 * freshnessScore
   }
 
   // Heuristic fallback — substring hits on title/description/category.
@@ -408,7 +454,9 @@ function scoreNeed(
     const hits = userInterestLabels.filter((i) => i.length > 1 && hay.includes(i)).length
     interestScore = Math.min(1, hits / Math.min(3, userInterestLabels.length))
   }
-  return 0.55 * interestScore + 0.30 * proximityScore + 0.15 * freshnessScore
+  return isConnect
+    ? 0.40 * interestScore + 0.25 * proximityScore + 0.15 * freshnessScore + 0.20 * trustScore01
+    : 0.55 * interestScore + 0.30 * proximityScore + 0.15 * freshnessScore
 }
 
 // ─── GET /needs/:id — public detail ──────────────────────────────────────────
@@ -420,7 +468,7 @@ needsRouter.get('/:id', async (req, res, next) => {
       include: {
         poster: {
           select: {
-            id: true, displayName: true,
+            id: true, displayName: true, emailVerifiedAt: true, phoneVerifiedAt: true,
             profile: { select: { avatarUrl: true, bio: true, pointsTotal: true, faceVerifiedAt: true } },
           },
         },
@@ -429,7 +477,27 @@ needsRouter.get('/:id', async (req, res, next) => {
       },
     })
     if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
-    res.json({ ...need, offerCount: need._count.responses })
+
+    const [approvedCertificateCount, fulfilledNeedCount, reviewAgg] = await Promise.all([
+      prisma.certificate.count({ where: { userId: need.posterId, status: 'APPROVED' } }),
+      prisma.need.count({ where: { posterId: need.posterId, status: 'FULFILLED' } }),
+      prisma.review.aggregate({ where: { revieweeId: need.posterId }, _avg: { rating: true }, _count: { id: true } }),
+    ])
+    const trustScore = computeTrustScore({
+      emailVerifiedAt: need.poster.emailVerifiedAt,
+      phoneVerifiedAt: need.poster.phoneVerifiedAt,
+      faceVerifiedAt: need.poster.profile?.faceVerifiedAt ?? null,
+      approvedCertificateCount,
+      fulfilledNeedCount,
+      avgRating: reviewAgg._avg.rating ?? 0,
+      ratingCount: reviewAgg._count.id,
+    })
+
+    res.json({
+      ...need,
+      poster: { ...need.poster, profile: need.poster.profile ? { ...need.poster.profile, trustScore } : need.poster.profile },
+      offerCount: need._count.responses,
+    })
   } catch (err) { next(err) }
 })
 

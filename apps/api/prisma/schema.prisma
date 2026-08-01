@@ -117,6 +117,7 @@ model User {
   visibilityBoosts       VisibilityBoost[]
   reports                Report[]           @relation("ReporterReports")
   emailVerification      EmailVerification?
+  phoneVerification      PhoneVerification?
   notifications          Notification[]
   redemptions            Redemption[]
   dmMessagesSent         DmMessage[]        @relation("DmSender")
@@ -433,6 +434,18 @@ model DmMessage {
 model EmailVerification {
   id        String   @id @default(cuid())
   userId    String   @unique
+  codeHash  String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PhoneVerification {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  phone     String
   codeHash  String
   expiresAt DateTime
   attempts  Int      @default(0)
