@@ -35,7 +35,26 @@ API_BASE_URL=https://<your-railway-url>.up.railway.app
 
 (Update `API_BASE_URL` to your actual Railway domain after first deploy — see 1.4.)
 
-> **Do not paste real secret values into this file.** A previous version of this doc had the live `AUTH_SECRET`, `ADMIN_SECRET`, and Neon DB password committed in plaintext (see git history for commit `1cb25dd`) — those values must be treated as compromised and rotated. Set real values only in Railway's Variables UI and in a local, git-ignored `.env`.
+> **Do not paste real secret values into this file.**
+>
+> This doc carried live values for `AUTH_SECRET`, `ADMIN_SECRET`, the Neon
+> database password and every third-party API key below, in plaintext, in a
+> **public** repository — committed in `ede7a4b` (2026-07-26) and removed in
+> `59234d6` (2026-08-01). That is a ~7 day exposure window, so every one of
+> those values must be treated as compromised.
+>
+> Removing them from this file does **not** undo it: `ede7a4b` is still
+> reachable from `origin/main`, so the values remain readable via
+> `git log -p`. Only rotating each secret at its provider actually closes it.
+>
+> **Rotation status: NOT DONE.** Priority order if picking this up —
+> 1. `DATABASE_URL` / `DIRECT_URL` (Neon) — full read/write to user data
+> 2. `AUTH_SECRET`, `ADMIN_SECRET` — token forgery and admin access
+> 3. `GMAIL_APP_PASSWORD` — can send mail as us
+> 4. Paid keys: Cohere, Groq/LLM, Lyzr, Resend, Face++, Clerk, Cloudinary
+>
+> Set real values only in Railway's Variables UI and in a local, git-ignored
+> `.env`. Never here.
 
 **Database (Neon):**
 
