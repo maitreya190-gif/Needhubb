@@ -161,7 +161,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             'format': 'json',
             'lat': pos.latitude,
             'lon': pos.longitude,
-            'zoom': 14,
+            'zoom': isExact ? 18 : 14,
           },
           options: Options(headers: {'User-Agent': 'NeedhubApp/1.0'}),
         );
@@ -169,13 +169,34 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           final address = res.data['address'] as Map<String, dynamic>?;
           shortLabel = res.data['display_name'];
           if (address != null) {
+            final houseNumber = address['house_number'];
+            final building = address['building'] ?? address['apartment'] ?? address['apartments'] ?? address['residential'];
+            final amenity = address['amenity'] ?? address['shop'] ?? address['office'] ?? address['railway'] ?? address['tourism'] ?? address['historic'];
+            final road = address['road'] ?? address['pedestrian'] ?? address['path'];
+            final suburb = address['suburb'] ?? address['neighbourhood'] ?? address['city_district'];
             final city = address['city'] ?? address['town'] ?? address['village'] ?? address['county'];
             final state = address['state'];
-            final suburb = address['suburb'] ?? address['neighbourhood'];
-            if (suburb != null && city != null) {
-              shortLabel = '$suburb, $city';
-            } else if (city != null && state != null) {
-              shortLabel = '$city, $state';
+
+            if (isExact) {
+              final exactParts = <String>[];
+              if (amenity != null) exactParts.add(amenity.toString());
+              if (building != null) exactParts.add(building.toString());
+              if (houseNumber != null) exactParts.add(houseNumber.toString());
+              if (road != null) exactParts.add(road.toString());
+              if (suburb != null && suburb.toString() != road?.toString()) exactParts.add(suburb.toString());
+              if (city != null && city.toString() != suburb?.toString()) exactParts.add(city.toString());
+
+              if (exactParts.isNotEmpty) {
+                shortLabel = exactParts.join(', ');
+              }
+            } else {
+              if (suburb != null && city != null) {
+                shortLabel = '$suburb, $city';
+              } else if (city != null && state != null) {
+                shortLabel = '$city, $state';
+              } else if (city != null) {
+                shortLabel = city.toString();
+              }
             }
           }
         }

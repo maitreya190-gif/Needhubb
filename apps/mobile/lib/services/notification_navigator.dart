@@ -136,9 +136,12 @@ class NotificationNavigator {
         type == 'NEED_UPDATE' ||
         type == 'NEED_COMPLETED' ||
         type == 'NEED_OFFER' ||
+        type == 'SKILL_MATCH_NEED' ||
         type.contains('NEED') ||
+        type.contains('SKILL') ||
         type.contains('OFFER') ||
-        refType == 'NEED';
+        refType == 'NEED' ||
+        refType == 'need';
 
     if (isNeedNotif) {
       Need? targetNeed;

@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
+
 import '../../models/need.dart';
 import '../../services/social_providers.dart';
 import '../../services/profiles_api.dart';
@@ -18,56 +19,108 @@ class ViewOnMapScreen extends ConsumerStatefulWidget {
   ConsumerState<ViewOnMapScreen> createState() => _ViewOnMapScreenState();
 }
 
-class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
-  final MapController _mapController = MapController();
+class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
+    with SingleTickerProviderStateMixin {
+  late final MapController _mapController;
   final PageController _pageController = PageController(viewportFraction: 0.85);
   final TextEditingController _searchController = TextEditingController();
-  final Dio _dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 10)));
+  final Dio _dio =
+      Dio(BaseOptions(connectTimeout: const Duration(seconds: 10)));
 
-  LatLng _center = const LatLng(12.9716, 77.5946); // Default Bangalore/Indiranagar
+  late TabController _tabController;
+
+  LatLng _center = const LatLng(12.9716, 77.5946);
   double _radius = 5.0; // in km
-  List<Need> _needs = [];
-  bool _loading = false;
+
+  // Active needs (tab 0)
+  List<Need> _activeNeeds = [];
+  bool _loadingActive = false;
+
+  // Fulfilled needs (tab 1)
+  List<Need> _fulfilledNeeds = [];
+  bool _loadingFulfilled = false;
+
   Timer? _fetchDebounce;
   Timer? _searchDebounce;
+  Timer? _emptyDismissTimer;
 
   Need? _selectedNeed;
   List<dynamic> _searchResults = [];
   bool _isSearching = false;
   bool _showSearchResults = false;
+  bool _isEmptyStateVisible = true;
+  bool _isEmptyStateMinimized = false;
+  LatLng? _mapCenter;
 
   @override
   void initState() {
     super.initState();
-    // Start at current user location if available
+    _mapController = MapController();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
+
     final me = myProfileNotifier.value;
     if (me != null && me.lat != null && me.lng != null) {
       _center = LatLng(me.lat!, me.lng!);
     }
-    _fetchNeeds();
+    _mapCenter = _center;
+    _fetchActiveNeeds();
+    _fetchFulfilledNeeds();
   }
 
   @override
   void dispose() {
     _fetchDebounce?.cancel();
     _searchDebounce?.cancel();
+    _emptyDismissTimer?.cancel();
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
     _mapController.dispose();
     _pageController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  // Debounced needs fetch to prevent UI lag on map interaction/slider change
-  void _triggerFetchDebounce() {
-    if (_fetchDebounce?.isActive ?? false) _fetchDebounce!.cancel();
-    _fetchDebounce = Timer(const Duration(milliseconds: 400), () {
-      _fetchNeeds();
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging) {
+      setState(() {
+        _selectedNeed = null;
+        _isEmptyStateVisible = true;
+        _isEmptyStateMinimized = false;
+      });
+      _startEmptyDismissTimer();
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+    }
+  }
+
+  void _startEmptyDismissTimer() {
+    _emptyDismissTimer?.cancel();
+    _emptyDismissTimer = Timer(const Duration(seconds: 7), () {
+      if (mounted) {
+        setState(() => _isEmptyStateMinimized = true);
+      }
     });
   }
 
-  Future<void> _fetchNeeds() async {
+  List<Need> get _currentNeeds =>
+      _tabController.index == 0 ? _activeNeeds : _fulfilledNeeds;
+
+  bool get _currentLoading =>
+      _tabController.index == 0 ? _loadingActive : _loadingFulfilled;
+
+  void _triggerFetchDebounce() {
+    if (_fetchDebounce?.isActive ?? false) _fetchDebounce!.cancel();
+    _fetchDebounce = Timer(const Duration(milliseconds: 400), () {
+      _fetchActiveNeeds();
+      _fetchFulfilledNeeds();
+    });
+  }
+
+  Future<void> _fetchActiveNeeds() async {
     if (!mounted) return;
-    setState(() => _loading = true);
+    setState(() => _loadingActive = true);
 
     try {
       final api = ref.read(needsApiProvider);
@@ -77,25 +130,61 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
         distanceKm: _radius,
         sort: 'distance',
         take: 100,
+        status: 'OPEN',
       );
 
       if (mounted) {
+        final needs =
+            result.needs.where((n) => n.lat != null && n.lng != null).toList();
         setState(() {
-          // Filter out needs without lat/lng coordinates
-          _needs = result.needs.where((n) => n.lat != null && n.lng != null).toList();
-          _loading = false;
-          _selectedNeed = null;
+          _activeNeeds = needs;
+          _loadingActive = false;
+          _isEmptyStateVisible = true;
+          _isEmptyStateMinimized = false;
         });
+        if (needs.isEmpty) _startEmptyDismissTimer();
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load local needs')),
-        );
+        setState(() => _loadingActive = false);
       }
     }
   }
+
+  Future<void> _fetchFulfilledNeeds() async {
+    if (!mounted) return;
+    setState(() => _loadingFulfilled = true);
+
+    try {
+      final api = ref.read(needsApiProvider);
+      final result = await api.feed(
+        lat: _center.latitude,
+        lng: _center.longitude,
+        distanceKm: _radius,
+        sort: 'distance',
+        take: 100,
+        status: 'FULFILLED',
+      );
+
+      if (mounted) {
+        final needs =
+            result.needs.where((n) => n.lat != null && n.lng != null).toList();
+        setState(() {
+          _fulfilledNeeds = needs;
+          _loadingFulfilled = false;
+          _isEmptyStateVisible = true;
+          _isEmptyStateMinimized = false;
+        });
+        if (needs.isEmpty) _startEmptyDismissTimer();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingFulfilled = false);
+      }
+    }
+  }
+
+  // ── Search ─────────────────────────────────────────────────────────────────
 
   Future<void> _searchLocation(String query) async {
     if (query.trim().isEmpty) {
@@ -138,12 +227,16 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
       final newCenter = LatLng(lat, lon);
       setState(() {
         _center = newCenter;
+        _mapCenter = newCenter;
         _showSearchResults = false;
         _searchResults = [];
         _searchController.text = result['display_name'] ?? '';
+        _isEmptyStateVisible = true;
+        _isEmptyStateMinimized = false;
       });
       _mapController.move(newCenter, 13.5);
-      _fetchNeeds();
+      _fetchActiveNeeds();
+      _fetchFulfilledNeeds();
     }
     FocusScope.of(context).unfocus();
   }
@@ -153,9 +246,9 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
       _selectedNeed = need;
     });
 
-    // Find index of selected need in the list to scroll PageView
-    final idx = _needs.indexWhere((n) => n.id == need.id);
-    if (idx != -1) {
+    final needs = _currentNeeds;
+    final idx = needs.indexWhere((n) => n.id == need.id);
+    if (idx != -1 && _pageController.hasClients) {
       _pageController.animateToPage(
         idx,
         duration: const Duration(milliseconds: 300),
@@ -164,17 +257,32 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
     }
 
     if (need.lat != null && need.lng != null) {
-      _mapController.move(LatLng(need.lat!, need.lng!), _mapController.camera.zoom);
+      _mapController.move(
+          LatLng(need.lat!, need.lng!), _mapController.camera.zoom);
     }
   }
+
+  void _showNeedDetail(Need need) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _NeedDetailSheet(need: need),
+    );
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final isFulfilledTab = _tabController.index == 1;
+    final needs = _currentNeeds;
+    final isLoading = _currentLoading;
 
-    // Build markers list
+    // Build markers list for OSM map
     final List<Marker> markers = [
-      // 1. Center / Search Origin Pin
+      // 1. Center pin
       Marker(
         point: _center,
         width: 60,
@@ -195,42 +303,25 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
           ),
         ),
       ),
-      // 2. Needs Pins
-      ..._needs.map((n) {
+      // 2. Need pins
+      ...needs.map((n) {
         final isSelected = _selectedNeed?.id == n.id;
-        final color = n.category == 'earn' ? NeedHubTokens.ochre : NeedHubTokens.forest;
+        final color = isFulfilledTab
+            ? NeedHubTokens.forest
+            : (n.category == 'earn' ? NeedHubTokens.ochre : NeedHubTokens.forest);
 
         return Marker(
           point: LatLng(n.lat!, n.lng!),
-          width: isSelected ? 48 : 38,
-          height: isSelected ? 48 : 38,
+          width: isSelected ? 56 : 46,
+          height: isSelected ? 56 : 46,
           alignment: Alignment.center,
           child: GestureDetector(
             onTap: () => _selectNeed(n),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(
-                  color: color,
-                  width: isSelected ? 4 : 2,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 6,
-                    offset: Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Icon(
-                  n.category == 'earn' ? Icons.currency_rupee_rounded : Icons.handshake_rounded,
-                  color: color,
-                  size: isSelected ? 22 : 18,
-                ),
-              ),
+            child: _MarkerAvatarWidget(
+              avatarUrl: n.posterAvatarUrl,
+              initials: n.authorInitials,
+              isSelected: isSelected,
+              color: color,
             ),
           ),
         );
@@ -248,7 +339,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'View on Map',
+          'Explore on Map',
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -258,7 +349,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
       ),
       body: Stack(
         children: [
-          // 1. The Map View
+          // 1. OSM Map
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -269,9 +360,24 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
               onTap: (tapPosition, point) {
                 setState(() {
                   _center = point;
+                  _mapCenter = point;
                   _selectedNeed = null;
+                  _isEmptyStateVisible = true;
+                  _isEmptyStateMinimized = false;
+                  _showSearchResults = false;
                 });
                 _triggerFetchDebounce();
+              },
+              onPositionChanged: (position, hasGesture) {
+                setState(() {
+                  _mapCenter = position.center;
+                });
+                if (hasGesture && _showSearchResults) {
+                  setState(() {
+                    _showSearchResults = false;
+                  });
+                  FocusScope.of(context).unfocus();
+                }
               },
             ),
             children: [
@@ -279,16 +385,19 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.needhub.needhub',
               ),
-              // Search Radius Circle boundary overlay
               CircleLayer(
                 circles: [
                   CircleMarker(
                     point: _center,
-                    radius: _radius * 1000, // convert km to meters
+                    radius: _radius * 1000,
                     useRadiusInMeter: true,
-                    color: NeedHubTokens.clay.withValues(alpha: 0.08),
-                    borderColor: NeedHubTokens.clay.withValues(alpha: 0.4),
-                    borderStrokeWidth: 1.5,
+                    color: isFulfilledTab
+                        ? NeedHubTokens.forest.withValues(alpha: 0.06)
+                        : NeedHubTokens.clay.withValues(alpha: 0.06),
+                    borderColor: isFulfilledTab
+                        ? NeedHubTokens.forest.withValues(alpha: 0.3)
+                        : NeedHubTokens.clay.withValues(alpha: 0.3),
+                    borderStrokeWidth: 2,
                   ),
                 ],
               ),
@@ -296,7 +405,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
             ],
           ),
 
-          // 2. Search overlay UI
+          // 2. Search bar overlay
           Positioned(
             top: 14,
             left: 14,
@@ -321,8 +430,11 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
                     controller: _searchController,
                     style: GoogleFonts.hankenGrotesk(color: t.ink),
                     onChanged: (val) {
-                      if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
-                      _searchDebounce = Timer(const Duration(milliseconds: 600), () {
+                      if (_searchDebounce?.isActive ?? false) {
+                        _searchDebounce!.cancel();
+                      }
+                      _searchDebounce =
+                          Timer(const Duration(milliseconds: 600), () {
                         _searchLocation(val);
                       });
                     },
@@ -376,7 +488,8 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
                       shrinkWrap: true,
                       padding: EdgeInsets.zero,
                       itemCount: _searchResults.length,
-                      separatorBuilder: (_, __) => Divider(color: t.rail, height: 1),
+                      separatorBuilder: (_, __) =>
+                          Divider(color: t.rail, height: 1),
                       itemBuilder: (context, index) {
                         final item = _searchResults[index];
                         return ListTile(
@@ -398,16 +511,136 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
             ),
           ),
 
-          // 3. Floating Radius controller Panel (Mid bottom)
+          // 3. Tab selector
+          Positioned(
+            top: 78,
+            left: 14,
+            right: 14,
+            child: Container(
+              height: 44,
+              decoration: BoxDecoration(
+                color: t.paper,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                border: Border.all(color: t.rail, width: 1),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicatorSize: TabBarIndicatorSize.tab,
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: _tabController.index == 0
+                      ? NeedHubTokens.clay.withValues(alpha: 0.12)
+                      : NeedHubTokens.forest.withValues(alpha: 0.12),
+                ),
+                dividerColor: Colors.transparent,
+                labelPadding: EdgeInsets.zero,
+                labelColor: _tabController.index == 0
+                    ? NeedHubTokens.clay
+                    : NeedHubTokens.forest,
+                unselectedLabelColor: t.muted,
+                labelStyle: GoogleFonts.hankenGrotesk(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                ),
+                unselectedLabelStyle: GoogleFonts.hankenGrotesk(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.campaign_rounded, size: 16),
+                        const SizedBox(width: 6),
+                        Text('Active Needs (${_activeNeeds.length})'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle_outline_rounded, size: 16),
+                        const SizedBox(width: 6),
+                        Text('Fulfilled (${_fulfilledNeeds.length})'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 3.5 Floating "Search this area" button when map center has panned away from query center
+          if (_mapCenter != null &&
+              ((_mapCenter!.latitude - _center.latitude).abs() > 0.002 ||
+               (_mapCenter!.longitude - _center.longitude).abs() > 0.002))
+            Positioned(
+              top: 136,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _center = _mapCenter!;
+                      _selectedNeed = null;
+                      _isEmptyStateVisible = true;
+                      _isEmptyStateMinimized = false;
+                    });
+                    _triggerFetchDebounce();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: t.ink,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.refresh_rounded, size: 14, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Search this area',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          // 4. Radius slider + locate button
           Positioned(
             left: 14,
             right: 14,
-            bottom: _needs.isNotEmpty ? 190 : 30,
+            bottom: needs.isNotEmpty ? 200 : 30,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Quick locate button
                 FloatingActionButton(
+                  heroTag: 'locate_me',
                   mini: true,
                   backgroundColor: t.paper,
                   foregroundColor: t.ink,
@@ -417,17 +650,22 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
                       final newLoc = LatLng(me.lat!, me.lng!);
                       setState(() {
                         _center = newLoc;
+                        _mapCenter = newLoc;
                         _selectedNeed = null;
+                        _isEmptyStateVisible = true;
+                        _isEmptyStateMinimized = false;
                       });
                       _mapController.move(newLoc, 13.5);
-                      _fetchNeeds();
+                      _fetchActiveNeeds();
+                      _fetchFulfilledNeeds();
                     }
                   },
                   child: const Icon(Icons.my_location_rounded, size: 18),
                 ),
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: t.paper,
                     borderRadius: BorderRadius.circular(20),
@@ -448,7 +686,8 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.radar_rounded, color: NeedHubTokens.clay, size: 18),
+                              Icon(Icons.radar_rounded,
+                                  color: NeedHubTokens.clay, size: 18),
                               const SizedBox(width: 6),
                               Text(
                                 'Search Radius',
@@ -470,13 +709,13 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
                       SliderTheme(
                         data: SliderThemeData(
                           activeTrackColor: NeedHubTokens.clay,
                           inactiveTrackColor: t.rail,
                           thumbColor: NeedHubTokens.clay,
-                          overlayColor: NeedHubTokens.clay.withValues(alpha: 0.15),
+                          overlayColor:
+                              NeedHubTokens.clay.withValues(alpha: 0.15),
                         ),
                         child: Slider(
                           value: _radius,
@@ -498,43 +737,41 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
             ),
           ),
 
-          // 4. Horizontal Needs Carousel (Bottom overlay)
-          if (_needs.isNotEmpty)
+          // 5. Bottom carousel
+          if (needs.isNotEmpty)
             Positioned(
               bottom: 20,
               left: 0,
               right: 0,
-              height: 156,
+              height: 170,
               child: PageView.builder(
                 controller: _pageController,
-                itemCount: _needs.length,
+                itemCount: needs.length,
                 onPageChanged: (idx) {
+                  final need = needs[idx];
                   setState(() {
-                    _selectedNeed = _needs[idx];
+                    _selectedNeed = need;
                   });
-                  if (_selectedNeed!.lat != null && _selectedNeed!.lng != null) {
+                  if (need.lat != null && need.lng != null) {
                     _mapController.move(
-                      LatLng(_selectedNeed!.lat!, _selectedNeed!.lng!),
+                      LatLng(need.lat!, need.lng!),
                       _mapController.camera.zoom,
                     );
                   }
                 },
                 itemBuilder: (context, index) {
-                  final need = _needs[index];
+                  final need = needs[index];
                   final isEarn = need.category == 'earn';
-                  final color = isEarn ? NeedHubTokens.ochre : NeedHubTokens.forest;
+                  final color = isFulfilledTab
+                      ? NeedHubTokens.forest
+                      : (isEarn ? NeedHubTokens.ochre : NeedHubTokens.forest);
 
                   return GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => NeedDetailScreen(need: need),
-                        ),
-                      );
-                    },
+                    onTap: () => _showNeedDetail(need),
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 6),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: t.paper,
                         borderRadius: BorderRadius.circular(20),
@@ -555,8 +792,41 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
                         children: [
                           Row(
                             children: [
+                              _PosterAvatar(
+                                avatarUrl: need.posterAvatarUrl,
+                                initials: need.authorInitials,
+                                size: 36,
+                                color: color,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      need.authorName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: t.ink,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${need.distanceLabel} · ${need.timeAgo}',
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 11,
+                                        color: t.muted2,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: color.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(8),
@@ -565,15 +835,21 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      isEarn ? Icons.currency_rupee_rounded : Icons.handshake_rounded,
-                                      size: 13,
+                                      isFulfilledTab
+                                          ? Icons.check_circle_outline_rounded
+                                          : (isEarn
+                                              ? Icons.currency_rupee_rounded
+                                              : Icons.handshake_rounded),
+                                      size: 12,
                                       color: color,
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      isEarn ? 'Earn' : 'Connect',
+                                      isFulfilledTab
+                                          ? 'Fulfilled'
+                                          : (isEarn ? 'Earn' : 'Connect'),
                                       style: GoogleFonts.hankenGrotesk(
-                                        fontSize: 11,
+                                        fontSize: 10,
                                         fontWeight: FontWeight.w700,
                                         color: color,
                                       ),
@@ -581,36 +857,26 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
                                   ],
                                 ),
                               ),
-                              const Spacer(),
-                              if (need.distanceKm != null)
-                                Text(
-                                  need.distanceLabel,
-                                  style: GoogleFonts.hankenGrotesk(
-                                    fontSize: 12,
-                                    color: t.muted2,
-                                  ),
-                                ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           Text(
                             need.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.bricolageGrotesque(
-                              fontSize: 15,
+                              fontSize: 14,
                               fontWeight: FontWeight.w800,
                               color: t.ink,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          const Spacer(),
                           Text(
-                            need.description,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            'Tap to read more',
                             style: GoogleFonts.hankenGrotesk(
-                              fontSize: 12,
-                              color: t.muted,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: color,
                             ),
                           ),
                         ],
@@ -621,49 +887,414 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen> {
               ),
             ),
 
-          // 5. Shimmer/Loading Indicator overlay
-          if (_loading)
+          // 6. Empty state for current tab — auto-dismisses/minimizes after 7s or tap Minimize button
+          if (!isLoading && needs.isEmpty && _isEmptyStateVisible)
             Positioned(
-              top: 80,
+              bottom: 30,
+              left: 30,
+              right: 30,
+              child: AnimatedCrossFade(
+                firstChild: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 14, 18),
+                  decoration: BoxDecoration(
+                    color: t.paper,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(color: t.rail, width: 1),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Minimize button row
+                      Align(
+                        alignment: Alignment.topRight,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isEmptyStateMinimized = true;
+                                });
+                                _emptyDismissTimer?.cancel();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: t.rail,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: t.muted),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isEmptyStateVisible = false;
+                                });
+                                _emptyDismissTimer?.cancel();
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: t.rail,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.close_rounded, size: 14, color: t.muted),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        isFulfilledTab
+                            ? Icons.check_circle_outline_rounded
+                            : Icons.explore_off_rounded,
+                        size: 36,
+                        color: t.muted2,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        isFulfilledTab
+                            ? 'No fulfilled needs in this area'
+                            : 'No active needs in this area',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.bricolageGrotesque(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: t.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Drag the map to pick a different area, or expand the search radius',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11,
+                          color: t.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                secondChild: Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isEmptyStateMinimized = false;
+                      });
+                      _startEmptyDismissTimer();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: t.paper,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                        border: Border.all(color: t.rail, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isFulfilledTab
+                                ? Icons.check_circle_outline_rounded
+                                : Icons.explore_off_rounded,
+                            size: 14,
+                            color: t.muted,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isFulfilledTab ? 'No fulfilled needs' : 'No active needs',
+                            style: GoogleFonts.hankenGrotesk(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: t.muted,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.keyboard_arrow_up_rounded, size: 14, color: t.muted),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                crossFadeState: _isEmptyStateMinimized
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 300),
+              ),
+            ),
+
+          // 7. Loading indicator
+          if (isLoading)
+            Positioned(
+              top: 136,
               left: 0,
               right: 0,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
                     color: t.paper,
                     borderRadius: BorderRadius.circular(30),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 8,
-                      ),
-                    ],
+                    boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)],
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Searching needs...',
-                        style: GoogleFonts.hankenGrotesk(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: t.ink,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    isFulfilledTab
+                        ? 'Finding fulfilled needs...'
+                        : 'Searching needs...',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: t.ink,
+                    ),
                   ),
                 ),
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+// ── Marker Avatar Widget for OSM ─────────────────────────────────────────────
+
+class _MarkerAvatarWidget extends StatelessWidget {
+  final String? avatarUrl;
+  final String initials;
+  final bool isSelected;
+  final Color color;
+
+  const _MarkerAvatarWidget({
+    required this.avatarUrl,
+    required this.initials,
+    required this.isSelected,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        border: Border.all(
+          color: color,
+          width: isSelected ? 4 : 2,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 6,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(2.0),
+        child: ClipOval(
+          child: avatarUrl != null && avatarUrl!.isNotEmpty
+              ? Image.network(
+                  avatarUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _InitialsCircle(
+                    initials: initials,
+                    color: color,
+                  ),
+                )
+              : _InitialsCircle(initials: initials, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Poster Avatar Widget ─────────────────────────────────────────────────────
+
+class _PosterAvatar extends StatelessWidget {
+  final String? avatarUrl;
+  final String initials;
+  final double size;
+  final Color color;
+
+  const _PosterAvatar({
+    required this.avatarUrl,
+    required this.initials,
+    required this.size,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 2),
+      ),
+      child: ClipOval(
+        child: avatarUrl != null && avatarUrl!.isNotEmpty
+            ? Image.network(
+                avatarUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _InitialsCircle(
+                  initials: initials,
+                  color: color,
+                ),
+              )
+            : _InitialsCircle(initials: initials, color: color),
+      ),
+    );
+  }
+}
+
+class _InitialsCircle extends StatelessWidget {
+  final String initials;
+  final Color color;
+
+  const _InitialsCircle({required this.initials, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: color,
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: GoogleFonts.hankenGrotesk(
+          color: Colors.white,
+          fontWeight: FontWeight.w800,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Need Detail Bottom Sheet ─────────────────────────────────────────────────
+
+class _NeedDetailSheet extends StatelessWidget {
+  final Need need;
+
+  const _NeedDetailSheet({required this.need});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final isEarn = need.category == 'earn';
+    final isFulfilled = need.status.toUpperCase() == 'FULFILLED';
+    final color = isFulfilled
+        ? NeedHubTokens.forest
+        : (isEarn ? NeedHubTokens.ochre : NeedHubTokens.forest);
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.55,
+      minChildSize: 0.3,
+      maxChildSize: 0.85,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: t.paper,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 20),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: t.muted2.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  _PosterAvatar(
+                    avatarUrl: need.posterAvatarUrl,
+                    initials: need.authorInitials,
+                    size: 48,
+                    color: color,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(need.authorName,
+                            style: GoogleFonts.bricolageGrotesque(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: t.ink)),
+                        Text(need.location,
+                            style: GoogleFonts.hankenGrotesk(
+                                fontSize: 12, color: t.muted2)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text(need.title,
+                  style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 20, fontWeight: FontWeight.w800, color: t.ink)),
+              const SizedBox(height: 14),
+              Text(
+                need.description,
+                style: GoogleFonts.hankenGrotesk(
+                  fontSize: 14,
+                  color: t.muted,
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => NeedDetailScreen(need: need)));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: color,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                  child: Text('View Full Details',
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 14, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

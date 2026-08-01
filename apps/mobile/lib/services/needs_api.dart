@@ -30,6 +30,7 @@ class NeedsApi {
     String sort = 'smart',
     int take = 60,
     int skip = 0,
+    String? status, // 'OPEN' | 'FULFILLED' | 'IN_PROGRESS' | 'CLOSED'
   }) async {
     final res = await _api.get('/needs?${_qs({
           if (type != null) 'type': type,
@@ -45,6 +46,7 @@ class NeedsApi {
           'sort': sort,
           'take': take,
           'skip': skip,
+          if (status != null) 'status': status,
         })}');
 
     final list =

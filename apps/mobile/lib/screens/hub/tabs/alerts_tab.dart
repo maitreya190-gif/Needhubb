@@ -542,6 +542,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
       case 'FRIEND_REQUEST_ACCEPTED':
         return 'Connect';
       case 'NEED_RESPONSE_RECEIVED':
+      case 'SKILL_MATCH_NEED':
         return 'Earn';
       case 'MESSAGE_RECEIVED':
         return 'Chat';
@@ -741,6 +742,8 @@ class _NotifRow extends StatelessWidget {
         return Icons.handshake_outlined;
       case 'NEED_RESPONSE_RECEIVED':
         return Icons.currency_rupee_rounded;
+      case 'SKILL_MATCH_NEED':
+        return Icons.auto_awesome_rounded;
       case 'MESSAGE_RECEIVED':
         return Icons.chat_bubble_outline_rounded;
       case 'REVIEW_RECEIVED':
@@ -765,6 +768,7 @@ class _NotifRow extends StatelessWidget {
       case 'FRIEND_REQUEST_RECEIVED':
       case 'FRIEND_REQUEST_ACCEPTED':
       case 'CERT_APPROVED':
+      case 'SKILL_MATCH_NEED':
         return NeedHubTokens.forest;
       case 'NEED_RESPONSE_RECEIVED':
       case 'REVIEW_RECEIVED':

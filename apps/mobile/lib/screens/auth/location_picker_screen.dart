@@ -74,19 +74,34 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         String approxStr = fullDisplayName;
 
         if (address != null) {
-          final road = address['road'] ?? address['pedestrian'] ?? address['building'] ?? address['suburb'] ?? address['neighbourhood'];
+          final houseNumber = address['house_number'];
+          final building = address['building'] ?? address['apartment'] ?? address['apartments'] ?? address['residential'];
+          final amenity = address['amenity'] ?? address['shop'] ?? address['office'] ?? address['railway'] ?? address['tourism'] ?? address['historic'];
+          final road = address['road'] ?? address['pedestrian'] ?? address['path'];
+          final suburb = address['suburb'] ?? address['neighbourhood'] ?? address['city_district'];
           final city = address['city'] ?? address['town'] ?? address['village'] ?? address['county'];
           final state = address['state'];
-          final suburb = address['suburb'] ?? address['neighbourhood'];
 
-          if (road != null && city != null) {
-            fullDisplayName = '$road, $city';
+          // Build exact label (e.g. Building Name, Shop Name, Road Name, Locality, City)
+          final exactParts = <String>[];
+          if (amenity != null) exactParts.add(amenity.toString());
+          if (building != null) exactParts.add(building.toString());
+          if (houseNumber != null) exactParts.add(houseNumber.toString());
+          if (road != null) exactParts.add(road.toString());
+          if (suburb != null && suburb.toString() != road?.toString()) exactParts.add(suburb.toString());
+          if (city != null && city.toString() != suburb?.toString()) exactParts.add(city.toString());
+
+          if (exactParts.isNotEmpty) {
+            fullDisplayName = exactParts.join(', ');
           }
 
+          // Build approx label (locality/suburb, city)
           if (suburb != null && city != null) {
             approxStr = '$suburb, $city';
           } else if (city != null && state != null) {
             approxStr = '$city, $state';
+          } else if (city != null) {
+            approxStr = city.toString();
           }
         }
 

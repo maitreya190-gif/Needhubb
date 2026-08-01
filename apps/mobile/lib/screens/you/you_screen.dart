@@ -24,6 +24,11 @@ import '../needs/need_detail_screen.dart';
 import '../personality/personality_test_screen.dart';
 import '../redeem/redeem_screen.dart';
 import 'edit_profile_screen.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
+import 'qr_scanner_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 class YouScreen extends ConsumerWidget {
   const YouScreen({super.key});
@@ -112,17 +117,52 @@ class YouScreen extends ConsumerWidget {
 
                     // Avatar + name row
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ValueListenableBuilder<String?>(
-                          valueListenable: avatarUrlNotifier,
-                          builder: (_, avatarUrl, __) => NhAvatar(
-                            avatarUrl: avatarUrl,
-                            initials: initials,
-                            size: 70,
-                            borderRadius: 22,
-                            backgroundColor: NeedHubTokens.forest,
-                            fontSize: 26,
-                          ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ValueListenableBuilder<String?>(
+                              valueListenable: avatarUrlNotifier,
+                              builder: (_, avatarUrl, __) => NhAvatar(
+                                avatarUrl: avatarUrl,
+                                initials: initials,
+                                size: 70,
+                                borderRadius: 22,
+                                backgroundColor: NeedHubTokens.forest,
+                                fontSize: 26,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            GestureDetector(
+                              onTap: () => _showQrBottomSheet(context, auth, t),
+                              child: Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.12),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: QrImageView(
+                                  data: 'needhub:profile:${auth.userId}',
+                                  version: QrVersions.auto,
+                                  size: 42,
+                                  gapless: false,
+                                  eyeStyle: QrEyeStyle(
+                                    eyeShape: QrEyeShape.square,
+                                    color: t.onDark,
+                                  ),
+                                  dataModuleStyle: QrDataModuleStyle(
+                                    dataModuleShape: QrDataModuleShape.square,
+                                    color: t.onDark,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(width: 15),
                         Expanded(
@@ -797,6 +837,15 @@ class YouScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _AddAchievementSheet(),
+    );
+  }
+
+  void _showQrBottomSheet(BuildContext context, AuthState auth, NeedHubTokens t) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _ProfileQrSheet(auth: auth, t: t),
     );
   }
 }
@@ -3318,6 +3367,330 @@ class _ReferAFriendCardState extends ConsumerState<_ReferAFriendCard> {
                 ],
               ],
             ),
+    );
+  }
+}
+
+class _ProfileQrSheet extends StatelessWidget {
+  final AuthState auth;
+  final NeedHubTokens t;
+
+  const _ProfileQrSheet({required this.auth, required this.t});
+
+  static String _getInitials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) {
+      return parts[0].substring(0, parts[0].length.clamp(1, 2)).toUpperCase();
+    }
+    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarUrl = avatarUrlNotifier.value;
+    final name = auth.displayName ?? auth.email ?? 'You';
+    final initials = _getInitials(name);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(28),
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        12,
+        24,
+        MediaQuery.of(context).padding.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: t.muted.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          
+          // Header info
+          Row(
+            children: [
+              NhAvatar(
+                avatarUrl: avatarUrl,
+                initials: initials,
+                size: 54,
+                borderRadius: 18,
+                backgroundColor: NeedHubTokens.forest,
+                fontSize: 20,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: GoogleFonts.bricolageGrotesque(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: t.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    ValueListenableBuilder<ProfileMe?>(
+                      valueListenable: myProfileNotifier,
+                      builder: (_, me, __) => Text(
+                        me?.username != null ? '@${me!.username}' : auth.email ?? '',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: t.muted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          
+          // QR Code Card
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0F000000),
+                    blurRadius: 20,
+                    offset: Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: QrImageView(
+                data: 'needhub:profile:${auth.userId}',
+                version: QrVersions.auto,
+                size: 200,
+                gapless: false,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: Colors.black,
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Scan code in real life or share profile link online',
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 13,
+              color: t.muted,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 28),
+          
+          // Actions
+          Text(
+            'Share via:',
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: t.ink,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _ShareAppButton(
+                icon: Icons.chat_bubble_rounded,
+                label: 'WhatsApp',
+                color: const Color(0xFF25D366),
+                onTap: () async {
+                  final shareText = 'Add me as a friend on NeedHub! Open the app and scan or look up my ID: needhub:profile:${auth.userId}';
+                  final url = 'https://api.whatsapp.com/send?text=${Uri.encodeComponent(shareText)}';
+                  final uri = Uri.parse(url);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    await Clipboard.setData(ClipboardData(text: shareText));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Copied link! Please paste it in WhatsApp.')),
+                      );
+                    }
+                  }
+                },
+              ),
+              _ShareAppButton(
+                icon: Icons.photo_camera_rounded,
+                label: 'Instagram',
+                color: const Color(0xFFE1306C),
+                onTap: () async {
+                  final shareText = 'Add me as a friend on NeedHub! Open the app and scan or look up my ID: needhub:profile:${auth.userId}';
+                  await Clipboard.setData(ClipboardData(text: shareText));
+                  final uri = Uri.parse('https://instagram.com');
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Copied link! Opening Instagram...')),
+                    );
+                  }
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+              ),
+              _ShareAppButton(
+                icon: Icons.mail_rounded,
+                label: 'Gmail',
+                color: const Color(0xFFEA4335),
+                onTap: () async {
+                  final shareText = 'Add me as a friend on NeedHub! Open the app and scan or look up my ID: needhub:profile:${auth.userId}';
+                  final url = 'mailto:?subject=${Uri.encodeComponent('Join me on NeedHub')}&body=${Uri.encodeComponent(shareText)}';
+                  final uri = Uri.parse(url);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                  } else {
+                    await Clipboard.setData(ClipboardData(text: shareText));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Copied link! Please paste it in your email app.')),
+                      );
+                    }
+                  }
+                },
+              ),
+              _ShareAppButton(
+                icon: Icons.content_copy_rounded,
+                label: 'Copy Link',
+                color: t.muted,
+                onTap: () async {
+                  final shareText = 'needhub:profile:${auth.userId}';
+                  await Clipboard.setData(ClipboardData(text: shareText));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Profile link copied to clipboard!')),
+                    );
+                  }
+                },
+              ),
+              _ShareAppButton(
+                icon: Icons.more_horiz_rounded,
+                label: 'More',
+                color: NeedHubTokens.clay,
+                onTap: () {
+                  SharePlus.instance.share(
+                    ShareParams(
+                      text: 'Add me as a friend on NeedHub! Open the app and scan or look up my ID: needhub:profile:${auth.userId}',
+                      subject: 'My NeedHub Profile',
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: t.ink,
+              side: BorderSide(color: t.muted.withValues(alpha: 0.3)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            icon: const Icon(Icons.camera_alt_outlined, size: 18),
+            label: Text(
+              "Scan a Friend's QR",
+              style: GoogleFonts.hankenGrotesk(
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const QrScannerScreen(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShareAppButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ShareAppButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: color.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
+            ),
+            child: Center(
+              child: Icon(
+                icon,
+                color: color,
+                size: 24,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: GoogleFonts.hankenGrotesk(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: t.ink,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

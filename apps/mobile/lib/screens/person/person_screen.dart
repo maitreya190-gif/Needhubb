@@ -113,10 +113,10 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
   }
 
   // Shortcut aliases so the existing build() body reads unchanged.
-  String get name => widget.name;
-  String get initials => widget.initials;
-  Color get avatarColor => widget.avatarColor;
-  String? get location => widget.location;
+  String get name => _real?.name ?? widget.name;
+  String get initials => _real?.initials ?? widget.initials;
+  Color get avatarColor => _real?.avatarColor ?? widget.avatarColor;
+  String? get location => _real?.location ?? widget.location;
   String? get subtitle => widget.subtitle;
 
   @override
