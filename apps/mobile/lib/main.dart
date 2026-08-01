@@ -235,9 +235,7 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
       promptCollabNotifier.value = me.promptCollab ?? '';
       promptNeedNotifier.value = me.promptNeed ?? '';
       genderNotifier.value = me.gender;
-      locationNotifier.value = (me.locationText != null && me.locationText!.isNotEmpty)
-          ? me.locationText!
-          : 'Mumbai';
+      locationNotifier.value = me.locationText ?? '';
       avatarUrlNotifier.value = me.avatarUrl;
       customInterestsNotifier.value = me.interestLabels;
       customSkillsNotifier.value = me.skillLabels;

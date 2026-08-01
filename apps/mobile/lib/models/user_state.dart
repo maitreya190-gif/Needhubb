@@ -25,7 +25,7 @@ void resetAllUserNotifiersOnLogout() {
   promptCollabNotifier.value = "";
   promptNeedNotifier.value = "";
   genderNotifier.value = null;
-  locationNotifier.value = 'Mumbai';
+  locationNotifier.value = '';
   avatarUrlNotifier.value = null;
   myProfileNotifier.value = null;
   notificationsListNotifier.value = const [];
@@ -75,7 +75,7 @@ final promptSkillNotifier = ValueNotifier<String>("");
 final promptCollabNotifier = ValueNotifier<String>("");
 final promptNeedNotifier = ValueNotifier<String>("");
 final genderNotifier = ValueNotifier<String?>(null);
-final locationNotifier = ValueNotifier<String>('Mumbai');
+final locationNotifier = ValueNotifier<String>('');
 final avatarUrlNotifier = ValueNotifier<String?>(null);
 
 // ── Actions ──────────────────────────────────────────────────────────────────
