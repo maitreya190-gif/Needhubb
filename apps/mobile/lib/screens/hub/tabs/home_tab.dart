@@ -435,7 +435,7 @@ class NeedCard extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Icon(Icons.currency_rupee_rounded, size: 14, color: NeedHubTokens.ochre),
+                  const Icon(Icons.currency_rupee_rounded, size: 14, color: NeedHubTokens.ochre),
                   const SizedBox(width: 2),
                   Text(
                     '₹${need.budgetMin}–₹${need.budgetMax}',
@@ -631,7 +631,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                             )),
                       ),
                       if (_sortBy == opt.$1)
-                        Icon(Icons.check_circle_rounded,
+                        const Icon(Icons.check_circle_rounded,
                             color: NeedHubTokens.clay, size: 17),
                     ],
                   ),

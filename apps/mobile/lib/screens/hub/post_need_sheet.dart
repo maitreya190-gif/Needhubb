@@ -149,7 +149,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
     try {
       final client = ref.read(apiClientProvider);
       final res = await client.post('/needs', {'needs': needsPayload});
-      if (res != null && res['parent'] is Map<String, dynamic>) {
+      if (res['parent'] is Map<String, dynamic>) {
         final parent = res['parent'] as Map<String, dynamic>;
         postedNeed = Need(
           id: parent['id'] as String? ?? 'posted_${DateTime.now().millisecondsSinceEpoch}',
@@ -822,8 +822,7 @@ class _Field extends StatelessWidget {
     this.minLines = 1,
     this.maxLines = 1,
     this.keyboardType,
-    this.inputFormatters,
-  });
+  }) : inputFormatters = null;
 
   @override
   Widget build(BuildContext context) {
