@@ -176,6 +176,8 @@ class S {
   }
 
   static S get current => const S._();
+  // Compatibility alias — langCode ignored; translations come from the global cache
+  static S of(String langCode) => const S._();
 
   // All string getters
   String get chooseLanguage => _get('chooseLanguage');
