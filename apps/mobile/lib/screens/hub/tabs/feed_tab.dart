@@ -818,7 +818,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
       final need = e.value;
       return Padding(
         padding: EdgeInsets.only(bottom: e.key < list.length - 1 ? 14 : 0),
-        child: _EarnCard(
+        child: _TranslatedEarnCard(
           need: need,
           t: t,
           onTap: () => Navigator.of(context).push(

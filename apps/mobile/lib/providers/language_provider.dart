@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_strings.dart';
 
 const List<Map<String, String>> kSupportedLanguages = [
   {'code': 'en', 'name': 'English', 'native': 'English'},
@@ -33,12 +34,17 @@ final feedLanguageNotifier = ValueNotifier<String>('en');
 // Translation cache: needId → langCode → translated title
 final Map<String, Map<String, String>> translationCache = {};
 
-void setUiLanguage(String code) {
-  uiLanguageNotifier.value = code;
-  _persist('ui_lang', code);
-  // Sync feed language so all need cards auto-translate when user picks a language
+/// Set UI language, trigger Groq batch translation of all UI strings,
+/// then notify listeners so the whole app re-renders in the new language.
+Future<void> setUiLanguage(String code) async {
+  // Update feed language immediately so cards start translating
   feedLanguageNotifier.value = code;
   _persist('feed_lang', code);
+  // Load Groq translations (async — UI shows English briefly while loading)
+  await S.loadTranslations(code);
+  // Now flip the UI language so all S.current getters return translated text
+  uiLanguageNotifier.value = code;
+  _persist('ui_lang', code);
 }
 
 void setFeedLanguage(String code) {
@@ -50,8 +56,12 @@ Future<void> loadLanguagePreference() async {
   final prefs = await SharedPreferences.getInstance();
   final ui = prefs.getString('ui_lang') ?? 'en';
   final feed = prefs.getString('feed_lang') ?? 'en';
-  uiLanguageNotifier.value = ui;
   feedLanguageNotifier.value = feed;
+  // Load translations before setting ui notifier so UI renders in right language
+  if (ui != 'en') {
+    await S.loadTranslations(ui);
+  }
+  uiLanguageNotifier.value = ui;
 }
 
 Future<void> _persist(String key, String value) async {

@@ -18,6 +18,7 @@ import '../../widgets/nh_text_field.dart';
 import 'location_picker_screen.dart';
 import '../../providers/language_provider.dart';
 import '../../l10n/app_strings.dart';
+import '../../services/translate_api.dart';
 
 const _interests = [
   'Lifting', 'Football', 'Cricket', 'DSA', 'Coffee', 'Trekking',
@@ -85,6 +86,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   bool _loading = false;
   String? _error;
+
+  // Groq-translated labels for signup options (original English is still used for API)
+  final Map<String, String> _optionTranslations = {};
+  bool _translatingOptions = false;
+
+  String _t(String original) => _optionTranslations[original] ?? original;
 
   @override
   void dispose() {
@@ -596,14 +603,43 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           ),
         ),
         const SizedBox(height: 28),
-        ...kSupportedLanguages.map((lang) => _LangTile(
-              lang: lang,
-              t: t,
-              onTap: () {
-                setUiLanguage(lang['code']!);
-                _goNext();
-              },
-            )),
+        if (_translatingOptions)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else
+          ...kSupportedLanguages.map((lang) => _LangTile(
+                lang: lang,
+                t: t,
+                onTap: () async {
+                  final code = lang['code']!;
+                  setState(() => _translatingOptions = true);
+                  // Translate all UI strings and option labels in parallel
+                  final allOptions = [
+                    'Female', 'Male', 'Non-binary', 'Prefer not to say',
+                    ..._interests, ..._skills,
+                  ];
+                  await Future.wait([
+                    setUiLanguage(code),
+                    if (code != 'en')
+                      translateBatch(allOptions, code).then((translated) {
+                        if (mounted) {
+                          setState(() {
+                            _optionTranslations.clear();
+                            for (int i = 0; i < allOptions.length; i++) {
+                              _optionTranslations[allOptions[i]] = translated[i];
+                            }
+                          });
+                        }
+                      }),
+                  ]);
+                  if (mounted) {
+                    setState(() => _translatingOptions = false);
+                    _goNext();
+                  }
+                },
+              )),
         const SizedBox(height: 32),
       ],
     );
@@ -691,9 +727,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: const ['Female', 'Male', 'Non-binary', 'Prefer not to say']
+          children: ['Female', 'Male', 'Non-binary', 'Prefer not to say']
               .map((g) => _GenderChip(
-                  label: g,
+                  label: _t(g),
                   selected: _gender == g,
                   onTap: () => setState(() => _gender = g),
                   t: t))
@@ -883,7 +919,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           children: _allInterests.map((interest) {
             final selected = _selectedInterests.contains(interest);
             return _SelectableChip(
-              label: interest,
+              label: _t(interest),
               selected: selected,
               onTap: () => setState(() {
                 if (selected) {
@@ -1007,7 +1043,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           children: _allSkills.map((skill) {
             final selected = _selectedSkills.contains(skill);
             return _SelectableChip(
-              label: skill,
+              label: _t(skill),
               selected: selected,
               onTap: () => setState(() {
                 if (selected) {
