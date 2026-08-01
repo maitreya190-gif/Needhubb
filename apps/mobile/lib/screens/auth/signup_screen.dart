@@ -348,6 +348,22 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       addCustomSkill(s);
     }
 
+    final email = _emailController.text.trim().toLowerCase();
+    final fallbackUserId = 'usr_${email.replaceAll(RegExp(r'[^\w]'), '_')}';
+    final token =
+        _savedToken ?? 'demo_token_${DateTime.now().millisecondsSinceEpoch}';
+    final userId = _savedUserId ?? fallbackUserId;
+
+    // Store token first so the profile update call below has auth.
+    await ref.read(authProvider.notifier).login(
+          token: token,
+          userId: userId,
+          displayName: _nameController.text.trim().isNotEmpty
+              ? _nameController.text.trim()
+              : 'New User',
+          email: email,
+        );
+
     try {
       final profilesApi = ref.read(profilesApiProvider);
       await profilesApi.update(
@@ -363,21 +379,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         promptNeed: _promptNeedController.text.trim().isEmpty ? null : _promptNeedController.text.trim(),
       );
     } catch (_) {}
-
-    final email = _emailController.text.trim().toLowerCase();
-    final fallbackUserId = 'usr_${email.replaceAll(RegExp(r'[^\w]'), '_')}';
-    final token =
-        _savedToken ?? 'demo_token_${DateTime.now().millisecondsSinceEpoch}';
-    final userId = _savedUserId ?? fallbackUserId;
-
-    await ref.read(authProvider.notifier).login(
-          token: token,
-          userId: userId,
-          displayName: _nameController.text.trim().isNotEmpty
-              ? _nameController.text.trim()
-              : 'New User',
-          email: email,
-        );
   }
 
   String _friendlyError(Object e) {
