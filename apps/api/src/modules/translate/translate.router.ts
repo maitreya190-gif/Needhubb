@@ -1,8 +1,8 @@
-import express from 'express'
+import express, { Router } from 'express'
 import { authenticate } from '../../middleware/authenticate'
 import { config } from '../../config'
 
-export const translateRouter = express.Router()
+export const translateRouter: Router = express.Router()
 
 const LANG_NAMES: Record<string, string> = {
   en: 'English',
