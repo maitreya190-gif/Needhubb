@@ -67,11 +67,18 @@
                  just cold-starting the app on its default screen. -->
             <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
         </activity>
-        <!-- image_cropper: UCrop activity -->
+        <!-- image_cropper: UCrop activity. Theme must be Ucrop.CropTheme (not
+             the older Theme.AppCompat.Light.NoActionBar) — image_cropper 8.1+
+             requires it to opt the crop screen out of Android 15's forced
+             edge-to-edge layout. Without it, the crop UI's toolbar and done/
+             cancel buttons render underneath the system status/nav bars,
+             making the crop screen look broken and hard to use. The style
+             itself ships inside the image_cropper package, so no local
+             styles.xml entry is needed. -->
         <activity
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar"/>
+            android:theme="@style/Ucrop.CropTheme"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
