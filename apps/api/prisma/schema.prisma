@@ -130,6 +130,8 @@ model User {
   blocksReceived         Block[]            @relation("Blocked")
   referralsMade          Referral[]         @relation("ReferralsMade")
   urgencyProfile         UrgencyProfile?
+  vouchesGiven           Vouch[]            @relation("VouchesGiven")
+  vouchesReceived        Vouch[]            @relation("VouchesReceived")
 }
 
 // Internal-only track record of how this user has used Urgency Mode.
@@ -180,6 +182,41 @@ model Skill {
   id       String         @id @default(cuid())
   label    String         @unique
   profiles ProfileSkill[]
+  vouches  Vouch[]
+}
+
+// One user's endorsement of a specific skill on another user's profile —
+// see lib/vouching.ts. Fully self-contained: no changes to Need, Profile or
+// User's own columns, only these three relation FKs plus the two back-arrays
+// added to User and the one added to Skill above (none of which are physical
+// columns).
+model Vouch {
+  id          String   @id @default(cuid())
+  voucherId   String
+  voucheeId   String
+  skillId     String
+  testimonial String?
+  // Backed by a completed Need between voucher and vouchee — the one thing
+  // about a vouch's provenance that is ever shown to users (as a badge).
+  verified    Boolean  @default(false)
+  // Internal-only credibility weight in [0,1] — see computeVouchCredibility.
+  // Feeds Trust Score and nothing else; never selected into any response.
+  credibilityWeight Float @default(0)
+  // Internal-only abuse flag — see detectSuspiciousVouch. A suspicious vouch
+  // is silently down-weighted (folded into credibilityWeight), never deleted,
+  // never surfaced to either party, per requirement 8.
+  suspicious  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  voucher User  @relation("VouchesGiven", fields: [voucherId], references: [id], onDelete: Cascade)
+  vouchee User  @relation("VouchesReceived", fields: [voucheeId], references: [id], onDelete: Cascade)
+  skill   Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  // Structural guarantee for requirement 1 & 8: one vouch per (voucher,
+  // vouchee, skill) — enforced by the database, not just application code.
+  @@unique([voucherId, voucheeId, skillId])
+  @@index([voucheeId, skillId])
 }
 
 model Interest {

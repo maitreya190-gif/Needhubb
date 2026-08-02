@@ -29,6 +29,7 @@ import { config } from '../config'
 import { computeTrustScore } from './trust-score'
 import { fetchTrackRecord, totalFulfilledCount } from './track-record'
 import { computeBadges, earnedBadgeCount } from './badges'
+import { countTrustEligibleVouches } from './vouching'
 
 // ── Tuning constants — the only place these live ────────────────────────────
 
@@ -564,7 +565,7 @@ export async function evaluateAndStoreUrgency(
 
   await recordUrgentNeedCreated(userId)
 
-  const [user, record, reliability, pressure] = await Promise.all([
+  const [user, record, reliability, pressure, eligibleVouchCount] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { emailVerifiedAt: true, phoneVerifiedAt: true, profile: { select: { faceVerifiedAt: true } } },
@@ -572,6 +573,7 @@ export async function evaluateAndStoreUrgency(
     fetchTrackRecord(userId),
     getReliability(userId),
     marketPressure(need.needType, need.earnCategory, need.connectCategory),
+    countTrustEligibleVouches(userId),
   ])
 
   // Same inputs the profile endpoints compute trust score and badges from
@@ -591,6 +593,7 @@ export async function evaluateAndStoreUrgency(
     avgRating: record.avgRating,
     ratingCount: record.ratingCount,
     earnedBadgeCount: earnedBadgeCount(badgeInputs),
+    validatedSkillEndorsementCount: eligibleVouchCount,
   })
 
   const result = await evaluateUrgency({

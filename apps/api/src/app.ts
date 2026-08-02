@@ -16,6 +16,7 @@ import { redemptionsRouter } from './modules/redemptions/redemptions.router'
 import { achievementsRouter } from './modules/achievements/achievements.router'
 import { referralsRouter } from './modules/referrals/referrals.router'
 import { translateRouter } from './modules/translate/translate.router'
+import { vouchesRouter } from './modules/vouches/vouches.router'
 import { adminAuth } from './middleware/adminAuth'
 import { authenticate } from './middleware/authenticate'
 import { errorHandler } from './middleware/errorHandler'
@@ -278,6 +279,9 @@ app.use('/notifications', notificationsRouter)
 
 // Reviews — submit + pending + public reviews for a user.
 app.use('/reviews', reviewsRouter)
+
+// Vouches — skill endorsements between users. See lib/vouching.ts.
+app.use('/vouches', writeLimiter, vouchesRouter)
 
 // Redemptions — catalog + redeem + history.
 app.use('/redemptions', redemptionsRouter)

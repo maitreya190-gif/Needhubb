@@ -150,7 +150,8 @@ describe('trust score', () => {
       TRUST_WEIGHTS.certificateCap +
       TRUST_WEIGHTS.fulfilledCap +
       TRUST_WEIGHTS.reviewsMax +
-      TRUST_WEIGHTS.badgeCap
+      TRUST_WEIGHTS.badgeCap +
+      TRUST_WEIGHTS.skillEndorsementCap
     expect(total).toBe(100)
   })
 
@@ -165,6 +166,7 @@ describe('trust score', () => {
         avgRating: 5,
         ratingCount: 50,
         earnedBadgeCount: TOTAL_BADGE_COUNT,
+        validatedSkillEndorsementCount: TRUST_WEIGHTS.skillEndorsementCap,
       }),
     ).toBe(100)
   })
@@ -180,6 +182,7 @@ describe('trust score', () => {
         avgRating: 0,
         ratingCount: 0,
         earnedBadgeCount: 0,
+        validatedSkillEndorsementCount: 0,
       }),
     ).toBe(0)
   })
@@ -193,6 +196,7 @@ describe('trust score', () => {
       fulfilledNeedCount: 0,
       avgRating: 0,
       ratingCount: 0,
+      validatedSkillEndorsementCount: 0,
     }
     const none = computeTrustScore({ ...base, earnedBadgeCount: 0 })
     const some = computeTrustScore({ ...base, earnedBadgeCount: 3 })
@@ -208,6 +212,7 @@ describe('trust score', () => {
       fulfilledNeedCount: 0,
       avgRating: 0,
       ratingCount: 0,
+      validatedSkillEndorsementCount: 0,
     }
     expect(computeTrustScore({ ...base, earnedBadgeCount: 999 }))
       .toBe(TRUST_WEIGHTS.badgeCap)
@@ -224,6 +229,7 @@ describe('trust score', () => {
         avgRating: 5,
         ratingCount: 999,
         earnedBadgeCount: 999,
+        validatedSkillEndorsementCount: 999,
       }),
     ).toBeLessThanOrEqual(100)
   })

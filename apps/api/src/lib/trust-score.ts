@@ -24,25 +24,33 @@
  *   reviews 15  what people who actually dealt with them say
  *   fulfilled 15  real completed outcomes
  *   badges 10   earned milestones (see badges.ts)
- *   certificates 10  admin-reviewed credentials — weaker than real outcomes
+ *   skill endorsements 6  validated peer vouches (see vouching.ts)
+ *   certificates 4  admin-reviewed credentials — weaker than real outcomes
  *   email 5     compulsory and trivial to obtain, so it counts least
  *
- * The badge slice was taken from email (10 -> 5) and certificates (15 -> 10)
- * specifically because those are the two weakest signals. Phone, face, reviews
- * and fulfilled needs are untouched, so existing scores stay stable — most
- * users recover the 5 email points through badges they already qualify for.
+ * The skill-endorsement slice was taken entirely from certificates (10 -> 4)
+ * — a real, platform-verified skill vouch from someone you actually worked
+ * with is at least as strong a signal as a self-submitted, admin-reviewed
+ * certificate, arguably stronger. Phone, face, reviews, fulfilled needs,
+ * badges and email are untouched, so this is one isolated reallocation, not
+ * a rebalance of the whole score. Only credibility-eligible vouches count —
+ * see TRUST_ELIGIBLE_CREDIBILITY_MIN in vouching.ts — and per requirement 6,
+ * this stays a modest, capped slice: it supports Trust Score, it does not
+ * come close to determining it on its own.
  */
 export const TRUST_WEIGHTS = {
   email: 5,
   face: 20,
   phone: 25,
   certificateEach: 5,
-  certificateCap: 10,
+  certificateCap: 4,
   fulfilledEach: 2,
   fulfilledCap: 15,
   reviewsMax: 15,
   badgeEach: 1,
   badgeCap: 10,
+  skillEndorsementEach: 1,
+  skillEndorsementCap: 6,
 } as const
 
 export interface TrustInputs {
@@ -60,6 +68,9 @@ export interface TrustInputs {
   ratingCount: number
   /** Earned badges — see `earnedBadgeCount` in badges.ts. */
   earnedBadgeCount: number
+  /** Received vouches strong enough to count — see
+   * `countTrustEligibleVouches` in vouching.ts. */
+  validatedSkillEndorsementCount: number
 }
 
 export function computeTrustScore(input: TrustInputs): number {
@@ -71,5 +82,6 @@ export function computeTrustScore(input: TrustInputs): number {
   score += Math.min(input.fulfilledNeedCount * TRUST_WEIGHTS.fulfilledEach, TRUST_WEIGHTS.fulfilledCap)
   if (input.ratingCount > 0) score += Math.round((input.avgRating / 5) * TRUST_WEIGHTS.reviewsMax)
   score += Math.min(input.earnedBadgeCount * TRUST_WEIGHTS.badgeEach, TRUST_WEIGHTS.badgeCap)
+  score += Math.min(input.validatedSkillEndorsementCount * TRUST_WEIGHTS.skillEndorsementEach, TRUST_WEIGHTS.skillEndorsementCap)
   return Math.min(100, score)
 }

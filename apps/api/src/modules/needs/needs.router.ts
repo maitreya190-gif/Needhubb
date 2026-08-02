@@ -21,6 +21,7 @@ import {
   urgencyVisibilityCap, selectBoostedWithinCap,
   isExpired, expireIfNeeded, recordUrgentNeedFulfilled,
 } from '../../lib/urgency'
+import { countTrustEligibleVouches, fetchTrustEligibleVouchCounts } from '../../lib/vouching'
 import { tagNeedsByEmbedding } from '../../lib/need-tagging'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { isBlockedBetween } from '../friends/friends.service'
@@ -329,7 +330,10 @@ needsRouter.get('/', async (req, res, next) => {
     // fast). Shared with the profile endpoints so a poster's trust score is
     // identical wherever it appears.
     const posterIds = [...new Set(needsRaw.map((n) => n.posterId))]
-    const recordsByUser = await fetchTrackRecords(posterIds)
+    const [recordsByUser, vouchCountsByUser] = await Promise.all([
+      fetchTrackRecords(posterIds),
+      fetchTrustEligibleVouchCounts(posterIds),
+    ])
     const trustScoreByPoster = new Map(
       posterIds.map((id) => {
         const need = needsRaw.find((n) => n.posterId === id)!
@@ -346,6 +350,7 @@ needsRouter.get('/', async (req, res, next) => {
           avgRating: record.avgRating,
           ratingCount: record.ratingCount,
           earnedBadgeCount: earnedBadgeCount(toBadgeInputs(verification, record)),
+          validatedSkillEndorsementCount: vouchCountsByUser.get(id) ?? 0,
         })]
       }),
     )
@@ -589,7 +594,10 @@ needsRouter.get('/:id', async (req, res, next) => {
       need.status = 'EXPIRED'
     }
 
-    const record = await fetchTrackRecord(need.posterId)
+    const [record, eligibleVouchCount] = await Promise.all([
+      fetchTrackRecord(need.posterId),
+      countTrustEligibleVouches(need.posterId),
+    ])
     const posterVerification = {
       emailVerifiedAt: need.poster.emailVerifiedAt,
       phoneVerifiedAt: need.poster.phoneVerifiedAt,
@@ -602,6 +610,7 @@ needsRouter.get('/:id', async (req, res, next) => {
       avgRating: record.avgRating,
       ratingCount: record.ratingCount,
       earnedBadgeCount: earnedBadgeCount(toBadgeInputs(posterVerification, record)),
+      validatedSkillEndorsementCount: eligibleVouchCount,
     })
 
     res.json({

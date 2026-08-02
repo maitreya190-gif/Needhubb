@@ -11,6 +11,7 @@ import { twilioVerifyConfigured, startPhoneVerification, checkPhoneVerification 
 import { computeTrustScore } from '../../lib/trust-score'
 import { computeBadges, earnedBadgeCount } from '../../lib/badges'
 import { fetchTrackRecord, toBadgeInputs, totalFulfilledCount } from '../../lib/track-record'
+import { countTrustEligibleVouches, fetchSkillVouchSummaries, tryGetUserId } from '../../lib/vouching'
 import { otpLimiter } from '../../middleware/rateLimiter'
 
 export const profilesRouter: IRouter = Router()
@@ -57,6 +58,7 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
     })
     if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'))
     const record = await fetchTrackRecord(userId)
+    const eligibleVouchCount = await countTrustEligibleVouches(userId)
     const badgeInputs = toBadgeInputs({
       emailVerifiedAt: user.emailVerifiedAt,
       phoneVerifiedAt: user.phoneVerifiedAt,
@@ -72,7 +74,13 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
       avgRating: record.avgRating,
       ratingCount: record.ratingCount,
       earnedBadgeCount: earnedBadgeCount(badgeInputs),
+      validatedSkillEndorsementCount: eligibleVouchCount,
     })
+    const skills = await fetchSkillVouchSummaries(
+      userId,
+      (user.profile?.skills ?? []).map((s) => s.skillId),
+      userId,
+    )
     res.json({
       ...user,
       avgRating: record.avgRating,
@@ -81,6 +89,7 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
       badges,
       helpedNeedCount: record.helpedNeedCount,
       fulfilledPostedCount: record.fulfilledPostedCount,
+      skillVouches: Object.fromEntries(skills),
     })
   } catch (err) { next(err) }
 })
@@ -495,6 +504,7 @@ profilesRouter.get('/:userId', async (req, res, next) => {
     })
     if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'))
     const record = await fetchTrackRecord(req.params.userId)
+    const eligibleVouchCount = await countTrustEligibleVouches(req.params.userId)
     const badgeInputs = toBadgeInputs({
       emailVerifiedAt: user.emailVerifiedAt,
       phoneVerifiedAt: user.phoneVerifiedAt,
@@ -512,7 +522,17 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       avgRating: record.avgRating,
       ratingCount: record.ratingCount,
       earnedBadgeCount: earnedBadgeCount(badgeInputs),
+      validatedSkillEndorsementCount: eligibleVouchCount,
     })
+    // Skill vouches: same public-by-design reasoning as badges, minus
+    // whatever the viewer has blocked or been blocked by — see
+    // fetchSkillVouchSummaries in lib/vouching.ts.
+    const viewerId = tryGetUserId(req)
+    const skills = await fetchSkillVouchSummaries(
+      req.params.userId,
+      (user.profile?.skills ?? []).map((s) => s.skillId),
+      viewerId,
+    )
     res.json({
       ...user,
       avgRating: record.avgRating,
@@ -521,6 +541,7 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       badges,
       helpedNeedCount: record.helpedNeedCount,
       fulfilledPostedCount: record.fulfilledPostedCount,
+      skillVouches: Object.fromEntries(skills),
     })
   } catch (err) { next(err) }
 })
