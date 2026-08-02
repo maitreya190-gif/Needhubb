@@ -5,6 +5,7 @@ import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_report_sheet.dart';
 import 'connect_request_sheet.dart';
+import '../../../l10n/app_strings.dart';
 
 class ConnectDetailScreen extends StatefulWidget {
   final Person person;
@@ -72,7 +73,7 @@ class _ConnectDetailScreenState extends State<ConnectDetailScreen> {
                                     size: 15, color: t.muted),
                                 const SizedBox(width: 5),
                                 Text(
-                                  'Report',
+                                  S.current.report,
                                   style: GoogleFonts.hankenGrotesk(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -167,7 +168,7 @@ class _ConnectDetailScreenState extends State<ConnectDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'THE OVERLAP',
+                              S.current.theOverlap,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -223,7 +224,7 @@ class _ConnectDetailScreenState extends State<ConnectDetailScreen> {
                             ),
                             const SizedBox(height: 11),
                             Text(
-                              'Filled tags are interests you share. Reach out because of what you both do — not how you look.',
+                              S.current.overlapDesc,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 12.5,
                                 color: t.onDarkMuted,
@@ -267,7 +268,7 @@ class _ConnectDetailScreenState extends State<ConnectDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'A FEW PHOTOS · OPTIONAL, NEVER RANKED',
+                            S.current.fewPhotosSection,
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -283,7 +284,7 @@ class _ConnectDetailScreenState extends State<ConnectDetailScreen> {
                                 Icon(Icons.photo_library_outlined, size: 22, color: t.muted2),
                                 const SizedBox(width: 10),
                                 Text(
-                                  'No photos added yet',
+                                  S.current.noPhotosYet,
                                   style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
                                 ),
                               ],
@@ -351,7 +352,7 @@ class _ConnectDetailScreenState extends State<ConnectDetailScreen> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              _friendRequestSent ? 'Request Sent' : 'Add Friend',
+                              _friendRequestSent ? S.current.requestSent : S.current.addFriend,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
@@ -385,7 +386,7 @@ class _ConnectDetailScreenState extends State<ConnectDetailScreen> {
                         textStyle: GoogleFonts.bricolageGrotesque(
                             fontSize: 16, fontWeight: FontWeight.w700),
                       ),
-                      child: const Text('Send a connect request'),
+                      child: Text(S.current.sendConnectRequest),
                     ),
                   ),
                 ],

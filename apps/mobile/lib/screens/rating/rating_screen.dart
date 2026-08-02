@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/user_state.dart';
 import '../../services/reviews_api.dart';
 import '../../services/social_providers.dart';
@@ -71,7 +72,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Submit failed: $e'),
+        content: Text('${S.current.error}: $e'),
       ));
     }
   }
@@ -109,7 +110,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      'TASK COMPLETE',
+                      S.current.taskComplete,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -133,7 +134,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your rating helps everyone trust who they meet\n— honest and specific.',
+                    S.current.ratingHelpsTrust,
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 14, color: t.muted, height: 1.4),
                     textAlign: TextAlign.center,
@@ -193,7 +194,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _stars == 0 ? 'Tap a star to rate' : _starLabel(_stars),
+                    _stars == 0 ? S.current.tapAStarToRate : _starLabel(_stars),
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 13,
                       color: _stars == 0 ? t.muted : NeedHubTokens.ochre,
@@ -206,7 +207,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'A QUICK NOTE (OPTIONAL)',
+                      S.current.quickNoteOptional,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -229,7 +230,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 14, color: t.ink),
                       decoration: InputDecoration(
-                        hintText: 'Showed up on time, explained clearly…',
+                        hintText: S.current.ratingNoteHint,
                         hintStyle: GoogleFonts.hankenGrotesk(
                             fontSize: 14, color: t.muted),
                         border: InputBorder.none,
@@ -262,7 +263,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
                               height: 22,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2.4, color: Colors.white))
-                          : const Text('Submit rating'),
+                          : Text(S.current.submitRating),
                     ),
                   ),
                 ],
@@ -274,15 +275,15 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
   String _starLabel(int stars) {
     switch (stars) {
       case 1:
-        return 'Not great';
+        return S.current.notGreat;
       case 2:
-        return 'It was okay';
+        return S.current.itWasOkay;
       case 3:
-        return 'Pretty good';
+        return S.current.prettyGood;
       case 4:
-        return 'Really helpful';
+        return S.current.reallyHelpful;
       case 5:
-        return 'Absolutely brilliant!';
+        return S.current.absolutelyBrilliant;
       default:
         return '';
     }
@@ -319,12 +320,12 @@ class _SuccessView extends StatelessWidget {
                   color: NeedHubTokens.forest, size: 32),
             ),
             const SizedBox(height: 16),
-            Text('Thanks for your review!',
+            Text(S.current.thanksForReview,
                 style: GoogleFonts.bricolageGrotesque(
                     fontSize: 22, fontWeight: FontWeight.w800, color: t.ink),
                 textAlign: TextAlign.center),
             const SizedBox(height: 6),
-            Text('Your feedback helps build trust on NeedHub.',
+            Text(S.current.feedbackBuildsTrust,
                 style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
                 textAlign: TextAlign.center),
             if (pointsAwarded > 0) ...[
@@ -336,7 +337,7 @@ class _SuccessView extends StatelessWidget {
                   color: NeedHubTokens.clay.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text('They earned +$pointsAwarded pts',
+                child: Text('${S.current.theyEarned} +$pointsAwarded ${S.current.points}',
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -349,7 +350,7 @@ class _SuccessView extends StatelessWidget {
               height: 48,
               child: OutlinedButton(
                 onPressed: onDone,
-                child: Text('Done',
+                child: Text(S.current.done,
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 15, fontWeight: FontWeight.w600)),
               ),

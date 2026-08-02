@@ -318,8 +318,8 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
         SnackBar(
           content: Text(
             (_decomposed && _selectedSubNeedIndexes.isNotEmpty)
-                ? 'Posted ${needsPayload.length} selected needs!'
-                : 'Need posted successfully!',
+                ? '${needsPayload.length} ${S.current.needsPostedSuccess}'
+                : S.current.needPostedSuccess,
           ),
           backgroundColor: NeedHubTokens.forest,
         ),
@@ -550,8 +550,8 @@ class _NeedForm extends StatelessWidget {
           controller: titleController,
           label: s.title.toUpperCase(),
           hint: category == 'earn'
-              ? 'e.g., Need calculus tutor for 2 weeks'
-              : 'e.g., Looking for hackathon teammate',
+              ? s.earnTitleHint
+              : s.connectTitleHint,
           onChanged: (_) => onChanged(),
           t: t,
         ),
@@ -560,7 +560,7 @@ class _NeedForm extends StatelessWidget {
         _Field(
           controller: descController,
           label: s.description.toUpperCase(),
-          hint: 'Describe what you need in detail...',
+          hint: s.describeNeedHint,
           minLines: 3,
           maxLines: 5,
           onChanged: (_) => onChanged(),
@@ -580,8 +580,8 @@ class _NeedForm extends StatelessWidget {
           children: [
             Text(
               !canPost
-                  ? 'Title (min 5) & details (min 10) required to post'
-                  : 'Ready to post!',
+                  ? s.titleAndDetailsRequired
+                  : s.readyToPost,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
@@ -660,7 +660,7 @@ class _NeedForm extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Mark as Urgent',
+                          s.markAsUrgent,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w700,
@@ -668,7 +668,7 @@ class _NeedForm extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Boosts visibility as your deadline nears',
+                          s.urgentDesc,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 11,
                             color: t.muted,
@@ -711,7 +711,7 @@ class _NeedForm extends StatelessWidget {
                     Expanded(
                       child: Text(
                         urgentDeadline == null
-                            ? 'Set a deadline (required)'
+                            ? s.setDeadline
                             : 'Due ${_formatDeadline(urgentDeadline!)}',
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 13,
@@ -771,8 +771,8 @@ class _NeedForm extends StatelessWidget {
                   const SizedBox(width: 10),
                   Text(
                     decomposing
-                        ? 'Decomposing with AI...'
-                        : 'Decompose with AI',
+                        ? s.decomposingWithAi
+                        : s.decomposeWithAi,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
@@ -786,7 +786,7 @@ class _NeedForm extends StatelessWidget {
           if (!canDecompose) ...[
             const SizedBox(height: 4),
             Text(
-              'Add at least 20 characters of detail to decompose',
+              s.addMoreDetailToDecompose,
               style: GoogleFonts.hankenGrotesk(fontSize: 11, color: t.muted),
             ),
           ],
@@ -813,7 +813,7 @@ class _NeedForm extends StatelessWidget {
                         size: 15, color: NeedHubTokens.clay),
                     const SizedBox(width: 6),
                     Text(
-                      'AI decomposed into ${subNeeds.length} recommendations',
+                      '${s.aiDecomposedInto} ${subNeeds.length} ${s.recommendations}',
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -828,7 +828,7 @@ class _NeedForm extends StatelessWidget {
                     GestureDetector(
                       onTap: onSelectAllSubNeeds,
                       child: Text(
-                        'Select All',
+                        s.selectAll,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -840,7 +840,7 @@ class _NeedForm extends StatelessWidget {
                     GestureDetector(
                       onTap: onSelectNoneSubNeeds,
                       child: Text(
-                        'Select None',
+                        s.selectNone,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -852,7 +852,7 @@ class _NeedForm extends StatelessWidget {
                     GestureDetector(
                       onTap: onUseOriginalNeed,
                       child: Text(
-                        'Use Original Need',
+                        s.useOriginalNeed,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

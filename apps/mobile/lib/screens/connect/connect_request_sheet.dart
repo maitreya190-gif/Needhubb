@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/person.dart';
 import '../../theme/tokens.dart';
+import '../../../l10n/app_strings.dart';
 
 class ConnectRequestSheet extends StatefulWidget {
   final Person person;
@@ -64,7 +65,13 @@ class _FormView extends StatelessWidget {
     required this.onSend,
   });
 
-  static const _activities = ['Study together', 'Grab a coffee', 'Pair up', 'Trek'];
+  static const _activitiesEn = ['Study together', 'Grab a coffee', 'Pair up', 'Trek'];
+  static List<String> _activityLabels() => [
+        S.current.activityStudy,
+        S.current.activityCoffee,
+        S.current.activityPairUp,
+        S.current.activityTrek,
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +93,7 @@ class _FormView extends StatelessWidget {
         const SizedBox(height: 20),
 
         Text(
-          'Send a connect request',
+          S.current.sendConnectRequest,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -102,7 +109,7 @@ class _FormView extends StatelessWidget {
 
         // Activity idea chips
         Text(
-          'SUGGEST AN ACTIVITY',
+          S.current.suggestAnActivity,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -111,43 +118,48 @@ class _FormView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _activities.map((a) {
-            final active = selectedActivity == a;
-            return GestureDetector(
-              onTap: () => onActivitySelected(a),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: active
-                      ? NeedHubTokens.forest.withValues(alpha: 0.12)
-                      : t.paper,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: active ? NeedHubTokens.forest : t.rail,
-                    width: 1.5,
+        Builder(builder: (context) {
+          final labels = _activityLabels();
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: List.generate(_activitiesEn.length, (i) {
+              final englishValue = _activitiesEn[i];
+              final displayLabel = labels[i];
+              final active = selectedActivity == englishValue;
+              return GestureDetector(
+                onTap: () => onActivitySelected(englishValue),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: active
+                        ? NeedHubTokens.forest.withValues(alpha: 0.12)
+                        : t.paper,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: active ? NeedHubTokens.forest : t.rail,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    displayLabel,
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: active ? NeedHubTokens.forest : t.muted2,
+                    ),
                   ),
                 ),
-                child: Text(
-                  a,
-                  style: GoogleFonts.hankenGrotesk(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: active ? NeedHubTokens.forest : t.muted2,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
+              );
+            }),
+          );
+        }),
         const SizedBox(height: 16),
 
         // Note
         Text(
-          'ADD A NOTE',
+          S.current.addANote,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 11,
             fontWeight: FontWeight.w700,
@@ -168,7 +180,7 @@ class _FormView extends StatelessWidget {
             maxLines: 5,
             style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.ink),
             decoration: InputDecoration(
-              hintText: 'Hey! I noticed we both ${person.sharedInterests.isNotEmpty ? "like ${person.sharedInterests.first}" : "have similar interests"}…',
+              hintText: '${S.current.connectNoteHint} ${person.sharedInterests.isNotEmpty ? person.sharedInterests.first : "have similar interests"}…',
               hintStyle: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.all(14),
@@ -193,7 +205,7 @@ class _FormView extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'For your first meet-up, suggest a public place. NeedHub never shares your exact location.',
+                  S.current.connectSafetyTip,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 12,
                     color: NeedHubTokens.forest,
@@ -220,7 +232,7 @@ class _FormView extends StatelessWidget {
               textStyle: GoogleFonts.bricolageGrotesque(
                   fontSize: 16, fontWeight: FontWeight.w700),
             ),
-            child: const Text('Send request'),
+            child: Text(S.current.sendRequest),
           ),
         ),
       ],
@@ -252,7 +264,7 @@ class _SuccessView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'Request sent!',
+          S.current.requestSent,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 22,
             fontWeight: FontWeight.w800,
@@ -261,7 +273,7 @@ class _SuccessView extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          '${person.name} will be notified. Chat unlocks when they accept.',
+          '${person.name} ${S.current.requestSentDesc}',
           style: GoogleFonts.hankenGrotesk(
             fontSize: 14,
             color: t.muted,
@@ -275,7 +287,7 @@ class _SuccessView extends StatelessWidget {
           height: 48,
           child: OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Done',
+            child: Text(S.current.done,
                 style: GoogleFonts.hankenGrotesk(
                     fontSize: 15, fontWeight: FontWeight.w600)),
           ),

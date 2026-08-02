@@ -5,6 +5,7 @@ import '../../models/user_state.dart';
 import '../../services/profiles_api.dart';
 import '../../services/redemptions_api.dart';
 import '../../services/social_providers.dart';
+import '../../l10n/app_strings.dart';
 import '../../theme/tokens.dart';
 
 class RedeemScreen extends ConsumerStatefulWidget {
@@ -61,7 +62,7 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Could not load catalog';
+        _error = S.current.error;
         _loading = false;
       });
     }
@@ -109,8 +110,8 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
       if (!mounted) return;
       setState(() => _redeemingId = null);
       final msg = e.toString().contains('402') || e.toString().contains('INSUFFICIENT')
-          ? 'Not enough points yet'
-          : 'Redemption failed';
+          ? S.current.error
+          : S.current.error;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
@@ -129,7 +130,7 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
           icon: Icon(Icons.arrow_back_rounded, color: t.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Redeem points',
+        title: Text(S.current.redeemPoints,
             style: GoogleFonts.bricolageGrotesque(
                 fontSize: 18, fontWeight: FontWeight.w700, color: t.ink)),
       ),
@@ -148,7 +149,7 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('YOUR BALANCE',
+                Text(S.current.yourBalance,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -169,7 +170,7 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
                     const SizedBox(width: 10),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 6),
-                      child: Text('reliability\npoints',
+                      child: Text(S.current.reliabilityPoints.toLowerCase(),
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 14, color: t.onDarkMuted, height: 1.3)),
                     ),
@@ -180,7 +181,7 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
           ),
           const SizedBox(height: 28),
 
-          Text('AVAILABLE REWARDS',
+          Text(S.current.availableRewards,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -209,12 +210,12 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
                   Expanded(child: Text(_error!,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 13, color: t.ink))),
-                  TextButton(onPressed: _load, child: const Text('Retry')),
+                  TextButton(onPressed: _load, child: Text(S.current.retry)),
                 ],
               ),
             )
           else if (_catalog.isEmpty)
-            Text('No rewards available right now',
+            Text(S.current.noRewardsAvailable,
                 style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted))
           else
             ..._catalog.map((item) => Padding(
@@ -244,7 +245,7 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Points are earned by completing needs, receiving 4★+ reviews, and getting certificates approved.',
+                    S.current.pointsEarnedInfo,
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 12.5, color: t.muted2, height: 1.45),
                   ),
@@ -344,8 +345,8 @@ class _RewardCard extends StatelessWidget {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : Text(item.stock == 0
-                      ? 'Sold out'
-                      : (canRedeem ? 'Redeem' : 'Locked')),
+                      ? S.current.soldOut
+                      : (canRedeem ? S.current.redeemPoints : S.current.locked)),
             ),
           ),
         ],
@@ -390,7 +391,7 @@ class _RedeemSuccessSheet extends StatelessWidget {
                 color: NeedHubTokens.forest, size: 42),
           ),
           const SizedBox(height: 18),
-          Text('Redeemed!',
+          Text(S.current.redeemed,
               style: GoogleFonts.bricolageGrotesque(
                   fontSize: 24, fontWeight: FontWeight.w800, color: t.ink)),
           const SizedBox(height: 6),
@@ -408,7 +409,7 @@ class _RedeemSuccessSheet extends StatelessWidget {
             ),
             child: Column(
               children: [
-                Text('YOUR CODE',
+                Text(S.current.yourCode,
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -425,7 +426,7 @@ class _RedeemSuccessSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Text('Balance: $remaining pts',
+          Text('${S.current.balanceAfter}: $remaining ${S.current.points}',
               style: GoogleFonts.hankenGrotesk(
                   fontSize: 13, color: t.muted, fontWeight: FontWeight.w600)),
           const SizedBox(height: 20),
@@ -441,7 +442,7 @@ class _RedeemSuccessSheet extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
               ),
-              child: Text('Done',
+              child: Text(S.current.done,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 15, fontWeight: FontWeight.w700)),
             ),

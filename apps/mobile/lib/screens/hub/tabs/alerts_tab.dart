@@ -113,17 +113,17 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Text('Clear Notifications',
+            Text(S.current.clearNotificationsTitle,
                 style: GoogleFonts.bricolageGrotesque(
                     fontSize: 18, fontWeight: FontWeight.w700, color: t.ink)),
             const SizedBox(height: 4),
-            Text('Choose which notifications to remove',
+            Text(S.current.chooseWhichToRemove,
                 style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted)),
             const SizedBox(height: 20),
             _ClearOption(
               icon: Icons.today_rounded,
-              label: 'Last 24 hours',
-              subtitle: 'Clear notifications from today',
+              label: S.current.last24Hours,
+              subtitle: S.current.last24HoursDesc,
               color: NeedHubTokens.forest,
               t: t,
               onTap: () {
@@ -134,8 +134,8 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
             const SizedBox(height: 8),
             _ClearOption(
               icon: Icons.date_range_rounded,
-              label: 'Last 7 days',
-              subtitle: 'Clear notifications from this week',
+              label: S.current.last7Days,
+              subtitle: S.current.last7DaysDesc,
               color: NeedHubTokens.ochre,
               t: t,
               onTap: () {
@@ -146,8 +146,8 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
             const SizedBox(height: 8),
             _ClearOption(
               icon: Icons.delete_sweep_rounded,
-              label: 'All time',
-              subtitle: 'Clear all notifications permanently',
+              label: S.current.allTime,
+              subtitle: S.current.allTimeDesc,
               color: NeedHubTokens.clay,
               t: t,
               onTap: () {
@@ -158,8 +158,8 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
             const SizedBox(height: 8),
             _ClearOption(
               icon: Icons.checklist_rounded,
-              label: 'Select manually',
-              subtitle: 'Pick specific notifications to clear',
+              label: S.current.selectManually,
+              subtitle: S.current.selectManuallyDesc,
               color: t.ink,
               t: t,
               onTap: () {
@@ -183,16 +183,16 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
       builder: (ctx) => AlertDialog(
         backgroundColor: t.paper,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Clear all notifications?',
+        title: Text(S.current.clearAllNotificationsTitle,
             style: GoogleFonts.bricolageGrotesque(
                 fontSize: 17, fontWeight: FontWeight.w700, color: t.ink)),
         content: Text(
-            'This will permanently delete all your notifications. This action cannot be undone.',
+            S.current.clearAllNotificationsBody,
             style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted2)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel',
+            child: Text(S.current.cancel,
                 style: GoogleFonts.hankenGrotesk(
                     fontWeight: FontWeight.w600, color: t.muted)),
           ),
@@ -201,7 +201,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
               Navigator.pop(ctx);
               _clearByRange('all');
             },
-            child: Text('Clear all',
+            child: Text(S.current.clearAll,
                 style: GoogleFonts.hankenGrotesk(
                     fontWeight: FontWeight.w700, color: NeedHubTokens.clay)),
           ),
@@ -239,7 +239,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$deleted notification${deleted == 1 ? '' : 's'} cleared'),
+          content: Text('$deleted ${deleted == 1 ? S.current.notificationCleared : S.current.notificationsCleared}'),
           behavior: SnackBarBehavior.floating,
         ));
       }
@@ -267,7 +267,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
       } catch (_) {}
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$deleted notification${deleted == 1 ? '' : 's'} cleared'),
+          content: Text('$deleted ${deleted == 1 ? S.current.notificationCleared : S.current.notificationsCleared}'),
           behavior: SnackBarBehavior.floating,
         ));
       }
@@ -480,7 +480,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                     final alerts = groups[group]!;
                     final groupColor = _groupColor(group);
                     return [
-                      _GroupHeader(label: group, color: groupColor, t: t),
+                      _GroupHeader(label: _groupLabel(group), color: groupColor, t: t),
                       ...alerts.asMap().entries.map((e) {
                         final n = e.value;
                         final isLast = e.key == alerts.length - 1;
@@ -560,6 +560,21 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
         return 'Impact';
       default:
         return 'Other';
+    }
+  }
+
+  String _groupLabel(String group) {
+    switch (group) {
+      case 'Connect':
+        return S.current.connectGroup;
+      case 'Earn':
+        return S.current.earnGroup;
+      case 'Chat':
+        return S.current.chatGroup;
+      case 'Impact':
+        return S.current.impactGroup;
+      default:
+        return S.current.otherGroup;
     }
   }
 

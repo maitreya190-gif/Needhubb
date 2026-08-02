@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_state.dart';
 import '../../services/reviews_api.dart';
 import '../../services/social_providers.dart';
+import '../../l10n/app_strings.dart';
 import '../../theme/tokens.dart';
 import '../rating/rating_screen.dart';
 
@@ -135,8 +136,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Widget build(BuildContext context) {
     final t = context.tokens;
     final titleText = widget.isOwnProfile
-        ? 'People you\'ve helped'
-        : '${widget.personName ?? "Past Work"} — Ratings';
+        ? S.current.peopleYouveHelped
+        : '${widget.personName ?? S.current.pastWorkHistory} — Ratings';
 
     return Scaffold(
       backgroundColor: t.paper,
@@ -181,8 +182,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     children: [
                       Text(
                         widget.isOwnProfile
-                            ? 'You\'ve helped ${_reviews.length} people'
-                            : 'Completed ${_reviews.length} tasks',
+                            ? '${S.current.youveHelped} ${_reviews.length} ${S.current.people}'
+                            : '${S.current.completedTasks} ${_reviews.length} ${S.current.tasks}',
                         style: GoogleFonts.bricolageGrotesque(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
@@ -352,7 +353,7 @@ class _HistoryTileState extends State<_HistoryTile> {
                                 if (canExpand) ...[
                                   const SizedBox(width: 8),
                                   Text(
-                                    _isExpanded ? 'Hide feedback' : 'Tap to see feedback',
+                                    _isExpanded ? S.current.hideFeedback : S.current.tapToSeeFeedback,
                                     style: GoogleFonts.hankenGrotesk(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -381,7 +382,7 @@ class _HistoryTileState extends State<_HistoryTile> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  'Rate them',
+                                  S.current.rateThem,
                                   style: GoogleFonts.hankenGrotesk(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -440,7 +441,7 @@ class _HistoryTileState extends State<_HistoryTile> {
                                 size: 14, color: NeedHubTokens.clay),
                             const SizedBox(width: 6),
                             Text(
-                              'FEEDBACK GIVEN TO YOU',
+                              S.current.feedbackGivenToYou,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w700,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/need.dart';
 import '../../services/needs_api.dart';
 import '../../services/social_providers.dart';
@@ -44,7 +45,7 @@ class _ImpactScreenState extends State<ImpactScreen>
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Impact',
+          S.current.impact,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -61,10 +62,10 @@ class _ImpactScreenState extends State<ImpactScreen>
           unselectedLabelColor: t.muted,
           indicatorColor: NeedHubTokens.clay,
           indicatorWeight: 2,
-          tabs: const [
-            Tab(text: 'Certificates'),
-            Tab(text: 'Achievements'),
-            Tab(text: 'Redeem'),
+          tabs: [
+            Tab(text: S.current.certificates),
+            Tab(text: S.current.achievements),
+            Tab(text: S.current.redeemPoints),
           ],
         ),
       ),
@@ -210,10 +211,10 @@ class _CertCard extends StatelessWidget {
             : t.muted;
 
     final statusLabel = isVerified
-        ? 'Verified'
+        ? S.current.verified
         : isPending
-            ? 'In Review'
-            : 'Upload required';
+            ? S.current.inReview
+            : S.current.uploadRequired;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -299,7 +300,7 @@ class _CertCard extends StatelessWidget {
               TextButton(
                 onPressed: () {},
                 child: Text(
-                  'Upload',
+                  S.current.upload,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -643,7 +644,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
         const SizedBox(height: 28),
 
         // ── Boost a Need ──────────────────────────────────────────────────
-        _SectionLabel(label: 'BOOST A NEED', t: t),
+        _SectionLabel(label: S.current.boostANeed, t: t),
         const SizedBox(height: 4),
         Text(
           'Spend points to pin your need at the top of the feed so more helpers see it.',
@@ -774,8 +775,8 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
                 : const Icon(Icons.rocket_launch_rounded, size: 18),
             label: Text(
               _boosting
-                  ? 'Boosting…'
-                  : 'Boost a Need — $_tierCost pts',
+                  ? S.current.boostingLabel
+                  : '${S.current.boostANeed} — $_tierCost ${S.current.points}',
               style: GoogleFonts.hankenGrotesk(
                   fontSize: 14, fontWeight: FontWeight.w700),
             ),
@@ -796,7 +797,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
         const SizedBox(height: 28),
 
         // ── Profile boost (existing) ──────────────────────────────────────
-        _SectionLabel(label: 'PROFILE BOOST', t: t),
+        _SectionLabel(label: S.current.profileBoostSection, t: t),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(16),
@@ -892,7 +893,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
                         textStyle: GoogleFonts.hankenGrotesk(
                             fontSize: 13, fontWeight: FontWeight.w700),
                       ),
-                      child: const Text('Redeem'),
+                      child: Text(S.current.redeemPoints),
                     ),
             ],
           ),
@@ -985,11 +986,11 @@ class _NeedPickerSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          Text('Select a Need to Boost',
+          Text(S.current.selectNeedToBoost,
               style: GoogleFonts.bricolageGrotesque(
                   fontSize: 17, fontWeight: FontWeight.w700, color: t.ink)),
           const SizedBox(height: 4),
-          Text('Pick one of your open needs',
+          Text(S.current.pickOpenNeed,
               style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted)),
           const SizedBox(height: 16),
           ...needs.map((n) => ListTile(
@@ -1055,7 +1056,7 @@ class _BoostConfirmDialog extends StatelessWidget {
               color: NeedHubTokens.clay, size: 22),
           const SizedBox(width: 10),
           Expanded(
-            child: Text('Confirm Boost',
+            child: Text(S.current.confirmBoost,
                 style: GoogleFonts.bricolageGrotesque(
                     fontSize: 17, fontWeight: FontWeight.w800, color: t.ink)),
           ),
@@ -1088,7 +1089,7 @@ class _BoostConfirmDialog extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Boost duration',
+                    Text(S.current.boostDuration,
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 12, color: t.muted)),
                     Text(tier,
@@ -1101,7 +1102,7 @@ class _BoostConfirmDialog extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('Cost',
+                    Text(S.current.cost,
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 12, color: t.muted)),
                     Row(
@@ -1123,7 +1124,7 @@ class _BoostConfirmDialog extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Remaining after: ${balance - cost} pts',
+            '${S.current.balanceAfter}: ${balance - cost} ${S.current.points}',
             style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted),
           ),
           const SizedBox(height: 4),
@@ -1132,14 +1133,14 @@ class _BoostConfirmDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: Text('Cancel',
+          child: Text(S.current.cancel,
               style: GoogleFonts.hankenGrotesk(
                   fontSize: 14, fontWeight: FontWeight.w600, color: t.muted)),
         ),
         FilledButton.icon(
           onPressed: () => Navigator.pop(context, true),
           icon: const Icon(Icons.rocket_launch_rounded, size: 16),
-          label: Text('Boost Now',
+          label: Text(S.current.boostNow,
               style: GoogleFonts.hankenGrotesk(
                   fontSize: 14, fontWeight: FontWeight.w700)),
           style: FilledButton.styleFrom(

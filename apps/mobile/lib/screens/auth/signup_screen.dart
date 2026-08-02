@@ -128,8 +128,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Please enable location services.')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(S.current.enableLocationServices)));
         }
         return;
       }
@@ -140,8 +140,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       if (perm == LocationPermission.denied ||
           perm == LocationPermission.deniedForever) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Location permission was denied.')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(S.current.locationPermissionDenied)));
         }
         return;
       }
@@ -157,7 +157,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Couldn't get GPS fix. Try picking on the map instead.")));
+              SnackBar(content: Text(S.current.couldntGetGpsFix)));
         }
         return;
       }
@@ -168,23 +168,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(
-            'Location Precision',
+            S.current.locationPrecision,
             style: GoogleFonts.bricolageGrotesque(fontWeight: FontWeight.w700),
           ),
           content: Text(
-            'Do you want to share your exact location or an approximate 2km radius locality?',
+            S.current.locationPrecisionDesc,
             style: GoogleFonts.hankenGrotesk(fontSize: 15),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text('2km Radius',
+              child: Text(S.current.twoKmRadius,
                   style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.bold)),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(backgroundColor: NeedHubTokens.clay),
-              child: Text('Exact Location',
+              child: Text(S.current.exactLocation,
                   style: GoogleFonts.hankenGrotesk(
                       fontWeight: FontWeight.bold, color: Colors.white)),
             ),
@@ -258,14 +258,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         _locationController.text = label;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Got your location — you can replace with a city name if you like.')),
+        SnackBar(
+            content: Text(S.current.gotYourLocation)),
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not fetch location: $e')));
+            SnackBar(content: Text('${S.current.couldNotFetchLocation}: $e')));
       }
     } finally {
       if (mounted) setState(() => _locating = false);
@@ -458,13 +457,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       if (e.type == DioExceptionType.connectionError ||
           e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout) {
-        return 'Could not reach the server. Check your internet connection.';
+        return S.current.couldNotReachServer;
       }
 
       if (status == 409) {
         final code = body is Map ? body['code'] : null;
-        if (code == 'USERNAME_TAKEN') return 'That username is already taken. Try another.';
-        return 'That email is already registered. Try logging in instead.';
+        if (code == 'USERNAME_TAKEN') return S.current.usernameAlreadyTaken;
+        return S.current.emailAlreadyRegistered;
       }
 
       if (status == 400 && body is Map) {
@@ -473,29 +472,29 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           // Zod flatten: { fieldErrors: { displayName: [...], email: [...] }, formErrors: [] }
           final fieldErrors = errorVal['fieldErrors'];
           if (fieldErrors is Map) {
-            if (fieldErrors.containsKey('displayName')) return 'Name must be at least 2 characters.';
-            if (fieldErrors.containsKey('email')) return 'Please enter a valid email address.';
-            if (fieldErrors.containsKey('password')) return 'Password must be at least 8 characters.';
+            if (fieldErrors.containsKey('displayName')) return S.current.nameTooShort;
+            if (fieldErrors.containsKey('email')) return S.current.invalidEmail;
+            if (fieldErrors.containsKey('password')) return S.current.passwordTooShort;
           }
         }
         if (errorVal is String) {
           final lower = errorVal.toLowerCase();
-          if (lower.contains('already')) return 'That email is already registered. Try logging in instead.';
+          if (lower.contains('already')) return S.current.emailAlreadyRegistered;
         }
-        return 'Check your details and try again.';
+        return S.current.checkDetails;
       }
 
-      if (status != null) return 'Server error ($status). Please try again.';
+      if (status != null) return '${S.current.serverError} ($status)';
     }
 
     final msg = e.toString().toLowerCase();
     if (msg.contains('409') || msg.contains('already')) {
-      return 'That email is already registered. Try logging in instead.';
+      return S.current.emailAlreadyRegistered;
     }
     if (msg.contains('network') || msg.contains('connection')) {
-      return 'Could not reach the server. Check your connection.';
+      return S.current.couldNotReachServer;
     }
-    return 'Something went wrong. Please try again.';
+    return S.current.error;
   }
 
   bool get _step0Valid =>
@@ -541,7 +540,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       ),
                       Expanded(
                         child: Text(
-                          'Step ${_step + 1} of $_totalSteps',
+                          s.stepXofY(_step + 1, _totalSteps),
                           textAlign: TextAlign.right,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 12.5,
@@ -595,7 +594,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'NeedHub works in 8 Indian languages. You can change this anytime.',
+          s.needhubIn8Languages,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 15,
             color: t.muted2,
@@ -674,15 +673,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 32),
         NhTextField(
-          label: 'Name',
-          hint: 'Your display name (min 2 characters)',
+          label: s.name,
+          hint: s.nameHint,
           controller: _nameController,
           textInputAction: TextInputAction.next,
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 16),
         NhTextField(
-          label: 'Username',
+          label: s.username,
           hint: '@yourusername',
           controller: _usernameController,
           textInputAction: TextInputAction.next,
@@ -690,7 +689,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Unique · visible to others',
+          s.uniqueVisibleToOthers,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 12,
             color: t.muted,
@@ -698,7 +697,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 16),
         NhTextField(
-          label: 'Email',
+          label: s.email,
           hint: 'you@example.com',
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
@@ -707,8 +706,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 16),
         NhTextField(
-          label: 'Password',
-          hint: 'At least 8 characters',
+          label: s.password,
+          hint: s.passwordHint,
           controller: _passwordController,
           obscure: true,
           textInputAction: TextInputAction.done,
@@ -743,7 +742,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'Your password is encrypted and never shared with anyone.',
+                s.passwordEncrypted,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 12,
                   color: NeedHubTokens.forest,
@@ -754,7 +753,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 24),
         NhTextField(
-          label: 'Referral code (optional)',
+          label: s.referralCodeLabel,
           hint: 'e.g. MAI72X',
           controller: _referralCodeController,
           textInputAction: TextInputAction.done,
@@ -762,7 +761,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          'Have a friend\'s code? Both of you earn 15 points when you post your first need.',
+          s.referralCodeDesc,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 12,
             color: t.muted,
@@ -825,7 +824,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               height: 1.5,
             ),
             children: [
-              const TextSpan(text: 'Enter the 6-digit code we sent to '),
+              TextSpan(text: '${s.enterOtpSentTo} '),
               TextSpan(
                 text: _emailController.text.trim(),
                 style: GoogleFonts.hankenGrotesk(
@@ -861,7 +860,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           child: TextButton(
             onPressed: _resendOtp,
             child: Text(
-              "Didn't get it? Resend code",
+              s.didntGetItResend,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -1185,7 +1184,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 15, color: t.ink),
                   decoration: InputDecoration(
-                    hintText: 'City or neighbourhood (e.g. Koramangala)',
+                    hintText: s.cityOrNeighbourhood,
                     hintStyle: GoogleFonts.hankenGrotesk(
                         fontSize: 14, color: t.muted),
                     border: InputBorder.none,
@@ -1261,7 +1260,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             Icon(Icons.radar_rounded, size: 16, color: t.muted2),
             const SizedBox(width: 8),
             Text(
-              'Help radius',
+              s.helpRadius,
               style: GoogleFonts.hankenGrotesk(
                   fontSize: 14, fontWeight: FontWeight.w600, color: t.ink),
             ),
@@ -1315,7 +1314,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Only your city or area is visible to others. Never your precise address.',
+                  s.onlyCityVisible,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 12.5,
                       color: NeedHubTokens.forest,
@@ -1346,7 +1345,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         _Kicker(label: s.aboutYou),
         const SizedBox(height: 10),
         Text(
-          'Tell people who you are',
+          s.tellPeopleWhoYouAre,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -1356,14 +1355,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'These show on your profile and help people decide to connect. You can edit them anytime.',
+          s.theseShowOnProfile,
           style: GoogleFonts.hankenGrotesk(
               fontSize: 15, color: t.muted2, height: 1.5),
         ),
         const SizedBox(height: 24),
         _SignupPromptField(
-          label: 'A LINE ABOUT YOU (BIO)',
-          hint: 'e.g. Frontend dev, coffee snob, weekend trekker.',
+          label: s.aLineAboutYouBio,
+          hint: s.bioPromptHint,
           controller: _bioController,
           onChanged: () => setState(() {}),
           t: t,
@@ -1371,7 +1370,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         const SizedBox(height: 16),
         _SignupPromptField(
           label: s.skillIdLoveToTeach,
-          hint: 'e.g. DSA — I love breaking down complex algorithms…',
+          hint: s.skillPromptHint,
           controller: _promptSkillController,
           onChanged: () => setState(() {}),
           t: t,
@@ -1379,7 +1378,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         const SizedBox(height: 16),
         _SignupPromptField(
           label: s.myIdealCollab,
-          hint: 'e.g. Someone who ships fast and loves late-night brainstorming.',
+          hint: s.collabPromptHint,
           controller: _promptCollabController,
           onChanged: () => setState(() {}),
           t: t,
@@ -1387,7 +1386,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         const SizedBox(height: 16),
         _SignupPromptField(
           label: s.needIdPostRightNow,
-          hint: 'e.g. A designer for my side project.',
+          hint: s.needPromptHint,
           controller: _promptNeedController,
           onChanged: () => setState(() {}),
           t: t,
@@ -1406,10 +1405,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 36),
-        _Kicker(label: 'ALMOST DONE'),
+        _Kicker(label: s.almostDone),
         const SizedBox(height: 10),
         Text(
-          'A few things before\nwe start',
+          s.fewThingsBeforeWeStart,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 28,
             fontWeight: FontWeight.w800,
@@ -1448,7 +1447,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Enable notifications',
+                      s.enableNotifications,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -1456,7 +1455,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       ),
                     ),
                     Text(
-                      'Stay in the loop when someone responds',
+                      s.stayInLoopWhenResponds,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         color: t.muted,
@@ -1507,7 +1506,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'You browse. You choose.',
+                      s.youBrowseYouChoose,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -1516,7 +1515,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'NeedHub never auto-matches you with anyone. You browse people nearby who share your interests and choose who you reach out to — fully on your terms.',
+                      s.needhubNeverAutoMatches,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         color: t.muted2,
@@ -1534,7 +1533,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
         // CTA
         NhPrimaryButton(
-          label: 'Start exploring →',
+          label: '${s.startExploring} →',
           onPressed: _finishOnboarding,
         ),
 

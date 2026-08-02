@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/app_strings.dart';
 import '../models/user_state.dart';
 import '../services/api_client.dart';
 import '../services/social_providers.dart';
@@ -55,6 +56,8 @@ class NhReportSheet extends ConsumerStatefulWidget {
 }
 
 class _NhReportSheetState extends ConsumerState<NhReportSheet> {
+  // English API values — must not be translated. Used for `_selected` comparisons
+  // and sent verbatim to the backend in the report reason field.
   static const _reasons = [
     'Inappropriate content or behaviour',
     'Fake or misleading profile',
@@ -63,6 +66,26 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
     'Underage user',
     'Something else',
   ];
+
+  /// Returns the translated display label for an English reason key.
+  String _reasonLabel(String reason) {
+    switch (reason) {
+      case 'Inappropriate content or behaviour':
+        return S.current.reportReasonInappropriate;
+      case 'Fake or misleading profile':
+        return S.current.reportReasonFake;
+      case 'Harassment or hate speech':
+        return S.current.reportReasonHarassment;
+      case 'Spam or scam':
+        return S.current.reportReasonSpam;
+      case 'Underage user':
+        return S.current.reportReasonUnderage;
+      case 'Something else':
+        return S.current.reportReasonOther;
+      default:
+        return reason;
+    }
+  }
 
   String? _selected;
   final _detailsController = TextEditingController();
@@ -122,13 +145,13 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
           : null;
       String msg;
       if (code == 'DUPLICATE_REPORT') {
-        msg = 'You already reported this recently.';
+        msg = S.current.alreadyReported;
       } else if (code == 'SELF_REPORT') {
-        msg = "You can't report yourself.";
+        msg = S.current.cantReportSelf;
       } else if (code == 'TARGET_NOT_FOUND') {
-        msg = 'That user or content no longer exists.';
+        msg = S.current.contentNotFound;
       } else {
-        msg = e.response?.statusMessage ?? 'Could not submit — please retry.';
+        msg = e.response?.statusMessage ?? S.current.reportSubmitFailed;
       }
       if (mounted) {
         setState(() {
@@ -139,7 +162,7 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMsg = 'Could not submit — please retry.';
+          _errorMsg = S.current.reportSubmitFailed;
           _submitting = false;
         });
       }
@@ -188,8 +211,8 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
                     const SizedBox(height: 14),
                     Text(
                       widget.alsoBlock
-                          ? 'Reported and blocked'
-                          : 'Report submitted',
+                          ? S.current.reportedAndBlocked
+                          : S.current.reportSubmitted,
                       style: GoogleFonts.bricolageGrotesque(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -199,8 +222,8 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
                     const SizedBox(height: 6),
                     Text(
                       widget.alsoBlock
-                          ? '${widget.targetName} has been blocked and our team will review your report shortly.'
-                          : 'Thanks — our trust & safety team will review your report shortly.',
+                          ? '${widget.targetName} ${S.current.reportBlockedDesc}'
+                          : S.current.reportedDesc,
                       textAlign: TextAlign.center,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 14, color: t.muted, height: 1.4),
@@ -218,7 +241,7 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14)),
                         ),
-                        child: Text('Done',
+                        child: Text(S.current.done,
                             style: GoogleFonts.hankenGrotesk(
                                 fontSize: 15, fontWeight: FontWeight.w700)),
                       ),
@@ -229,8 +252,8 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
             ] else ...[
               Text(
                 widget.alsoBlock
-                    ? 'Report and block ${widget.targetName}'
-                    : 'Report ${widget.targetName}',
+                    ? '${S.current.reportAndBlock} ${widget.targetName}'
+                    : '${S.current.report} ${widget.targetName}',
                 style: GoogleFonts.bricolageGrotesque(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
@@ -239,13 +262,13 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Tell us what happened. Reports are anonymous and reviewed by our team.',
+                S.current.reportSheetSubtitle,
                 style: GoogleFonts.hankenGrotesk(
                     fontSize: 13.5, color: t.muted, height: 1.4),
               ),
               const SizedBox(height: 18),
               Text(
-                'REASON',
+                S.current.reportReason,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -254,6 +277,8 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
                 ),
               ),
               const SizedBox(height: 10),
+              // Iterate over English reason keys; display translated label.
+              // _selected stores the English key so the backend always receives English.
               ..._reasons.map((r) {
                 final selected = _selected == r;
                 return Padding(
@@ -284,7 +309,7 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              r,
+                              _reasonLabel(r),
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,

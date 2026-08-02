@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/app_strings.dart';
 import '../models/user_state.dart';
 import '../theme/tokens.dart';
 
@@ -62,11 +63,27 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
     'Dev',
   ];
 
+  // Gender values sent to the API — must stay English.
+  static const _genderValues = ['Female', 'Male', 'Non-binary'];
+
   @override
   void initState() {
     super.initState();
     // Copy the current active filter values into draft state so user can edit them!
     _draft = _notifier.value;
+  }
+
+  String _genderLabel(String value) {
+    switch (value) {
+      case 'Female':
+        return S.current.genderFemale;
+      case 'Male':
+        return S.current.genderMale;
+      case 'Non-binary':
+        return S.current.genderNonBinary;
+      default:
+        return value;
+    }
   }
 
   @override
@@ -120,7 +137,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Filter & Sort',
+                      S.current.filterAndSort,
                       style: GoogleFonts.bricolageGrotesque(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
@@ -129,7 +146,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Adjust feasibility, interests, skills & gender',
+                      S.current.filterSubtitle,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 12,
                         color: t.muted2,
@@ -146,7 +163,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                     icon: const Icon(Icons.refresh_rounded,
                         size: 15, color: NeedHubTokens.clay),
                     label: Text(
-                      'Reset All',
+                      S.current.resetAll,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -168,8 +185,8 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                   children: [
                     // ── 1. FEASIBILITY & DISTANCE ───────────────────────────
                     _SectionHeader(
-                      title: 'FEASIBILITY & LOCATION',
-                      subtitle: 'Set maximum distance radius and budget limits',
+                      title: S.current.feasibilityAndLocation,
+                      subtitle: S.current.feasibilitySubtitle,
                       icon: Icons.location_on_outlined,
                       t: t,
                     ),
@@ -209,7 +226,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                           ),
                           child: Text(
                             _draft.maxDistanceKm >= 50
-                                ? '50+ km (Any)'
+                                ? S.current.anyDistance
                                 : '${_draft.maxDistanceKm.toInt()} km',
                             style: GoogleFonts.bricolageGrotesque(
                               fontSize: 13,
@@ -224,7 +241,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                     if (isEarn) ...[
                       const SizedBox(height: 14),
                       Text(
-                        'BUDGET RANGE (₹)',
+                        S.current.budgetRange,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -237,7 +254,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                         children: [
                           Expanded(
                             child: _BudgetField(
-                              label: 'Min budget',
+                              label: S.current.minBudgetLabel,
                               value: _draft.minBudget,
                               onChanged: (v) => setState(() =>
                                   _draft = _draft.copyWith(minBudget: v)),
@@ -247,7 +264,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _BudgetField(
-                              label: 'Max budget',
+                              label: S.current.maxBudgetLabel,
                               value: _draft.maxBudget,
                               onChanged: (v) => setState(() =>
                                   _draft = _draft.copyWith(maxBudget: v)),
@@ -264,8 +281,8 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
 
                     // ── 2. INTERESTS ─────────────────────────────────────────
                     _SectionHeader(
-                      title: 'INTERESTS',
-                      subtitle: 'Filter profiles and needs matching topics you care about',
+                      title: S.current.interests,
+                      subtitle: S.current.interestsFilterSubtitle,
                       icon: Icons.interests_outlined,
                       t: t,
                     ),
@@ -301,8 +318,8 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
 
                     // ── 3. SKILLS ────────────────────────────────────────────
                     _SectionHeader(
-                      title: 'SKILLS',
-                      subtitle: 'Filter by specific expertise and practical skills',
+                      title: S.current.skills,
+                      subtitle: S.current.skillsFilterSubtitle,
                       icon: Icons.psychology_outlined,
                       t: t,
                     ),
@@ -338,8 +355,8 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
 
                     // ── 4. GENDER ────────────────────────────────────────────
                     _SectionHeader(
-                      title: 'GENDER PREFERENCE',
-                      subtitle: 'Show profiles or posters of specific gender',
+                      title: S.current.genderPreference,
+                      subtitle: S.current.genderFilterSubtitle,
                       icon: Icons.people_outline_rounded,
                       t: t,
                     ),
@@ -347,10 +364,11 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: ['Female', 'Male', 'Non-binary'].map((g) {
+                      // Iterate over English API values; use _genderLabel() for display only.
+                      children: _genderValues.map((g) {
                         final selected = _draft.genders.contains(g);
                         return _FilterChip(
-                          label: g,
+                          label: _genderLabel(g),
                           selected: selected,
                           color: NeedHubTokens.clay,
                           onTap: () {
@@ -375,8 +393,8 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
 
                     // ── 5. SORT BY ───────────────────────────────────────────
                     _SectionHeader(
-                      title: 'SORT ORDER',
-                      subtitle: 'Arrange items by recency, distance, or reward',
+                      title: S.current.sortOrder,
+                      subtitle: S.current.sortSubtitle,
                       icon: Icons.sort_rounded,
                       t: t,
                     ),
@@ -386,7 +404,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                       runSpacing: 8,
                       children: [
                         _SortOption(
-                          label: 'Newest first',
+                          label: S.current.newestFirst,
                           value: 'newest',
                           selected: _draft.sortBy == 'newest',
                           onTap: () => setState(
@@ -394,7 +412,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                           t: t,
                         ),
                         _SortOption(
-                          label: 'Nearest first',
+                          label: S.current.nearestFirst,
                           value: 'nearest',
                           selected: _draft.sortBy == 'nearest',
                           onTap: () => setState(() =>
@@ -402,7 +420,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                           t: t,
                         ),
                         _SortOption(
-                          label: 'Highest reward/points',
+                          label: S.current.highestReward,
                           value: 'highest_points',
                           selected: _draft.sortBy == 'highest_points',
                           onTap: () => setState(() => _draft =
@@ -436,8 +454,8 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                 ),
                 child: Text(
                   activeCount > 0
-                      ? 'Apply Filters ($activeCount)'
-                      : 'Apply Filters',
+                      ? '${S.current.applyFilters} ($activeCount)'
+                      : S.current.applyFilters,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
