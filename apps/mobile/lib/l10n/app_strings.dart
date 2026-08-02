@@ -156,6 +156,13 @@ class S {
     'personality': 'PERSONALITY',
     'takePersonalityTest': 'Take the personality test',
     'poweredByLyzr': 'Powered by Lyzr AI · ~2 min',
+    'personalityTest': 'Personality Test',
+    'personalityCtaSubtitle': 'Discover your NeedHub personality type — takes about 2 minutes',
+    'personalityResultSubtitle': 'You\'re {nickname} — tap to see your full results',
+    'rateACompletedNeed': 'Rate a completed need',
+    'more': 'more',
+    'feedback': 'Feedback',
+    'allCaughtUp': 'All caught up!',
     'tapToAnswerPrompt': 'Tap to answer this prompt…',
     'aboutMe': 'ABOUT ME',
     'skillIdLoveToTeach': 'THE SKILL I\'D LOVE TO TEACH',
@@ -707,6 +714,14 @@ class S {
   String get personality => _get('personality');
   String get takePersonalityTest => _get('takePersonalityTest');
   String get poweredByLyzr => _get('poweredByLyzr');
+  String get personalityTest => _get('personalityTest');
+  String get personalityCtaSubtitle => _get('personalityCtaSubtitle');
+  String personalityResultSubtitle(String nickname) =>
+      _get('personalityResultSubtitle').replaceAll('{nickname}', nickname);
+  String get rateACompletedNeed => _get('rateACompletedNeed');
+  String get more => _get('more');
+  String get feedback => _get('feedback');
+  String get allCaughtUp => _get('allCaughtUp');
   String get tapToAnswerPrompt => _get('tapToAnswerPrompt');
   String get aboutMe => _get('aboutMe');
   String get skillIdLoveToTeach => _get('skillIdLoveToTeach');
