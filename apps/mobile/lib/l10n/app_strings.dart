@@ -554,6 +554,45 @@ class S {
     'traitOpenness': 'Openness',
     'twentyFourHours': '24 Hours',
     'xOfYEarned': '{earned} / {total} earned',
+    // You screen – hardcoded section headers/labels
+    'addBioPrompt': 'Add a short bio about yourself…',
+    'verificationsSection': 'VERIFICATIONS',
+    'impactSection': 'IMPACT',
+    'skillsAndVouches': 'SKILLS & VOUCHES',
+    'skillVouchesDesc': 'Skill vouches from people you\'ve worked with. A "Verified" badge means you actually completed a Need together.',
+    'genderPreferNotToSay': 'Prefer not to say',
+    'noVouchesYet': 'No vouches yet',
+    'vouch': 'Vouch',
+    'profileUpdated': 'Profile updated!',
+    'editBioHint': 'Write a short bio about yourself (e.g. Passionate developer, coffee lover & avid reader…)',
+    'approved': 'Approved',
+    'rejected': 'Rejected',
+    'certPending': 'Pending',
+    'ptsEarnedFromReferrals': '{pts} pts earned from referrals so far',
+    'noInterestsYet': 'No interests added yet — tap Edit to add some',
+    'noSkillsYet': 'No skills added yet — tap Edit to add some',
+    // Add certificate sheet
+    'addACertificate': 'Add a certificate',
+    'certSheetDesc': 'Upload proof of a completed sustainability or volunteer programme. Our team will review it.',
+    'certTitleLabel': 'CERTIFICATE TITLE',
+    'certTitleHint': 'e.g. Community Volunteer',
+    'issuingOrg': 'ISSUING ORGANISATION',
+    'issuingOrgHint': 'e.g. Teach India',
+    'attachmentImage': 'ATTACHMENT (IMAGE)',
+    'chooseImageFromGallery': 'Choose image from gallery',
+    'submitForReview': 'Submit for review',
+    'certSubmittedForReview': 'Certificate submitted for review',
+    'uploadFailed': 'Upload failed',
+    // Add achievement sheet
+    'addAnAchievement': 'Add an achievement',
+    'achievementSheetDesc': 'Submit a competition win, hackathon finish, tournament placement, or award. Admin will review it.',
+    'categoryLabel': 'CATEGORY',
+    'achievementTitleLabel': 'TITLE',
+    'achievementDescLabel': 'DESCRIPTION',
+    'achievementDescHint': 'What did you achieve? (dates, org, placement)',
+    'imageOptional': 'IMAGE (OPTIONAL)',
+    'chooseImageOptional': 'Choose image (optional)',
+    'achievementSubmittedForReview': 'Achievement submitted for review',
   };
 
   static String _get(String key) {
@@ -1088,4 +1127,44 @@ class S {
   String get traitOpenness => _get('traitOpenness');
   String get twentyFourHours => _get('twentyFourHours');
   String xOfYEarned(int earned, int total) => _get('xOfYEarned').replaceAll('{earned}', '$earned').replaceAll('{total}', '$total');
+
+  // You screen section headers / labels
+  String get addBioPrompt => _get('addBioPrompt');
+  String get verificationsSection => _get('verificationsSection');
+  String get impactSection => _get('impactSection');
+  String get skillsAndVouches => _get('skillsAndVouches');
+  String get skillVouchesDesc => _get('skillVouchesDesc');
+  String get genderPreferNotToSay => _get('genderPreferNotToSay');
+  String get noVouchesYet => _get('noVouchesYet');
+  String get vouch => _get('vouch');
+  String get profileUpdated => _get('profileUpdated');
+  String get editBioHint => _get('editBioHint');
+  String get approved => _get('approved');
+  String get rejected => _get('rejected');
+  String get certPending => _get('certPending');
+  String ptsEarnedFromReferrals(int pts) => _get('ptsEarnedFromReferrals').replaceAll('{pts}', '$pts');
+  String get noInterestsYet => _get('noInterestsYet');
+  String get noSkillsYet => _get('noSkillsYet');
+  // Add certificate sheet
+  String get addACertificate => _get('addACertificate');
+  String get certSheetDesc => _get('certSheetDesc');
+  String get certTitleLabel => _get('certTitleLabel');
+  String get certTitleHint => _get('certTitleHint');
+  String get issuingOrg => _get('issuingOrg');
+  String get issuingOrgHint => _get('issuingOrgHint');
+  String get attachmentImage => _get('attachmentImage');
+  String get chooseImageFromGallery => _get('chooseImageFromGallery');
+  String get submitForReview => _get('submitForReview');
+  String get certSubmittedForReview => _get('certSubmittedForReview');
+  String get uploadFailed => _get('uploadFailed');
+  // Add achievement sheet
+  String get addAnAchievement => _get('addAnAchievement');
+  String get achievementSheetDesc => _get('achievementSheetDesc');
+  String get categoryLabel => _get('categoryLabel');
+  String get achievementTitleLabel => _get('achievementTitleLabel');
+  String get achievementDescLabel => _get('achievementDescLabel');
+  String get achievementDescHint => _get('achievementDescHint');
+  String get imageOptional => _get('imageOptional');
+  String get chooseImageOptional => _get('chooseImageOptional');
+  String get achievementSubmittedForReview => _get('achievementSubmittedForReview');
 }

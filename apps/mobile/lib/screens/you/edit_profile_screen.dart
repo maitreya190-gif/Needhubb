@@ -80,8 +80,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Please enable location services.')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(S.current.enableLocationServices)));
         }
         return;
       }
@@ -92,8 +92,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       if (perm == LocationPermission.denied ||
           perm == LocationPermission.deniedForever) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Location permission was denied.')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(S.current.locationPermissionDenied)));
         }
         return;
       }
@@ -129,23 +129,23 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(
-            'Location Precision',
+            S.current.locationPrecision,
             style: GoogleFonts.bricolageGrotesque(fontWeight: FontWeight.w700),
           ),
           content: Text(
-            'Do you want to share your exact location or an approximate 2km radius locality?',
+            S.current.locationPrecisionDesc,
             style: GoogleFonts.hankenGrotesk(fontSize: 15),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: Text('2km Radius',
+              child: Text(S.current.twoKmRadius,
                   style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.bold)),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFB85C38)),
-              child: Text('Exact Location',
+              child: Text(S.current.exactLocation,
                   style: GoogleFonts.hankenGrotesk(
                       fontWeight: FontWeight.bold, color: Colors.white)),
             ),
@@ -221,7 +221,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not fetch location: $e')));
+            SnackBar(content: Text('${S.current.couldNotFetchLocation}: $e')));
       }
     } finally {
       if (mounted) setState(() => _locating = false);
@@ -409,14 +409,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated!')),
+          SnackBar(content: Text(S.current.profileUpdated)),
         );
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Save error: $e')),
+          SnackBar(content: Text('${S.current.uploadFailed}: $e')),
         );
       }
     } finally {
@@ -507,8 +507,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
             // Bio
             _MultilineField(
-              label: 'BIO',
-              hint: 'Write a short bio about yourself (e.g. Passionate developer, coffee lover & avid reader…)',
+              label: s.aLineAboutYouBio,
+              hint: s.editBioHint,
               controller: _bioController,
               t: t,
               minLines: 3,
@@ -518,8 +518,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
             // Location
             NhTextField(
-              label: 'Location',
-              hint: 'City or neighbourhood',
+              label: s.location,
+              hint: s.cityOrNeighbourhood,
               controller: _locationController,
               textInputAction: TextInputAction.done,
               readOnly: true,
@@ -723,16 +723,16 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: const [
-                'Female',
-                'Male',
-                'Non-binary',
-                'Prefer not to say'
+              children: [
+                ('Female', s.genderFemale),
+                ('Male', s.genderMale),
+                ('Non-binary', s.genderNonBinary),
+                ('Prefer not to say', s.genderPreferNotToSay),
               ]
-                  .map((g) => _EditGenderChip(
-                        label: g,
-                        selected: _gender == g,
-                        onTap: () => setState(() => _gender = g),
+                  .map((pair) => _EditGenderChip(
+                        label: pair.$2,
+                        selected: _gender == pair.$1,
+                        onTap: () => setState(() => _gender = pair.$1),
                         t: t,
                       ))
                   .toList(),

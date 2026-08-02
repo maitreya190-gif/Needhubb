@@ -165,7 +165,7 @@ class _PointsBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$points Impact Points',
+                  '$points ${S.current.impactPoints}',
                   style: GoogleFonts.bricolageGrotesque(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -173,7 +173,7 @@ class _PointsBanner extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '50 pts = 6h boost · 100 pts = 24h · 200 pts = 72h',
+                  S.current.boostPointsInfo,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 12, color: t.muted),
                 ),
@@ -397,7 +397,7 @@ class _AchievementsTab extends StatelessWidget {
         Row(
           children: [
             Text(
-              '3 / 8 earned',
+              S.current.xOfYEarned(3, 8),
               style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
             ),
           ],
@@ -633,7 +633,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
                 ),
               ),
               Text(
-                'Impact Points',
+                S.current.impactPoints,
                 style: GoogleFonts.hankenGrotesk(
                     fontSize: 15, color: t.muted),
               ),

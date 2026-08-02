@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/app_strings.dart';
 import '../services/profiles_api.dart';
 import '../services/vouches_api.dart';
 import '../theme/tokens.dart';
@@ -38,7 +39,7 @@ class NhSkillVouchSection extends StatelessWidget {
   Widget build(BuildContext context) {
     if (skills.isEmpty) {
       return Text(
-        'No skills listed yet',
+        S.current.noSkillsListedYet,
         style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted2),
       );
     }
@@ -140,8 +141,8 @@ class _SkillVouchRowState extends State<_SkillVouchRow> {
               ),
               Text(
                 vouchCount == 0
-                    ? 'No vouches yet'
-                    : '$vouchCount vouch${vouchCount == 1 ? '' : 'es'}',
+                    ? S.current.noVouchesYet
+                    : '$vouchCount ${S.current.vouch}${vouchCount == 1 ? '' : 'es'}',
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -162,7 +163,7 @@ class _SkillVouchRowState extends State<_SkillVouchRow> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      widget.existingVouchId != null ? 'Edit' : 'Vouch',
+                      widget.existingVouchId != null ? S.current.edit : S.current.vouch,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
@@ -244,7 +245,7 @@ class _VerifiedChip extends StatelessWidget {
               size: compact ? 10 : 11, color: NeedHubTokens.forest),
           const SizedBox(width: 2),
           Text(
-            'Verified',
+            S.current.verified,
             style: GoogleFonts.hankenGrotesk(
               fontSize: compact ? 9.5 : 10,
               fontWeight: FontWeight.w700,

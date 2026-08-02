@@ -314,7 +314,7 @@ class YouScreen extends ConsumerWidget {
                                                 size: 15, color: t.onDarkMuted),
                                             const SizedBox(width: 4),
                                             Text(
-                                              'Add a short bio about yourself…',
+                                              s.addBioPrompt,
                                               style: GoogleFonts.hankenGrotesk(
                                                 fontSize: 12,
                                                 color: t.onDarkMuted,
@@ -414,7 +414,7 @@ class YouScreen extends ConsumerWidget {
 
                   // ── Verifications ─────────────────────────────────────────
                   _CollapsibleSection(
-                    title: 'VERIFICATIONS',
+                    title: s.verificationsSection,
                     t: t,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -431,7 +431,7 @@ class YouScreen extends ConsumerWidget {
 
                   // ── Impact section ───────────────────────────────────────
                   Text(
-                    'IMPACT',
+                    s.impactSection,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -491,7 +491,7 @@ class YouScreen extends ConsumerWidget {
                             _BreakdownPill(
                                 label: s.reviews, value: '+90'),
                             _BreakdownPill(
-                                label: 'Certificates', value: '+70'),
+                                label: s.certificates, value: '+70'),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -612,10 +612,10 @@ class YouScreen extends ConsumerWidget {
                           final approved = c.status == 'APPROVED';
                           final rejected = c.status == 'REJECTED';
                           final status = approved
-                              ? 'Approved'
+                              ? s.approved
                               : rejected
-                                  ? 'Rejected'
-                                  : 'Pending';
+                                  ? s.rejected
+                                  : s.certPending;
                           final color = approved
                               ? NeedHubTokens.forest
                               : rejected
@@ -653,7 +653,7 @@ class YouScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Earned automatically from what you actually do. Each one adds to your Trust Score.',
+                    s.badgesDesc,
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 12.5, color: t.muted),
                   ),
@@ -665,9 +665,8 @@ class YouScreen extends ConsumerWidget {
 
                   // ── Skills & Vouches (earned, server-computed) ────────────
                   _CollapsibleSection(
-                    title: 'SKILLS & VOUCHES',
-                    subtitle:
-                        'Skill vouches from people you\'ve worked with. A "Verified" badge means you actually completed a Need together.',
+                    title: s.skillsAndVouches,
+                    subtitle: s.skillVouchesDesc,
                     t: t,
                     child: _SkillVouchesSection(t: t),
                   ),
@@ -745,7 +744,7 @@ class YouScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Earned through doing — not spendable.',
+                    s.achievementsDesc,
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 12.5, color: t.muted),
                   ),
@@ -779,7 +778,7 @@ class YouScreen extends ConsumerWidget {
                       builder: (_, interests, __) {
                         if (interests.isEmpty) {
                           return Text(
-                            'No interests added yet — tap Edit to add some',
+                            s.noInterestsYet,
                             style: GoogleFonts.hankenGrotesk(
                                 fontSize: 13, color: t.muted2),
                           );
@@ -806,7 +805,7 @@ class YouScreen extends ConsumerWidget {
                       builder: (_, skills, __) {
                         if (skills.isEmpty) {
                           return Text(
-                            'No skills added yet — tap Edit to add some',
+                            s.noSkillsYet,
                             style: GoogleFonts.hankenGrotesk(
                                 fontSize: 13, color: t.muted2),
                           );
@@ -998,13 +997,13 @@ class _AddAchievementSheetState extends ConsumerState<_AddAchievementSheet> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Achievement submitted for review')),
+          SnackBar(content: Text(S.current.achievementSubmittedForReview)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e')),
+          SnackBar(content: Text('${S.current.uploadFailed}: $e')),
         );
         setState(() => _submitting = false);
       }
@@ -1014,6 +1013,7 @@ class _AddAchievementSheetState extends ConsumerState<_AddAchievementSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     final canSubmit = _titleController.text.trim().isNotEmpty &&
         _descriptionController.text.trim().isNotEmpty;
     return Padding(
@@ -1040,16 +1040,16 @@ class _AddAchievementSheetState extends ConsumerState<_AddAchievementSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text('Add an achievement',
+              Text(s.addAnAchievement,
                   style: GoogleFonts.bricolageGrotesque(
                       fontSize: 22, fontWeight: FontWeight.w800, color: t.ink)),
               const SizedBox(height: 6),
               Text(
-                  'Submit a competition win, hackathon finish, tournament placement, or award. Admin will review it.',
+                  s.achievementSheetDesc,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 13.5, color: t.muted, height: 1.4)),
               const SizedBox(height: 18),
-              _FieldLabel(label: 'CATEGORY', t: t),
+              _FieldLabel(label: s.categoryLabel, t: t),
               Wrap(
                 spacing: 8,
                 children: _categories.map((c) {
@@ -1078,21 +1078,21 @@ class _AddAchievementSheetState extends ConsumerState<_AddAchievementSheet> {
                 }).toList(),
               ),
               const SizedBox(height: 14),
-              _FieldLabel(label: 'TITLE', t: t),
+              _FieldLabel(label: s.achievementTitleLabel, t: t),
               _PlainField(
                   controller: _titleController,
                   hint: 'e.g. Runner-up, InovaHack 2026',
                   onChanged: () => setState(() {}),
                   t: t),
               const SizedBox(height: 12),
-              _FieldLabel(label: 'DESCRIPTION', t: t),
+              _FieldLabel(label: s.achievementDescLabel, t: t),
               _PlainField(
                   controller: _descriptionController,
-                  hint: 'What did you achieve? (dates, org, placement)',
+                  hint: s.achievementDescHint,
                   onChanged: () => setState(() {}),
                   t: t),
               const SizedBox(height: 12),
-              _FieldLabel(label: 'IMAGE (OPTIONAL)', t: t),
+              _FieldLabel(label: s.imageOptional, t: t),
               GestureDetector(
                 onTap: _pickFile,
                 child: Container(
@@ -1117,7 +1117,7 @@ class _AddAchievementSheetState extends ConsumerState<_AddAchievementSheet> {
                         child: Text(
                           _filePath != null
                               ? _filePath!.split('/').last
-                              : 'Choose image (optional)',
+                              : s.chooseImageOptional,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
@@ -1151,7 +1151,7 @@ class _AddAchievementSheetState extends ConsumerState<_AddAchievementSheet> {
                           height: 20,
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white))
-                      : Text('Submit for review',
+                      : Text(S.current.submitForReview,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 15, fontWeight: FontWeight.w700)),
                 ),
@@ -1210,13 +1210,13 @@ class _AddCertificateSheetState extends ConsumerState<_AddCertificateSheet> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Certificate submitted for review')),
+          SnackBar(content: Text(S.current.certSubmittedForReview)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Upload failed: $e')),
+          SnackBar(content: Text('${S.current.uploadFailed}: $e')),
         );
         setState(() => _submitting = false);
       }
@@ -1226,6 +1226,7 @@ class _AddCertificateSheetState extends ConsumerState<_AddCertificateSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     final canSubmit = _titleController.text.trim().isNotEmpty &&
         _orgController.text.trim().isNotEmpty &&
         _filePath != null;
@@ -1254,34 +1255,34 @@ class _AddCertificateSheetState extends ConsumerState<_AddCertificateSheet> {
               ),
               const SizedBox(height: 18),
               Text(
-                'Add a certificate',
+                s.addACertificate,
                 style: GoogleFonts.bricolageGrotesque(
                     fontSize: 22, fontWeight: FontWeight.w800, color: t.ink),
               ),
               const SizedBox(height: 6),
               Text(
-                'Upload proof of a completed sustainability or volunteer programme. Our team will review it.',
+                s.certSheetDesc,
                 style: GoogleFonts.hankenGrotesk(
                     fontSize: 13.5, color: t.muted, height: 1.4),
               ),
               const SizedBox(height: 18),
-              _FieldLabel(label: 'CERTIFICATE TITLE', t: t),
+              _FieldLabel(label: s.certTitleLabel, t: t),
               _PlainField(
                 controller: _titleController,
-                hint: 'e.g. Community Volunteer',
+                hint: s.certTitleHint,
                 onChanged: () => setState(() {}),
                 t: t,
               ),
               const SizedBox(height: 12),
-              _FieldLabel(label: 'ISSUING ORGANISATION', t: t),
+              _FieldLabel(label: s.issuingOrg, t: t),
               _PlainField(
                 controller: _orgController,
-                hint: 'e.g. Teach India',
+                hint: s.issuingOrgHint,
                 onChanged: () => setState(() {}),
                 t: t,
               ),
               const SizedBox(height: 12),
-              _FieldLabel(label: 'ATTACHMENT (IMAGE)', t: t),
+              _FieldLabel(label: s.attachmentImage, t: t),
               GestureDetector(
                 onTap: _pickFile,
                 child: Container(
@@ -1306,7 +1307,7 @@ class _AddCertificateSheetState extends ConsumerState<_AddCertificateSheet> {
                         child: Text(
                           _filePath != null
                               ? _filePath!.split('/').last
-                              : 'Choose image from gallery',
+                              : s.chooseImageFromGallery,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
@@ -1341,7 +1342,7 @@ class _AddCertificateSheetState extends ConsumerState<_AddCertificateSheet> {
                           child: CircularProgressIndicator(
                               strokeWidth: 2, color: Colors.white),
                         )
-                      : Text('Submit for review',
+                      : Text(S.current.submitForReview,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 15, fontWeight: FontWeight.w700)),
                 ),
@@ -1490,7 +1491,7 @@ class _CertTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
-              status == 'Approved'
+              status == S.current.approved
                   ? Icons.verified_rounded
                   : Icons.hourglass_top_rounded,
               color: statusColor,
@@ -1840,7 +1841,7 @@ class _AchievementsRow extends StatelessWidget {
 
         if (items.isEmpty) {
           return Text(
-            'Nothing submitted yet — add a certificate or competition win above.',
+            S.current.nothingSubmitted,
             style: GoogleFonts.hankenGrotesk(
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
@@ -2950,7 +2951,7 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
             ),
             const SizedBox(width: 8),
             _HistoryChip(
-              label: 'Connect ($connectCount)',
+              label: '${s.connect} ($connectCount)',
               selected: _filter == 'connect',
               onTap: () => setState(() { _filter = 'connect'; _showAllNeeds = false; }),
               t: t,
@@ -2958,7 +2959,7 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
             ),
             const SizedBox(width: 8),
             _HistoryChip(
-              label: 'Earn ($earnCount)',
+              label: '${s.earn} ($earnCount)',
               selected: _filter == 'earn',
               onTap: () => setState(() { _filter = 'earn'; _showAllNeeds = false; }),
               t: t,
@@ -3101,6 +3102,7 @@ class _PostedNeedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = S.current;
     final isEarn = need.category.toLowerCase() == 'earn';
     final catColor = isEarn ? NeedHubTokens.ochre : NeedHubTokens.forest;
     final offersCount = need.totalOfferCount;
@@ -3138,7 +3140,7 @@ class _PostedNeedCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      isEarn ? 'EARN' : 'CONNECT',
+                      isEarn ? s.earn.toUpperCase() : s.connect.toUpperCase(),
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
@@ -3835,7 +3837,7 @@ class _ReferAFriendCardState extends ConsumerState<_ReferAFriendCard> {
                 if (stats != null && stats.pointsEarned > 0) ...[
                   const SizedBox(height: 10),
                   Text(
-                    '${stats.pointsEarned} pts earned from referrals so far',
+                    s.ptsEarnedFromReferrals(stats.pointsEarned),
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 12,
                       color: Colors.white.withValues(alpha: 0.75),

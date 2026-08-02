@@ -1721,7 +1721,7 @@ class _ChatsTabPersonCuboidalTile extends ConsumerWidget {
                     Text(
                       person.distanceLabel.isNotEmpty
                           ? person.distanceLabel
-                          : 'Nearby',
+                          : S.current.nearby,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11,
                         color: t.muted,
