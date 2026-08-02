@@ -21,6 +21,7 @@ import '../../services/uploads_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_badge_row.dart';
+import '../../widgets/nh_skill_vouch_section.dart';
 import '../history/history_screen.dart';
 import '../hub/tabs/feed_tab.dart';
 import '../needs/need_detail_screen.dart';
@@ -615,6 +616,28 @@ class YouScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                   _BadgesSection(t: t),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Skills & Vouches (earned, server-computed) ────────────
+                  Text(
+                    'SKILLS & VOUCHES',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: t.muted2,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Skill vouches from people you\'ve worked with. A "Verified" badge means you actually completed a Need together.',
+                    style: GoogleFonts.hankenGrotesk(
+                        fontSize: 12.5, color: t.muted),
+                  ),
+                  const SizedBox(height: 14),
+                  _SkillVouchesSection(t: t),
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
@@ -1514,6 +1537,32 @@ class _BadgesSection extends StatelessWidget {
             ],
             NhBadgeRow(badges: badges, t: t),
           ],
+        );
+      },
+    );
+  }
+}
+
+// ── Skill vouches (read-only on your own profile) ────────────────────────────
+
+/// Own profile is view-only: you cannot vouch for your own skills, so this
+/// renders NhSkillVouchSection without an onVouch callback at all — the
+/// section then has no Vouch/Edit affordance to show, same widget used on
+/// person_screen.dart, just without the action.
+class _SkillVouchesSection extends StatelessWidget {
+  final NeedHubTokens t;
+
+  const _SkillVouchesSection({required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ProfileMe?>(
+      valueListenable: myProfileNotifier,
+      builder: (_, profile, __) {
+        return NhSkillVouchSection(
+          skills: profile?.skillEntries ?? const [],
+          skillVouches: profile?.skillVouches ?? const {},
+          t: t,
         );
       },
     );

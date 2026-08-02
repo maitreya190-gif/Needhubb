@@ -1,6 +1,17 @@
 import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 import 'personality_api.dart';
+import 'vouches_api.dart';
+
+/// A skill on a profile, id and label both — the id is what a vouch actually
+/// targets. The pre-existing `skillLabels` (label-only) stays exactly as it
+/// was for every screen already using it; this is additive, not a
+/// replacement.
+class SkillEntry {
+  final String id;
+  final String label;
+  const SkillEntry({required this.id, required this.label});
+}
 
 /// An earned badge, exactly as the server computed it.
 ///
@@ -80,6 +91,15 @@ class ProfileMe {
   final int helpedNeedCount;
   final int fulfilledPostedCount;
 
+  /// Same skills as [skillLabels], with ids attached — a vouch targets a
+  /// specific skillId.
+  final List<SkillEntry> skillEntries;
+
+  /// Vouch summary per skillId, from the server's `skillVouches` map. A
+  /// skill with zero vouches has no entry here — see
+  /// SkillVouchSummary.mapFrom.
+  final Map<String, SkillVouchSummary> skillVouches;
+
   const ProfileMe({
     required this.id,
     required this.displayName,
@@ -109,7 +129,20 @@ class ProfileMe {
     this.badges = const [],
     this.helpedNeedCount = 0,
     this.fulfilledPostedCount = 0,
+    this.skillEntries = const [],
+    this.skillVouches = const {},
   });
+
+  /// Vouch summary for a skill, or an empty placeholder if it has none yet.
+  SkillVouchSummary vouchesFor(String skillId, String fallbackLabel) =>
+      skillVouches[skillId] ??
+      SkillVouchSummary(
+        skillId: skillId,
+        label: fallbackLabel,
+        vouchCount: 0,
+        verifiedVouchCount: 0,
+        recentVouchers: const [],
+      );
 
   bool get hasPersonality => personalityTraits != null;
 
@@ -158,6 +191,21 @@ class ProfileMe {
           return null;
         })
         .whereType<String>()
+        .toList();
+    // Same list, keeping the skill id alongside the label — needed to submit
+    // a vouch, which targets a specific skillId (see vouches_api.dart).
+    final skillEntries = skillsList
+        .map((ps) {
+          if (ps is! Map<String, dynamic>) return null;
+          final nested = ps['skill'];
+          if (nested is Map<String, dynamic>) {
+            final id = nested['id'] as String? ?? ps['skillId'] as String?;
+            final label = nested['label'] as String?;
+            if (id != null && label != null) return SkillEntry(id: id, label: label);
+          }
+          return null;
+        })
+        .whereType<SkillEntry>()
         .toList();
 
     final faceVerifiedAtStr = profile['faceVerifiedAt'] as String?;
@@ -229,6 +277,8 @@ class ProfileMe {
       badges: ProfileBadge.listFrom(j['badges']),
       helpedNeedCount: (j['helpedNeedCount'] as num?)?.toInt() ?? 0,
       fulfilledPostedCount: (j['fulfilledPostedCount'] as num?)?.toInt() ?? 0,
+      skillEntries: skillEntries,
+      skillVouches: SkillVouchSummary.mapFrom(j['skillVouches']),
     );
   }
 }

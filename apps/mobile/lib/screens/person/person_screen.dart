@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,8 +10,9 @@ import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
-import '../../widgets/nh_badge_row.dart';
 import '../../widgets/nh_report_sheet.dart';
+import '../../widgets/nh_skill_vouch_section.dart';
+import '../../widgets/nh_vouch_sheet.dart';
 import '../history/history_screen.dart';
 
 class PersonScreen extends ConsumerStatefulWidget {
@@ -65,10 +67,14 @@ class PersonScreen extends ConsumerStatefulWidget {
 class _PersonScreenState extends ConsumerState<PersonScreen> {
   Person? _real;
 
-  /// Kept alongside `_real` because badges are public profile data that the
-  /// `Person` view model does not carry — someone deciding whether to meet
-  /// this person should be able to see what they have actually done.
+  /// Kept alongside `_real` for skill vouches — the `Person` view model only
+  /// carries skill labels, not the skillIds a vouch actually targets.
   ProfileMe? _profile;
+
+  /// Vouches the viewer has already given this person, keyed by skillId, so
+  /// each skill row can offer "Edit" instead of "Vouch". Empty on your own
+  /// profile (self-vouching is not offered) or before this loads.
+  Map<String, String> _myVouchIdsBySkill = const {};
 
   @override
   void initState() {
@@ -85,19 +91,53 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
         _real = _toPerson(me, widget.avatarColor);
         _profile = me;
       });
+      unawaited(_loadMyVouches());
     } catch (_) {/* keep the mock fallback */}
   }
 
-  /// Grounds the badge row in the actual numbers behind it, so it reads as
-  /// evidence rather than decoration.
-  static String _badgeSubtitle(ProfileMe m) {
-    final earned = m.earnedBadges.length;
-    final parts = <String>['$earned earned'];
-    if (m.helpedNeedCount > 0) {
-      parts.add(
-          '${m.helpedNeedCount} need${m.helpedNeedCount == 1 ? '' : 's'} completed for others');
+  Future<void> _loadMyVouches() async {
+    final myId = ref.read(authProvider).userId;
+    if (myId == null || widget.userId == null || widget.userId == myId) {
+      return; // no self-vouching, nothing to preload on your own profile
     }
-    return parts.join(' · ');
+    try {
+      final given = await ref.read(vouchesApiProvider).given();
+      if (!mounted) return;
+      setState(() {
+        _myVouchIdsBySkill = {
+          for (final v in given.where((v) => v.voucheeId == widget.userId))
+            v.skillId: v.id,
+        };
+      });
+    } catch (_) {/* vouch/edit affordance just won't preload; not fatal */}
+  }
+
+  Future<void> _onVouchTap(SkillEntry skill, String? existingVouchId) async {
+    final profile = _profile;
+    if (profile == null) return;
+
+    String? existingTestimonial;
+    if (existingVouchId != null) {
+      final myId = ref.read(authProvider).userId;
+      final recent = profile.skillVouches[skill.id]?.recentVouchers ?? const [];
+      for (final v in recent) {
+        if (v.voucherId == myId) {
+          existingTestimonial = v.testimonial;
+          break;
+        }
+      }
+    }
+
+    final changed = await NhVouchSheet.open(
+      context,
+      voucheeId: widget.userId!,
+      voucheeName: profile.displayName,
+      skillId: skill.id,
+      skillLabel: skill.label,
+      existingVouchId: existingVouchId,
+      existingTestimonial: existingTestimonial,
+    );
+    if (changed == true) await _hydrate();
   }
 
   static Person _toPerson(ProfileMe m, Color color) {
@@ -134,10 +174,10 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
   }
 
   // Shortcut aliases so the existing build() body reads unchanged.
-  String get name => _real?.name ?? widget.name;
-  String get initials => _real?.initials ?? widget.initials;
-  Color get avatarColor => _real?.avatarColor ?? widget.avatarColor;
-  String? get location => _real?.location ?? widget.location;
+  String get name => widget.name;
+  String get initials => widget.initials;
+  Color get avatarColor => widget.avatarColor;
+  String? get location => widget.location;
   String? get subtitle => widget.subtitle;
 
   @override
@@ -294,7 +334,7 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    Icon(Icons.person_add_rounded, color: NeedHubTokens.forest, size: 20),
+                                    const Icon(Icons.person_add_rounded, color: NeedHubTokens.forest, size: 20),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -574,37 +614,6 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
 
-                  // ── Badges ────────────────────────────────────────────────
-                  // Only earned ones here: on someone else's profile the locked
-                  // badges are noise, and the reason to show these at all is as
-                  // evidence of what this person has actually done.
-                  if (_profile != null && _profile!.earnedBadges.isNotEmpty) ...[
-                    Text(
-                      'BADGES',
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: t.muted2,
-                        letterSpacing: 0.7,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _badgeSubtitle(_profile!),
-                      style: GoogleFonts.hankenGrotesk(
-                          fontSize: 12.5, color: t.muted),
-                    ),
-                    const SizedBox(height: 14),
-                    NhBadgeRow(
-                      badges: _profile!.badges,
-                      t: t,
-                      showLocked: false,
-                    ),
-                    const SizedBox(height: 24),
-                    Divider(color: t.rail, height: 1),
-                    const SizedBox(height: 22),
-                  ],
-
                   // ── Past Work & Ratings ────────────────────────────────────
                   Row(
                     children: [
@@ -802,7 +811,23 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  if (person != null && person.skills.isNotEmpty)
+                  if (_profile != null && _profile!.skillEntries.isNotEmpty)
+                    // Real profile loaded: vouch-aware rendering with counts,
+                    // the Verified badge, testimonials, and (on someone
+                    // else's profile) a Vouch/Edit action per skill.
+                    NhSkillVouchSection(
+                      skills: _profile!.skillEntries,
+                      skillVouches: _profile!.skillVouches,
+                      t: t,
+                      myVouchIdsBySkill: _myVouchIdsBySkill,
+                      onVouch: (widget.userId != null &&
+                              widget.userId != ref.read(authProvider).userId)
+                          ? _onVouchTap
+                          : null,
+                    )
+                  else if (person != null && person.skills.isNotEmpty)
+                    // Mock fallback (no backing skillIds to vouch against) —
+                    // unchanged from before this feature existed.
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,

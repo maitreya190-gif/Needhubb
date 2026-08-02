@@ -11,6 +11,7 @@ import '../../theme/tokens.dart';
 import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_report_sheet.dart';
 import '../../widgets/nh_urgent_badge.dart';
+import '../../widgets/nh_vouch_picker_sheet.dart';
 import '../hub/conversation_screen.dart';
 import '../../widgets/nh_full_screen_image_viewer.dart';
 import '../../services/social_providers.dart';
@@ -1503,6 +1504,32 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                     ),
                   );
                 },
+              ),
+            ),
+          ],
+          if (isParticipant &&
+              counterpartyId != null &&
+              counterpartyId.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.thumb_up_outlined, size: 18),
+                label: Text('Vouch for $counterpartyName\'s Skills'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: NeedHubTokens.forest,
+                  side: BorderSide(
+                      color: NeedHubTokens.forest.withValues(alpha: 0.4)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => NhVouchPickerSheet.open(
+                  context,
+                  needId: need.id,
+                  voucheeId: counterpartyId,
+                  voucheeName: counterpartyName,
+                ),
               ),
             ),
           ],
