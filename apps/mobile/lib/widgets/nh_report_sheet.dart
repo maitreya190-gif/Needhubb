@@ -325,7 +325,7 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
               }),
               const SizedBox(height: 14),
               Text(
-                'DETAILS (REQUIRED, MIN 10 CHARS)',
+                S.current.reportDetailsLabel,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -349,7 +349,7 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
                       GoogleFonts.hankenGrotesk(fontSize: 14, color: t.ink),
                   decoration: InputDecoration(
                     hintText:
-                        'Please describe what happened so our team can investigate…',
+                        S.current.reportDetailsHint,
                     hintStyle: GoogleFonts.hankenGrotesk(
                         fontSize: 14, color: t.muted),
                     border: InputBorder.none,
@@ -407,8 +407,8 @@ class _NhReportSheetState extends ConsumerState<NhReportSheet> {
                         )
                       : Text(
                           widget.alsoBlock
-                              ? 'Submit and block'
-                              : 'Submit report',
+                              ? S.current.reportSubmitAndBlock
+                              : S.current.reportSubmitBtn,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 15, fontWeight: FontWeight.w700),
                         ),

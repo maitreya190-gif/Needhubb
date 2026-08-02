@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/user_state.dart';
 import '../theme/tokens.dart';
+import '../l10n/app_strings.dart';
 import 'nh_report_sheet.dart';
 
 class NhPersonProfileSheet extends StatelessWidget {
@@ -131,7 +132,7 @@ class NhPersonProfileSheet extends StatelessWidget {
                             size: 15, color: Colors.red.shade400),
                         const SizedBox(width: 6),
                         Text(
-                          'Blocked',
+                          S.current.blockedStatus,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -169,7 +170,7 @@ class NhPersonProfileSheet extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            isFriend ? 'Friends' : 'Not friends yet',
+                            isFriend ? S.current.friendsStatus : S.current.notFriendsYet,
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -212,7 +213,7 @@ class NhPersonProfileSheet extends StatelessWidget {
                       color: NeedHubTokens.clay,
                     ),
                     label: Text(
-                      isFriend ? 'Remove friend' : 'Add friend',
+                      isFriend ? S.current.removeFriend : S.current.addFriend,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -238,7 +239,7 @@ class NhPersonProfileSheet extends StatelessWidget {
               icon: Icon(Icons.flag_outlined,
                   size: 16, color: Colors.red.shade400),
               label: Text(
-                'Report',
+                S.current.report,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,

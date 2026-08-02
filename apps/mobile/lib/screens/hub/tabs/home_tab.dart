@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../l10n/app_strings.dart';
 import '../../../models/need.dart';
 import '../../../models/user_state.dart';
+import '../../../providers/language_provider.dart';
 import '../../../services/needs_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
@@ -28,6 +30,11 @@ class _HomeTabState extends ConsumerState<HomeTab> {
     super.initState();
     needsNotifier.addListener(_onNeedsChanged);
     feedNeedsNotifier.addListener(_onNeedsChanged);
+    uiLanguageNotifier.addListener(_bump);
+  }
+
+  void _bump() {
+    if (mounted) setState(() {});
   }
 
   void _onNeedsChanged() => setState(() {});
@@ -36,6 +43,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   void dispose() {
     needsNotifier.removeListener(_onNeedsChanged);
     feedNeedsNotifier.removeListener(_onNeedsChanged);
+    uiLanguageNotifier.removeListener(_bump);
     _searchController.dispose();
     super.dispose();
   }
@@ -96,6 +104,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
 
     return Scaffold(
       backgroundColor: t.paper,
@@ -176,7 +185,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           color: t.ink,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Search needs near you…',
+                          hintText: s.searchNeedsNearYou,
                           hintStyle: GoogleFonts.hankenGrotesk(
                             fontSize: 14,
                             color: t.muted,
@@ -202,14 +211,14 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
                   _CategoryChip(
-                    label: 'All',
+                    label: s.allCategory,
                     value: 'all',
                     selected: _selectedCategory == 'all',
                     onTap: () => setState(() => _selectedCategory = 'all'),
                   ),
                   const SizedBox(width: 8),
                   _CategoryChip(
-                    label: 'Connect',
+                    label: s.connect,
                     value: 'connect',
                     selected: _selectedCategory == 'connect',
                     onTap: () => setState(() => _selectedCategory = 'connect'),
@@ -217,7 +226,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   ),
                   const SizedBox(width: 8),
                   _CategoryChip(
-                    label: 'Earn',
+                    label: s.earn,
                     value: 'earn',
                     selected: _selectedCategory == 'earn',
                     onTap: () => setState(() => _selectedCategory = 'earn'),
@@ -225,7 +234,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   ),
                   const SizedBox(width: 8),
                   _CategoryChip(
-                    label: 'Chit-chat',
+                    label: s.chitchatLabel,
                     value: 'chitchat',
                     selected: _selectedCategory == 'chitchat',
                     onTap: () => setState(() => _selectedCategory = 'chitchat'),
@@ -247,7 +256,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           Icon(Icons.search_off_rounded, size: 40, color: t.muted),
                           const SizedBox(height: 12),
                           Text(
-                            'No needs found',
+                            s.noNeedsFound,
                             style: GoogleFonts.bricolageGrotesque(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -256,7 +265,7 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Try a different filter or search term',
+                            s.tryDifferentFilter,
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 14,
                               color: t.muted,
@@ -350,19 +359,20 @@ class NeedCard extends StatelessWidget {
     }
   }
 
-  String _categoryLabel() {
+  String _categoryLabel(S s) {
     switch (need.category) {
-      case 'earn': return 'Earn';
-      case 'chitchat': return 'Chit-chat';
-      default: return 'Connect';
+      case 'earn': return s.earn;
+      case 'chitchat': return s.chitchatLabel;
+      default: return s.connect;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     final cat = _categoryColor();
-    final catLabel = _categoryLabel();
+    final catLabel = _categoryLabel(s);
 
     return GestureDetector(
       onTap: onTap,
@@ -537,11 +547,23 @@ class _FilterSheetState extends State<_FilterSheet> {
     _sortBy = widget.sortBy;
     _budgetFilterOn = widget.maxBudget != null;
     _budgetSlider = (widget.maxBudget ?? 1000).toDouble();
+    uiLanguageNotifier.addListener(_bump);
+  }
+
+  void _bump() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    uiLanguageNotifier.removeListener(_bump);
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       decoration: BoxDecoration(
@@ -566,7 +588,7 @@ class _FilterSheetState extends State<_FilterSheet> {
           Row(
             children: [
               Text(
-                'Filter & Sort',
+                s.filterAndSort,
                 style: GoogleFonts.bricolageGrotesque(
                     fontSize: 20, fontWeight: FontWeight.w800, color: t.ink),
               ),
@@ -577,7 +599,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                   Navigator.pop(context);
                 },
                 child: Text(
-                  'Reset',
+                  s.reset,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -588,7 +610,7 @@ class _FilterSheetState extends State<_FilterSheet> {
           ),
           const SizedBox(height: 20),
 
-          Text('SORT BY',
+          Text(s.sortByUpper,
               style: GoogleFonts.hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -596,9 +618,9 @@ class _FilterSheetState extends State<_FilterSheet> {
                   letterSpacing: 0.7)),
           const SizedBox(height: 10),
           ...[
-            ('newest', 'Newest first', Icons.access_time_rounded),
-            ('oldest', 'Oldest first', Icons.history_rounded),
-            ('budget', 'Highest budget', Icons.currency_rupee_rounded),
+            ('newest', s.newestFirst, Icons.access_time_rounded),
+            ('oldest', s.oldestFirst, Icons.history_rounded),
+            ('budget', s.highestBudget, Icons.currency_rupee_rounded),
           ].map((opt) => GestureDetector(
                 onTap: () => setState(() => _sortBy = opt.$1),
                 child: Container(
@@ -646,7 +668,7 @@ class _FilterSheetState extends State<_FilterSheet> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Text('MAX BUDGET',
+              Text(s.maxBudgetUpper,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -665,7 +687,7 @@ class _FilterSheetState extends State<_FilterSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Up to',
+                Text(s.upTo,
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 13, color: t.muted)),
                 Text('₹${_budgetSlider.toInt()}',
@@ -714,7 +736,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 textStyle: GoogleFonts.hankenGrotesk(
                     fontSize: 15, fontWeight: FontWeight.w700),
               ),
-              child: const Text('Apply filters'),
+              child: Text(s.applyFilters),
             ),
           ),
         ],
@@ -740,11 +762,13 @@ class _HomeChitChatControlCardState
   void initState() {
     super.initState();
     chitChatAvailableNotifier.addListener(_bump);
+    uiLanguageNotifier.addListener(_bump);
   }
 
   @override
   void dispose() {
     chitChatAvailableNotifier.removeListener(_bump);
+    uiLanguageNotifier.removeListener(_bump);
     super.dispose();
   }
 
@@ -755,6 +779,7 @@ class _HomeChitChatControlCardState
   @override
   Widget build(BuildContext context) {
     final t = widget.t;
+    final s = S.current;
     final available = chitChatAvailableNotifier.value;
 
     return Padding(
@@ -800,8 +825,8 @@ class _HomeChitChatControlCardState
               Expanded(
                 child: Text(
                   available
-                      ? "You're available for a chat right now"
-                      : 'Mark yourself available',
+                      ? s.youreAvailableForChat
+                      : s.markYourselfAvailableChat,
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,

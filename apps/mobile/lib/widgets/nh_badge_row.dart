@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/app_strings.dart';
 import '../services/profiles_api.dart';
 import '../theme/tokens.dart';
 
@@ -72,8 +73,8 @@ class NhBadgeRow extends StatelessWidget {
     if (visible.isEmpty) {
       return Text(
         showLocked
-            ? 'No badges yet — verify your account or complete a need to earn your first.'
-            : 'No badges earned yet.',
+            ? S.current.badgeEmpty
+            : S.current.badgeEmptyEarned,
         style: GoogleFonts.hankenGrotesk(
           fontSize: 12.5,
           fontWeight: FontWeight.w500,
@@ -110,8 +111,8 @@ class _BadgeSeal extends StatelessWidget {
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
           content: Text(badge.earned
-              ? '${badge.label} — earned'
-              : '${badge.label} — ${badge.description}'),
+              ? S.current.badgeEarned(badge.label)
+              : S.current.badgeLocked(badge.label, badge.description)),
         )),
       child: Column(
         mainAxisSize: MainAxisSize.min,

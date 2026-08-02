@@ -81,7 +81,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text(S.current.failedMessage(e.toString()))));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -246,7 +246,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text(S.current.failedMessage(e.toString()))));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -274,7 +274,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+            .showSnackBar(SnackBar(content: Text(S.current.failedMessage(e.toString()))));
       }
     } finally {
       if (mounted) {
@@ -805,10 +805,10 @@ class _NotifRow extends StatelessWidget {
 
   String get _timeAgo {
     final diff = DateTime.now().difference(notif.createdAt);
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return S.current.now;
+    if (diff.inMinutes < 60) return S.current.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return S.current.hoursAgo(diff.inHours);
+    return S.current.daysAgo(diff.inDays);
   }
 
   @override

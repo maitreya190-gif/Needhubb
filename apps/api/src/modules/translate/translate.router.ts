@@ -14,29 +14,43 @@ const LANG_NAMES: Record<string, string> = {
   kn: 'Kannada',
 }
 
+// Round-robin between all configured Groq keys so per-key rate limits
+// don't cap total throughput. Feed translation + DM translation both live on
+// this router, so throughput matters directly to user-perceived latency.
+const groqKeys = [config.llmApiKey, config.llmApiKey2].filter(Boolean)
+let groqKeyCursor = 0
+
 async function callGroq(messages: { role: string; content: string }[]): Promise<string | null> {
   const baseUrl = process.env.LLM_BASE_URL
-  const key = config.llmApiKey
   const model = config.llmModel
-  if (!baseUrl || !key || !model) return null
+  if (!baseUrl || groqKeys.length === 0 || !model) return null
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 15000)
-  try {
-    const r = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, temperature: 0.1, messages }),
-    })
-    if (!r.ok) return null
-    const data = (await r.json()) as { choices?: { message?: { content?: string } }[] }
-    return data.choices?.[0]?.message?.content?.trim() ?? null
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timeout)
+  // Try each key once on transient failure before giving up
+  for (let attempt = 0; attempt < groqKeys.length; attempt++) {
+    const key = groqKeys[groqKeyCursor % groqKeys.length]
+    groqKeyCursor++
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+    try {
+      const r = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, temperature: 0.1, messages }),
+      })
+      if (r.ok) {
+        const data = (await r.json()) as { choices?: { message?: { content?: string } }[] }
+        return data.choices?.[0]?.message?.content?.trim() ?? null
+      }
+      // 429 / 5xx — try the next key
+    } catch {
+      // network / abort — try the next key
+    } finally {
+      clearTimeout(timeout)
+    }
   }
+  return null
 }
 
 // Single string — no auth, rate-limited at mount site

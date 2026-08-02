@@ -77,7 +77,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => ConversationScreen(
-            name: req.otherDisplayName ?? 'Friend',
+            name: req.otherDisplayName ?? S.current.friend,
             initials: _initialsFor(req.otherDisplayName ?? '?'),
             avatarColor: NeedHubTokens.forest,
             userId: req.fromUserId,
@@ -264,8 +264,8 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                                       _ChatPreview(
                                         name: req.fromName,
                                         initials: req.fromInitials,
-                                        lastMessage: 'Friend request accepted',
-                                        time: 'now',
+                                        lastMessage: s.friendRequestAccepted,
+                                        time: s.now,
                                         unread: 0,
                                         avatarColor: req.fromColor,
                                       ),
@@ -288,7 +288,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                       child: Text(
-                        'MESSAGES',
+                        s.messagesHeader,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -369,7 +369,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
                               child: Text(
-                                'UP FOR A CHAT RIGHT NOW',
+                                s.upForAChatRightNow,
                                 style: GoogleFonts.hankenGrotesk(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -619,7 +619,7 @@ class _RealFriendRequestCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    request.otherDisplayName ?? 'Someone',
+                    request.otherDisplayName ?? s.someone,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -783,7 +783,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
         if (mounted) {
           setState(() {
             _combinedResults = localMatches;
-            _error = 'Could not reach server. Check your connection.';
+            _error = S.current.couldNotReachServer;
           });
         }
       } finally {
@@ -806,7 +806,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
     } catch (_) {/* Keep optimistic sent state */}
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Friend request sent to ${u.name}')),
+        SnackBar(content: Text(S.current.friendRequestSentTo(u.name))),
       );
     }
   }
@@ -845,7 +845,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Find by username',
+                    S.current.findByUsername,
                     style: GoogleFonts.bricolageGrotesque(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -878,7 +878,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                             style: GoogleFonts.hankenGrotesk(
                                 fontSize: 15, color: t.ink),
                             decoration: InputDecoration(
-                              hintText: 'name or username',
+                              hintText: S.current.nameOrUsername,
                               hintStyle: GoogleFonts.hankenGrotesk(
                                   fontSize: 15, color: t.muted),
                               border: InputBorder.none,
@@ -926,7 +926,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                       Icon(Icons.person_search_rounded, size: 48, color: t.muted.withValues(alpha: 0.4)),
                       const SizedBox(height: 12),
                       Text(
-                        'Search by name or @username',
+                        S.current.searchByNameOrUsername,
                         style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
                         textAlign: TextAlign.center,
                       ),
@@ -947,12 +947,12 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                       Icon(Icons.search_off_rounded, size: 48, color: t.muted.withValues(alpha: 0.4)),
                       const SizedBox(height: 12),
                       Text(
-                        'No users found',
+                        S.current.noUsersFound,
                         style: GoogleFonts.hankenGrotesk(fontSize: 15, fontWeight: FontWeight.w700, color: t.ink),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Try a different name or username',
+                        S.current.tryDifferentName,
                         style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
                       ),
                     ],
@@ -1118,7 +1118,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                                             color: Colors.white),
                                         const SizedBox(width: 4),
                                         Text(
-                                          'Message',
+                                          S.current.messageBtn,
                                           style: GoogleFonts.hankenGrotesk(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,
@@ -1145,7 +1145,7 @@ class _SearchUserSheetState extends ConsumerState<_SearchUserSheet> {
                                             : null,
                                       ),
                                       child: Text(
-                                        sent ? 'Pending' : 'Add',
+                                        sent ? S.current.pending : S.current.add,
                                         style: GoogleFonts.hankenGrotesk(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
@@ -1196,7 +1196,7 @@ class _RealChatRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final preview = chat.lastMessageBody != null && chat.lastMessageBody!.isNotEmpty
         ? chat.lastMessageBody!
-        : (chat.lastMessageImageUrl != null ? '📷 Image' : 'No messages yet');
+        : (chat.lastMessageImageUrl != null ? S.current.imageMsg : S.current.noMessagesYet);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -1490,7 +1490,7 @@ class _ChitChatChatsBannerState extends ConsumerState<_ChitChatChatsBanner> {
             Expanded(
               child: Text(
                 available
-                    ? "You're available for Chit-chat (24h)"
+                    ? s.youreAvailableForChitChat24h
                     : s.markAvailableForChitchat,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 13,

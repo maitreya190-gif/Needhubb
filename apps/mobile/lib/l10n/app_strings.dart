@@ -1,8 +1,9 @@
 import '../providers/language_provider.dart';
-import '../services/translate_api.dart';
-
-// English-only source strings. All non-English translations are handled by
-// Groq via translateBatch() — see language_provider.dart loadUiTranslations().
+import 'strings_hi.dart';
+import 'strings_bn.dart';
+import 'strings_te.dart';
+import 'strings_mr.dart';
+import 'strings_ta.dart';
 class S {
   const S._();
 
@@ -41,6 +42,7 @@ class S {
     'peopleNearYou': 'people near you',
     'casualChats': 'Casual chats nearby',
     'aiRanked': 'AI-ranked',
+    'allCategory': 'All',
     'nearYouRankedByInterests': 'Near you, ranked by shared interests',
     'freeNeedsNearYou': 'Free needs near you',
     'closestMatches': 'CLOSEST MATCHES',
@@ -66,6 +68,9 @@ class S {
     'addANeedSubtitle': 'Post what you need — offers roll in',
     'exploreNeeds': 'Explore needs',
     'helpEarnSubtitle': 'Help out nearby & earn',
+    'noNeedsFound': 'No needs found',
+    'searchNeedsNearYou': 'Search needs near you…',
+    'tryDifferentFilter': 'Try a different filter or search term',
     // Chats tab
     'noChatsYet': 'No conversations yet',
     'noChatsSubtitle': 'Accept a friend request or connect with someone to start chatting',
@@ -346,16 +351,22 @@ class S {
     'budgetRange': 'BUDGET RANGE (₹)',
     'minBudgetLabel': 'Min budget',
     'maxBudgetLabel': 'Max budget',
+    'maxBudgetUpper': 'MAX BUDGET',
+    'upTo': 'Up to',
     'interestsFilterSubtitle': 'Filter profiles and needs matching topics you care about',
     'skillsFilterSubtitle': 'Filter by specific expertise and practical skills',
     'genderPreference': 'GENDER PREFERENCE',
     'genderFilterSubtitle': 'Show profiles or posters of specific gender',
     'sortOrder': 'SORT ORDER',
     'sortSubtitle': 'Arrange items by recency, distance, or reward',
+    'sortByUpper': 'SORT BY',
     'newestFirst': 'Newest first',
     'nearestFirst': 'Nearest first',
+    'oldestFirst': 'Oldest first',
     'highestReward': 'Highest reward/points',
-    'applyFilters': 'Apply Filters',
+    'highestBudget': 'Highest budget',
+    'applyFilters': 'Apply filters',
+    'reset': 'Reset',
     'anyDistance': '50+ km (Any)',
     // Gender options (display only — API values stay English)
     'genderFemale': 'Female',
@@ -432,6 +443,9 @@ class S {
     'blockedUsers': 'Blocked users',
     'logOut': 'Log out',
     'noOneIsBlocked': 'No one is blocked',
+    'blockDescription': 'Anyone you block will appear here so you can unblock them.',
+    'unblockedMessage': '{name} unblocked',
+    'failedMessage': 'Failed: {error}',
     // ChitChat
     'youreAvailableForChat': "You're available for a chat right now",
     'markYourselfAvailableChat': 'Mark yourself available',
@@ -453,23 +467,100 @@ class S {
     'backToNeedHub': 'Back to NeedHub',
     'pickAnAnswer': 'Pick an answer to continue.',
     'yourProfileHelps': 'Your profile helps us surface a compatibility % on Connect. You can retake anytime from your You tab.',
+    // New additions
+    'friend': 'Friend',
+    'friendRequestAccepted': 'Friend request accepted',
+    'now': 'now',
+    'messagesHeader': 'MESSAGES',
+    'someone': 'Someone',
+    'findByUsername': 'Find by username',
+    'nameOrUsername': 'name or username',
+    'searchByNameOrUsername': 'Search by name or @username',
+    'noUsersFound': 'No users found',
+    'tryDifferentName': 'Try a different name or username',
+    'messageBtn': 'Message',
+    'pending': 'Pending',
+    'imageMsg': '📷 Image',
+    'noMessagesYet': 'No messages yet',
+    'friendRequestSentTo': 'Friend request sent to {name}',
+    'youreAvailableForChitChat24h': "You're available for Chit-chat (24h)",
+    'minutesAgo': '{mins}m ago',
+    'hoursAgo': '{hours}h ago',
+    'daysAgo': '{days}d ago',
+    // Shared Widgets
+    'badgeEmpty': 'No badges yet — verify your account or complete a need to earn your first.',
+    'badgeEmptyEarned': 'No badges earned yet.',
+    'badgeEarned': '{label} — earned',
+    'badgeLocked': '{label} — {description}',
+    'imageLoadFailed': 'Failed to load image',
+    'imageFileNotFound': 'Image file not found',
+    'blockedStatus': 'Blocked',
+    'friendsStatus': 'Friends',
+    'notFriendsYet': 'Not friends yet',
+    'reportDetailsLabel': 'DETAILS (REQUIRED, MIN 10 CHARS)',
+    'reportDetailsHint': 'Please describe what happened so our team can investigate…',
+    'reportSubmitAndBlock': 'Submit and block',
+    'reportSubmitBtn': 'Submit report',
+    'friendRequestSent': '{name} sent you a friend request!',
+    'friendReqAccName': 'Accepted friend request from {name}!',
+    'friendRequestDeclined': 'Friend request declined.',
+    'userUnblocked': '{name} unblocked',
+    'userBlocked': '{name} blocked',
+    'badgesEarned': '{count} earned',
+    'needsCompletedForOthers': '{count} need{s} completed for others',
+    'pastWorkHistoryTitle': 'Past Work History',
+    'pastWorkStatsMock': '5 completed tasks • 4.8 ★ average',
+    'writtenFeedbackPrivate': 'Written feedback comments are private to profile owner',
+    'noCertificatesAddedYet': 'No certificates added yet',
+    'noInterestsListedYet': 'No interests listed yet',
+    'noSkillsListedYet': 'No skills listed yet',
+    'aboutPerson': 'ABOUT {name}',
+    'nothingSharedYet': 'Nothing shared yet.',
+    'ratingsOnly': 'Ratings only',
+    // My new additions
+    'active': 'Active',
+    'alreadyTakenTest': "You've already taken the test — check your You tab.",
+    'answersInvalid': 'Something in your answers was invalid.',
+    'boostActiveExpires': 'Boost active! Expires {time}',
+    'boostNeedDesc': 'Spend points to pin your need at the top of the feed so more helpers see it.',
+    'boostPointsInfo': '50 pts = 6h boost · 100 pts = 24h · 200 pts = 72h',
+    'couldNotAnalyzeAnswers': 'Could not analyze your answers. Please try again.',
+    'howDidItGoWith': 'How did it go with\n{name}?',
+    'impactPoints': 'Impact Points',
+    'needBoostedSuccess': '🚀 "{title}" is now boosted for {tier}!',
+    'networkErrorRetry': 'Network error ({status}). Please check if the server is running.',
+    'noOpenNeedsToBoost': "You don't have any open needs to boost.",
+    'pleaseAnswerFirst': 'Please answer question {num} first.',
+    'profileBoost24h': '24-Hour Profile Boost',
+    'profileBoost24hDesc': 'Your profile appears at top of search for 24h',
+    'profileBoostActiveDesc': 'Boost active! Your profile is featured until tomorrow.',
+    'savedPersonality': 'Saved your personality! Check the You tab.',
+    'sessionExpired': 'Your session expired. Log out and log in, then retry.',
+    'sixHours': '6 Hours',
+    'somethingWentWrongRetry': 'Something went wrong. Please try again.',
+    'testServiceNotFound': 'Personality test service not found. Please restart the backend server.',
+    'threeDays': '3 Days',
+    'traitAgreeableness': 'Agreeableness',
+    'traitConscientiousness': 'Conscientiousness',
+    'traitEmotionalStability': 'Emotional Stability',
+    'traitExtraversion': 'Extraversion',
+    'traitOpenness': 'Openness',
+    'twentyFourHours': '24 Hours',
+    'xOfYEarned': '{earned} / {total} earned',
   };
-
-  /// Live Groq-translated cache for the current language.
-  static Map<String, String> _cache = {};
-  static String _cacheFor = 'en';
-
-  static void updateCache(String langCode, Map<String, String> translated) {
-    _cache = translated;
-    _cacheFor = langCode;
-  }
 
   static String _get(String key) {
     final lang = uiLanguageNotifier.value;
-    if (lang != 'en' && _cacheFor == lang && _cache.containsKey(key)) {
-      return _cache[key]!;
+    final Map<String, String> map;
+    switch (lang) {
+      case 'hi': map = stringsHi; break;
+      case 'bn': map = stringsBn; break;
+      case 'te': map = stringsTe; break;
+      case 'mr': map = stringsMr; break;
+      case 'ta': map = stringsTa; break;
+      default: return _en[key] ?? key;
     }
-    return _en[key] ?? key;
+    return map[key] ?? _en[key] ?? key;
   }
 
   static S get current => const S._();
@@ -508,6 +599,7 @@ class S {
   String get peopleNearYou => _get('peopleNearYou');
   String get casualChats => _get('casualChats');
   String get aiRanked => _get('aiRanked');
+  String get allCategory => _get('allCategory');
   String get chitchatLabel => _get('chitchatLabel');
   String get nearYouRankedByInterests => _get('nearYouRankedByInterests');
   String get freeNeedsNearYou => _get('freeNeedsNearYou');
@@ -531,6 +623,9 @@ class S {
   String get addANeedSubtitle => _get('addANeedSubtitle');
   String get exploreNeeds => _get('exploreNeeds');
   String get helpEarnSubtitle => _get('helpEarnSubtitle');
+  String get noNeedsFound => _get('noNeedsFound');
+  String get searchNeedsNearYou => _get('searchNeedsNearYou');
+  String get tryDifferentFilter => _get('tryDifferentFilter');
   String get noChatsYet => _get('noChatsYet');
   String get noChatsSubtitle => _get('noChatsSubtitle');
   String get friendRequests => _get('friendRequests');
@@ -790,16 +885,22 @@ class S {
   String get budgetRange => _get('budgetRange');
   String get minBudgetLabel => _get('minBudgetLabel');
   String get maxBudgetLabel => _get('maxBudgetLabel');
+  String get maxBudgetUpper => _get('maxBudgetUpper');
+  String get upTo => _get('upTo');
   String get interestsFilterSubtitle => _get('interestsFilterSubtitle');
   String get skillsFilterSubtitle => _get('skillsFilterSubtitle');
   String get genderPreference => _get('genderPreference');
   String get genderFilterSubtitle => _get('genderFilterSubtitle');
   String get sortOrder => _get('sortOrder');
   String get sortSubtitle => _get('sortSubtitle');
+  String get sortByUpper => _get('sortByUpper');
   String get newestFirst => _get('newestFirst');
   String get nearestFirst => _get('nearestFirst');
+  String get oldestFirst => _get('oldestFirst');
   String get highestReward => _get('highestReward');
+  String get highestBudget => _get('highestBudget');
   String get applyFilters => _get('applyFilters');
+  String get reset => _get('reset');
   String get anyDistance => _get('anyDistance');
   String get genderFemale => _get('genderFemale');
   String get genderMale => _get('genderMale');
@@ -855,6 +956,28 @@ class S {
   String get displayName => _get('displayName');
   String get saveChanges => _get('saveChanges');
   String get addOther => _get('addOther');
+
+  // New getters
+  String get friend => _get('friend');
+  String get friendRequestAccepted => _get('friendRequestAccepted');
+  String get now => _get('now');
+  String get messagesHeader => _get('messagesHeader');
+  String get someone => _get('someone');
+  String get findByUsername => _get('findByUsername');
+  String get nameOrUsername => _get('nameOrUsername');
+  String get searchByNameOrUsername => _get('searchByNameOrUsername');
+  String get noUsersFound => _get('noUsersFound');
+  String get tryDifferentName => _get('tryDifferentName');
+  String get messageBtn => _get('messageBtn');
+  String get pending => _get('pending');
+  String get imageMsg => _get('imageMsg');
+  String get noMessagesYet => _get('noMessagesYet');
+  String friendRequestSentTo(String name) => _get('friendRequestSentTo').replaceAll('{name}', name);
+  String get youreAvailableForChitChat24h => _get('youreAvailableForChitChat24h');
+  String failedMessage(String error) => _get('failedMessage').replaceAll('{error}', error);
+  String minutesAgo(int mins) => _get('minutesAgo').replaceAll('{mins}', '$mins');
+  String hoursAgo(int hours) => _get('hoursAgo').replaceAll('{hours}', '$hours');
+  String daysAgo(int days) => _get('daysAgo').replaceAll('{days}', '$days');
   String get gettingLocation => _get('gettingLocation');
   String get useMyCurrentLocation => _get('useMyCurrentLocation');
   String get pickOnMap => _get('pickOnMap');
@@ -869,6 +992,8 @@ class S {
   String get blockedUsers => _get('blockedUsers');
   String get logOut => _get('logOut');
   String get noOneIsBlocked => _get('noOneIsBlocked');
+  String get blockDescription => _get('blockDescription');
+  String unblockedMessage(String name) => _get('unblockedMessage').replaceAll('{name}', name);
   String get youreAvailableForChat => _get('youreAvailableForChat');
   String get markYourselfAvailableChat => _get('markYourselfAvailableChat');
   String get upForAChatRightNow => _get('upForAChatRightNow');
@@ -888,45 +1013,64 @@ class S {
   String get backToNeedHub => _get('backToNeedHub');
   String get pickAnAnswer => _get('pickAnAnswer');
   String get yourProfileHelps => _get('yourProfileHelps');
+  String get badgeEmpty => _get('badgeEmpty');
+  String get badgeEmptyEarned => _get('badgeEmptyEarned');
+  String badgeEarned(String label) => _get('badgeEarned').replaceAll('{label}', label);
+  String badgeLocked(String label, String description) => _get('badgeLocked').replaceAll('{label}', label).replaceAll('{description}', description);
+  String get imageLoadFailed => _get('imageLoadFailed');
+  String get imageFileNotFound => _get('imageFileNotFound');
+  String get blockedStatus => _get('blockedStatus');
+  String get friendsStatus => _get('friendsStatus');
+  String get notFriendsYet => _get('notFriendsYet');
+  String get reportDetailsLabel => _get('reportDetailsLabel');
+  String get reportDetailsHint => _get('reportDetailsHint');
+  String get reportSubmitAndBlock => _get('reportSubmitAndBlock');
+  String get reportSubmitBtn => _get('reportSubmitBtn');
+  String friendRequestSent(String name) => _get('friendRequestSent').replaceAll('{name}', name);
+  String friendReqAccName(String name) => _get('friendReqAccName').replaceAll('{name}', name);
+  String get friendRequestDeclined => _get('friendRequestDeclined');
+  String userUnblocked(String name) => _get('userUnblocked').replaceAll('{name}', name);
+  String userBlocked(String name) => _get('userBlocked').replaceAll('{name}', name);
+  String badgesEarned(int count) => _get('badgesEarned').replaceAll('{count}', '$count');
+  String needsCompletedForOthers(int count) => _get('needsCompletedForOthers').replaceAll('{count}', '$count').replaceAll('{s}', count == 1 ? '' : 's');
+  String get pastWorkHistoryTitle => _get('pastWorkHistoryTitle');
+  String get pastWorkStatsMock => _get('pastWorkStatsMock');
+  String get writtenFeedbackPrivate => _get('writtenFeedbackPrivate');
+  String get noCertificatesAddedYet => _get('noCertificatesAddedYet');
+  String get noInterestsListedYet => _get('noInterestsListedYet');
+  String get noSkillsListedYet => _get('noSkillsListedYet');
+  String aboutPerson(String name) => _get('aboutPerson').replaceAll('{name}', name);
+  String get nothingSharedYet => _get('nothingSharedYet');
+  String get ratingsOnly => _get('ratingsOnly');
 
-  /// Load all UI strings for [langCode] from Groq and store in cache.
-  static Future<void> loadTranslations(String langCode) async {
-    if (langCode == 'en') {
-      _cache = {};
-      _cacheFor = 'en';
-      return;
-    }
-    final keys = _en.keys.toList();
-    final values = _en.values.toList();
-
-    // Pre-populate the cache with English so any chunk that fails still has a
-    // usable fallback for its keys.
-    final map = <String, String>{};
-    for (int i = 0; i < keys.length; i++) {
-      map[keys[i]] = values[i];
-    }
-
-    // Chunk the strings into small batches. One giant Groq call is fragile —
-    // if the LLM returns even one malformed element, the whole batch is
-    // rejected and every UI string falls back to English. Small chunks in
-    // parallel isolate failures and stay well under any server-side cap.
-    const chunkSize = 40;
-    final futures = <Future<void>>[];
-    for (int start = 0; start < values.length; start += chunkSize) {
-      final end = (start + chunkSize > values.length) ? values.length : start + chunkSize;
-      final chunkValues = values.sublist(start, end);
-      futures.add(() async {
-        final translated = await translateBatch(chunkValues, langCode);
-        if (translated.length == chunkValues.length) {
-          for (int j = 0; j < chunkValues.length; j++) {
-            map[keys[start + j]] = translated[j];
-          }
-        }
-      }());
-    }
-    await Future.wait(futures);
-
-    _cache = map;
-    _cacheFor = langCode;
-  }
+  // My new additions getters
+  String get active => _get('active');
+  String get alreadyTakenTest => _get('alreadyTakenTest');
+  String get answersInvalid => _get('answersInvalid');
+  String boostActiveExpires(String time) => _get('boostActiveExpires').replaceAll('{time}', time);
+  String get boostNeedDesc => _get('boostNeedDesc');
+  String get boostPointsInfo => _get('boostPointsInfo');
+  String get couldNotAnalyzeAnswers => _get('couldNotAnalyzeAnswers');
+  String howDidItGoWith(String name) => _get('howDidItGoWith').replaceAll('{name}', name);
+  String get impactPoints => _get('impactPoints');
+  String needBoostedSuccess(String title, String tier) => _get('needBoostedSuccess').replaceAll('{title}', title).replaceAll('{tier}', tier);
+  String networkErrorRetry(String status) => _get('networkErrorRetry').replaceAll('{status}', status);
+  String get noOpenNeedsToBoost => _get('noOpenNeedsToBoost');
+  String pleaseAnswerFirst(int num) => _get('pleaseAnswerFirst').replaceAll('{num}', '$num');
+  String get profileBoost24h => _get('profileBoost24h');
+  String get profileBoost24hDesc => _get('profileBoost24hDesc');
+  String get profileBoostActiveDesc => _get('profileBoostActiveDesc');
+  String get savedPersonality => _get('savedPersonality');
+  String get sessionExpired => _get('sessionExpired');
+  String get sixHours => _get('sixHours');
+  String get somethingWentWrongRetry => _get('somethingWentWrongRetry');
+  String get testServiceNotFound => _get('testServiceNotFound');
+  String get threeDays => _get('threeDays');
+  String get traitAgreeableness => _get('traitAgreeableness');
+  String get traitConscientiousness => _get('traitConscientiousness');
+  String get traitEmotionalStability => _get('traitEmotionalStability');
+  String get traitExtraversion => _get('traitExtraversion');
+  String get traitOpenness => _get('traitOpenness');
+  String get twentyFourHours => _get('twentyFourHours');
+  String xOfYEarned(int earned, int total) => _get('xOfYEarned').replaceAll('{earned}', '$earned').replaceAll('{total}', '$total');
 }

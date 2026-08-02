@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/app_strings.dart';
 
 const _apiBaseUrl = String.fromEnvironment(
   'API_URL',
@@ -126,7 +127,7 @@ class _NHFullScreenImageViewerState extends State<NHFullScreenImageViewer> {
             Icon(Icons.broken_image_outlined, color: Colors.white70, size: 64),
             SizedBox(height: 12),
             Text(
-              'Failed to load image',
+              S.current.imageLoadFailed,
               style: TextStyle(color: Colors.white70, fontSize: 14),
             ),
           ],
@@ -142,7 +143,7 @@ class _NHFullScreenImageViewerState extends State<NHFullScreenImageViewer> {
             Icon(Icons.broken_image_outlined, color: Colors.white70, size: 64),
             SizedBox(height: 12),
             Text(
-              'Image file not found',
+              S.current.imageFileNotFound,
               style: TextStyle(color: Colors.white70, fontSize: 14),
             ),
           ],

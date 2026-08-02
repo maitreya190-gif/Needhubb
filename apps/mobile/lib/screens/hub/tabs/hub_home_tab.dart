@@ -334,14 +334,14 @@ class _PendingRatingsSectionState extends State<_PendingRatingsSection> {
         children: [
           Row(
             children: [
-              Text('Rate a completed need',
+              Text(S.current.rateACompletedNeed,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 13, fontWeight: FontWeight.w700, color: t.ink)),
               const SizedBox(width: 8),
               Expanded(child: Container(height: 1, color: t.rail)),
               if (pending.length > 1) ...[
                 const SizedBox(width: 8),
-                Text('+${pending.length - 1} more',
+                Text('+${pending.length - 1} ${S.current.more}',
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 11, color: t.muted2)),
               ],
@@ -421,7 +421,7 @@ class _PendingRatingsSectionState extends State<_PendingRatingsSection> {
                       color: NeedHubTokens.clay,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text('Feedback',
+                    child: Text(S.current.feedback,
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
@@ -450,7 +450,7 @@ class _PendingRatingsSectionState extends State<_PendingRatingsSection> {
                 color: NeedHubTokens.forest, size: 22),
             const SizedBox(width: 10),
             Text(
-              'All caught up on feedback!',
+              S.current.allCaughtUp,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -469,7 +469,7 @@ class _PendingRatingsSectionState extends State<_PendingRatingsSection> {
         Row(
           children: [
             Text(
-              'Rate a completed need',
+              S.current.rateACompletedNeed,
               style: GoogleFonts.hankenGrotesk(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -580,8 +580,8 @@ class _PersonalityCta extends StatelessWidget {
       builder: (context, me, __) {
         final hasTaken = me?.hasPersonality ?? false;
         final subtitle = hasTaken
-            ? 'You are ${me?.personalityNickname ?? "in"} — tap to see your profile'
-            : 'AI-analyzed profile · match % with people on Connect';
+            ? S.current.personalityResultSubtitle(me?.personalityNickname ?? '')
+            : S.current.personalityCtaSubtitle;
         return GestureDetector(
           onTap: () {
             // Once taken, the test is one-shot — send them straight to
@@ -634,7 +634,7 @@ class _PersonalityCta extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            'Personality Test',
+                            S.current.personalityTest,
                             style: GoogleFonts.bricolageGrotesque(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
