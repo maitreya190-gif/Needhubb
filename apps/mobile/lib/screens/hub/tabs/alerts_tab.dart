@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../l10n/app_strings.dart';
 import '../../../providers/language_provider.dart';
 import '../../../services/notification_navigator.dart';
+import '../../../services/translate_api.dart';
 import '../../../services/notifications_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
@@ -765,15 +766,51 @@ class _GroupHeader extends StatelessWidget {
 
 // ── Notification row ───────────────────────────────────────────────────────────
 
-class _NotifRow extends StatelessWidget {
+class _NotifRow extends StatefulWidget {
   final NhNotification notif;
   final NeedHubTokens t;
   final VoidCallback onTap;
 
   const _NotifRow({required this.notif, required this.t, required this.onTap});
 
+  @override
+  State<_NotifRow> createState() => _NotifRowState();
+}
+
+class _NotifRowState extends State<_NotifRow> {
+  String? _ttitle;
+  String? _tbody;
+
+  @override
+  void initState() {
+    super.initState();
+    uiLanguageNotifier.addListener(_onLang);
+    _translate();
+  }
+
+  @override
+  void dispose() {
+    uiLanguageNotifier.removeListener(_onLang);
+    super.dispose();
+  }
+
+  void _onLang() {
+    if (mounted) {
+      setState(() { _ttitle = null; _tbody = null; });
+      _translate();
+    }
+  }
+
+  Future<void> _translate() async {
+    final lang = uiLanguageNotifier.value;
+    if (lang == 'en') return;
+    final results = await translateBatch([widget.notif.title, widget.notif.body], lang);
+    if (!mounted) return;
+    setState(() { _ttitle = results[0]; _tbody = results[1]; });
+  }
+
   IconData get _icon {
-    switch (notif.type) {
+    switch (widget.notif.type) {
       case 'FRIEND_REQUEST_RECEIVED':
         return Icons.person_add_alt_rounded;
       case 'FRIEND_REQUEST_ACCEPTED':
@@ -804,7 +841,7 @@ class _NotifRow extends StatelessWidget {
   }
 
   Color get _iconColor {
-    switch (notif.type) {
+    switch (widget.notif.type) {
       case 'FRIEND_REQUEST_RECEIVED':
       case 'FRIEND_REQUEST_ACCEPTED':
       case 'CERT_APPROVED':
@@ -821,7 +858,7 @@ class _NotifRow extends StatelessWidget {
   }
 
   String get _timeAgo {
-    final diff = DateTime.now().difference(notif.createdAt);
+    final diff = DateTime.now().difference(widget.notif.createdAt);
     if (diff.inMinutes < 1) return S.current.now;
     if (diff.inMinutes < 60) return S.current.minutesAgo(diff.inMinutes);
     if (diff.inHours < 24) return S.current.hoursAgo(diff.inHours);
@@ -831,9 +868,9 @@ class _NotifRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: Container(
-        color: notif.isUnread
+        color: widget.notif.isUnread
             ? _iconColor.withValues(alpha: 0.04)
             : Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -857,10 +894,10 @@ class _NotifRow extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(notif.title,
+                        child: Text(_ttitle ?? widget.notif.title,
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 14,
-                              fontWeight: notif.isUnread
+                              fontWeight: widget.notif.isUnread
                                   ? FontWeight.w700
                                   : FontWeight.w600,
                               color: context.tokens.ink,
@@ -873,7 +910,7 @@ class _NotifRow extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Text(notif.body,
+                  Text(_tbody ?? widget.notif.body,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 13,
                           color: context.tokens.muted2,
@@ -881,7 +918,7 @@ class _NotifRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (notif.isUnread) ...[
+            if (widget.notif.isUnread) ...[
               const SizedBox(width: 8),
               Container(
                 width: 8,
@@ -902,7 +939,7 @@ class _NotifRow extends StatelessWidget {
 
 // ── Selectable notification row (manual selection mode) ────────────────────────
 
-class _SelectableNotifRow extends StatelessWidget {
+class _SelectableNotifRow extends StatefulWidget {
   final NhNotification notif;
   final NeedHubTokens t;
   final bool selected;
@@ -916,44 +953,78 @@ class _SelectableNotifRow extends StatelessWidget {
   });
 
   @override
+  State<_SelectableNotifRow> createState() => _SelectableNotifRowState();
+}
+
+class _SelectableNotifRowState extends State<_SelectableNotifRow> {
+  String? _ttitle;
+  String? _tbody;
+
+  @override
+  void initState() {
+    super.initState();
+    uiLanguageNotifier.addListener(_onLang);
+    _translate();
+  }
+
+  @override
+  void dispose() {
+    uiLanguageNotifier.removeListener(_onLang);
+    super.dispose();
+  }
+
+  void _onLang() {
+    if (mounted) {
+      setState(() { _ttitle = null; _tbody = null; });
+      _translate();
+    }
+  }
+
+  Future<void> _translate() async {
+    final lang = uiLanguageNotifier.value;
+    if (lang == 'en') return;
+    final results = await translateBatch([widget.notif.title, widget.notif.body], lang);
+    if (!mounted) return;
+    setState(() { _ttitle = results[0]; _tbody = results[1]; });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onToggle,
+      onTap: widget.onToggle,
       child: Container(
-        color: selected
+        color: widget.selected
             ? NeedHubTokens.clay.withValues(alpha: 0.08)
-            : (notif.isUnread
+            : (widget.notif.isUnread
                 ? NeedHubTokens.clay.withValues(alpha: 0.03)
                 : Colors.transparent),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Checkbox
             Icon(
-              selected
+              widget.selected
                   ? Icons.check_circle_rounded
                   : Icons.radio_button_unchecked_rounded,
               size: 22,
-              color: selected ? NeedHubTokens.clay : t.muted,
+              color: widget.selected ? NeedHubTokens.clay : widget.t.muted,
             ),
             const SizedBox(width: 10),
-            // Notification content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(notif.title,
+                  Text(_ttitle ?? widget.notif.title,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: t.ink)),
+                          color: widget.t.ink)),
                   const SizedBox(height: 2),
-                  Text(notif.body,
+                  Text(_tbody ?? widget.notif.body,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.hankenGrotesk(
-                          fontSize: 13, color: t.muted2)),
+                          fontSize: 13, color: widget.t.muted2)),
                 ],
               ),
             ),

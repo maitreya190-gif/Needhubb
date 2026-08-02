@@ -11,6 +11,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/language_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/profiles_api.dart';
+import '../../services/translate_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_button.dart';
@@ -56,6 +57,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   String? _avatarPath;
   bool _saving = false;
   bool _locating = false;
+  final Map<String, String> _translatedLabels = {};
 
   Future<void> _openMapPicker() async {
     final result = await Navigator.of(context).push<LocationPickResult>(
@@ -262,6 +264,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       _selectedSkills.clear();
       _selectedSkills.addAll(currentSkills);
     }
+
+    _translateOptions();
+  }
+
+  Future<void> _translateOptions() async {
+    final lang = uiLanguageNotifier.value;
+    if (lang == 'en') return;
+    final all = [..._interestOptions, ..._skillOptions];
+    final translated = await translateBatch(all, lang);
+    if (!mounted) return;
+    setState(() {
+      for (int i = 0; i < all.length; i++) {
+        _translatedLabels[all[i]] = translated[i];
+      }
+    });
   }
 
   void _bump() {
@@ -625,7 +642,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           ),
                         ),
                         child: Text(
-                          interest,
+                          _translatedLabels[interest] ?? interest,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -688,7 +705,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           ),
                         ),
                         child: Text(
-                          skill,
+                          _translatedLabels[skill] ?? skill,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
