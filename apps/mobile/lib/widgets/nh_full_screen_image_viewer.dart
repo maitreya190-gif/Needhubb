@@ -121,14 +121,14 @@ class _NHFullScreenImageViewerState extends State<NHFullScreenImageViewer> {
             ),
           );
         },
-        errorBuilder: (_, __, ___) => const Column(
+        errorBuilder: (_, __, ___) => Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.broken_image_outlined, color: Colors.white70, size: 64),
-            SizedBox(height: 12),
+            const Icon(Icons.broken_image_outlined, color: Colors.white70, size: 64),
+            const SizedBox(height: 12),
             Text(
               S.current.imageLoadFailed,
-              style: TextStyle(color: Colors.white70, fontSize: 14),
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
           ],
         ),
@@ -137,14 +137,14 @@ class _NHFullScreenImageViewerState extends State<NHFullScreenImageViewer> {
       return Image.file(
         File(widget.imagePath!),
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => const Column(
+        errorBuilder: (_, __, ___) => Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.broken_image_outlined, color: Colors.white70, size: 64),
-            SizedBox(height: 12),
+            const Icon(Icons.broken_image_outlined, color: Colors.white70, size: 64),
+            const SizedBox(height: 12),
             Text(
               S.current.imageFileNotFound,
-              style: TextStyle(color: Colors.white70, fontSize: 14),
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
           ],
         ),

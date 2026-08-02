@@ -374,13 +374,13 @@ class YouScreen extends ConsumerWidget {
                   // ── My Posted Needs & History ──────────────────────────────
                   _MyPostedNeedsSection(t: t),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Trust Score ─────────────────────────────────────────────
                   _TrustScoreSection(t: t),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Verifications ─────────────────────────────────────────
@@ -397,7 +397,7 @@ class YouScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Impact section ───────────────────────────────────────
@@ -501,7 +501,7 @@ class YouScreen extends ConsumerWidget {
                   _ReferAFriendCard(ref: ref, t: t),
 
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Sustainability Certificates ──────────────────────────
@@ -609,7 +609,7 @@ class YouScreen extends ConsumerWidget {
                     },
                   ),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Badges (earned, server-computed) ─────────────────────
@@ -631,7 +631,7 @@ class YouScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                   _BadgesSection(t: t),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Skills & Vouches (earned, server-computed) ────────────
@@ -643,7 +643,7 @@ class YouScreen extends ConsumerWidget {
                     child: _SkillVouchesSection(t: t),
                   ),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Impact League (seasonal leaderboard + badges) ─────────
@@ -665,7 +665,7 @@ class YouScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                   const _ImpactLeagueSection(),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Achievements ─────────────────────────────────────────
@@ -723,7 +723,7 @@ class YouScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                   _AchievementsRow(t: t),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Quick links ──────────────────────────────────────────
@@ -738,116 +738,103 @@ class YouScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Interests ────────────────────────────────────────────
-                  Text(
-                    s.interests.toUpperCase(),
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: t.muted2,
-                      letterSpacing: 0.7,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  ValueListenableBuilder<List<String>>(
-                    valueListenable: customInterestsNotifier,
-                    builder: (_, interests, __) {
-                      if (interests.isEmpty) {
-                        return Text(
-                          'No interests added yet — tap Edit to add some',
-                          style: GoogleFonts.hankenGrotesk(
-                              fontSize: 13, color: t.muted2),
+                  _CollapsibleSection(
+                    title: s.interests.toUpperCase(),
+                    t: t,
+                    child: ValueListenableBuilder<List<String>>(
+                      valueListenable: customInterestsNotifier,
+                      builder: (_, interests, __) {
+                        if (interests.isEmpty) {
+                          return Text(
+                            'No interests added yet — tap Edit to add some',
+                            style: GoogleFonts.hankenGrotesk(
+                                fontSize: 13, color: t.muted2),
+                          );
+                        }
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: interests
+                              .map((i) => _Chip(
+                                  label: i, color: NeedHubTokens.forest, t: t))
+                              .toList(),
                         );
-                      }
-                      return Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: interests
-                            .map((i) => _Chip(
-                                label: i, color: NeedHubTokens.forest, t: t))
-                            .toList(),
-                      );
-                    },
+                      },
+                    ),
                   ),
                   const SizedBox(height: 20),
 
                   // ── Skills ───────────────────────────────────────────────
-                  Text(
-                    s.skills.toUpperCase(),
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: t.muted2,
-                      letterSpacing: 0.7,
+                  _CollapsibleSection(
+                    title: s.skills.toUpperCase(),
+                    t: t,
+                    child: ValueListenableBuilder<List<String>>(
+                      valueListenable: customSkillsNotifier,
+                      builder: (_, skills, __) {
+                        if (skills.isEmpty) {
+                          return Text(
+                            'No skills added yet — tap Edit to add some',
+                            style: GoogleFonts.hankenGrotesk(
+                                fontSize: 13, color: t.muted2),
+                          );
+                        }
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: skills
+                              .map((s) => _Chip(
+                                  label: s, color: NeedHubTokens.ochre, t: t))
+                              .toList(),
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  ValueListenableBuilder<List<String>>(
-                    valueListenable: customSkillsNotifier,
-                    builder: (_, skills, __) {
-                      if (skills.isEmpty) {
-                        return Text(
-                          'No skills added yet — tap Edit to add some',
-                          style: GoogleFonts.hankenGrotesk(
-                              fontSize: 13, color: t.muted2),
-                        );
-                      }
-                      return Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: skills
-                            .map((s) => _Chip(
-                                label: s, color: NeedHubTokens.ochre, t: t))
-                            .toList(),
-                      );
-                    },
-                  ),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── About me prompts ─────────────────────────────────────
-                  Text(
-                    s.aboutMe,
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: t.muted2,
-                      letterSpacing: 0.7,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  ValueListenableBuilder<String>(
-                    valueListenable: promptSkillNotifier,
-                    builder: (_, a, __) => _PromptCard(
-                      q: s.skillIdLoveToTeach,
-                      a: a,
-                      t: t,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  ValueListenableBuilder<String>(
-                    valueListenable: promptCollabNotifier,
-                    builder: (_, a, __) => _PromptCard(
-                      q: s.myIdealCollab,
-                      a: a,
-                      t: t,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  ValueListenableBuilder<String>(
-                    valueListenable: promptNeedNotifier,
-                    builder: (_, a, __) => _PromptCard(
-                      q: s.needIdPostRightNow,
-                      a: a,
-                      t: t,
+                  _CollapsibleSection(
+                    title: s.aboutMe,
+                    t: t,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ValueListenableBuilder<String>(
+                          valueListenable: promptSkillNotifier,
+                          builder: (_, a, __) => _PromptCard(
+                            q: s.skillIdLoveToTeach,
+                            a: a,
+                            t: t,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ValueListenableBuilder<String>(
+                          valueListenable: promptCollabNotifier,
+                          builder: (_, a, __) => _PromptCard(
+                            q: s.myIdealCollab,
+                            a: a,
+                            t: t,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        ValueListenableBuilder<String>(
+                          valueListenable: promptNeedNotifier,
+                          builder: (_, a, __) => _PromptCard(
+                            q: s.needIdPostRightNow,
+                            a: a,
+                            t: t,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
+                  Divider(color: t.rail, height: 1, thickness: 1.5),
                   const SizedBox(height: 22),
 
                   // ── Logout ───────────────────────────────────────────────
@@ -2807,7 +2794,7 @@ class _MyPostedNeedsSection extends ConsumerStatefulWidget {
 class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
   String _filter = 'all'; // 'all' | 'connect' | 'earn'
   List<Need> _apiPostedNeeds = [];
-  static const int _collapsedCount = 3;
+  static const int _collapsedCount = 2;
   bool _showAllNeeds = false;
 
   @override
