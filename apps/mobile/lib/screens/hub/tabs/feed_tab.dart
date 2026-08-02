@@ -645,6 +645,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
   void initState() {
     super.initState();
     connectFilterNotifier.addListener(_bump);
+    uiLanguageNotifier.addListener(_bump);
     Future.delayed(const Duration(milliseconds: 700), () {
       if (mounted) setState(() => _loading = false);
     });
@@ -653,6 +654,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
   @override
   void dispose() {
     connectFilterNotifier.removeListener(_bump);
+    uiLanguageNotifier.removeListener(_bump);
     super.dispose();
   }
 
@@ -744,7 +746,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
         Row(
           children: [
             Text(
-              'Near you, ranked by shared interests',
+              S.current.nearYouRankedByInterests,
               style: GoogleFonts.hankenGrotesk(
                   fontSize: 13, fontWeight: FontWeight.w700, color: t.ink),
             ),
@@ -810,7 +812,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
           const SizedBox(height: 24),
           Row(
             children: [
-              Text('Free needs near you',
+              Text(S.current.freeNeedsNearYou,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 13, fontWeight: FontWeight.w700, color: t.ink)),
               const SizedBox(width: 8),
@@ -826,7 +828,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
         if (partialNeeds.isNotEmpty) ...[
           const SizedBox(height: 24),
           _PartialMatchDivider(
-              title: needs.isEmpty ? 'CLOSEST MATCHES' : 'MATCHES SOME FILTERS',
+              title: needs.isEmpty ? S.current.closestMatches : S.current.matchesSomeFilters,
               t: t),
           const SizedBox(height: 16),
           ..._needCards(context, partialNeeds, t),
@@ -979,7 +981,7 @@ class _PersonCard extends StatelessWidget {
             // Shared interests
             if (shared.isNotEmpty || unique.isNotEmpty) ...[
               Text(
-                'YOU BOTH LIKE',
+                S.current.youBothLike,
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -1078,6 +1080,7 @@ class _EarnFeedState extends State<_EarnFeed> {
   void initState() {
     super.initState();
     earnFilterNotifier.addListener(_bump);
+    uiLanguageNotifier.addListener(_bump);
     Future.delayed(const Duration(milliseconds: 800), () {
       if (mounted) setState(() => _loading = false);
     });
@@ -1086,6 +1089,7 @@ class _EarnFeedState extends State<_EarnFeed> {
   @override
   void dispose() {
     earnFilterNotifier.removeListener(_bump);
+    uiLanguageNotifier.removeListener(_bump);
     super.dispose();
   }
 
@@ -1134,7 +1138,7 @@ class _EarnFeedState extends State<_EarnFeed> {
           ),
           if (partials.isNotEmpty) ...[
             const SizedBox(height: 30),
-            _PartialMatchDivider(title: 'CLOSEST MATCHES', t: t),
+            _PartialMatchDivider(title: S.current.closestMatches, t: t),
             const SizedBox(height: 16),
             ..._earnCards(context, partials, t),
           ],
@@ -1150,7 +1154,7 @@ class _EarnFeedState extends State<_EarnFeed> {
         Row(
           children: [
             Text(
-              '${needs.length} needs near you',
+              '${needs.length} ${S.current.needsNearYou}',
               style: GoogleFonts.hankenGrotesk(
                   fontSize: 13, fontWeight: FontWeight.w700, color: t.ink),
             ),
@@ -1209,7 +1213,7 @@ class _EarnFeedState extends State<_EarnFeed> {
         }),
         if (partials.isNotEmpty) ...[
           const SizedBox(height: 26),
-          _PartialMatchDivider(title: 'MATCHES SOME FILTERS', t: t),
+          _PartialMatchDivider(title: S.current.matchesSomeFilters, t: t),
           const SizedBox(height: 16),
           ...partials.asMap().entries.map((e) {
             final i = e.key;
@@ -1387,11 +1391,11 @@ class _EarnCard extends StatelessWidget {
   String get _catLabel {
     switch (need.category) {
       case 'earn':
-        return 'EARN';
+        return S.current.earn.toUpperCase();
       case 'connect':
-        return 'CONNECT';
+        return S.current.connect.toUpperCase();
       default:
-        return 'CHIT-CHAT';
+        return S.current.chitchatLabel.toUpperCase();
     }
   }
 

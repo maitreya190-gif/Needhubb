@@ -29,6 +29,7 @@ class S {
     'earn': 'Earn',
     'connect': 'Connect',
     'chitchat': 'ChitChat',
+    'chitchatLabel': 'Chit-Chat',
     'postNeed': 'Post a Need',
     'nearby': 'Nearby',
     'budget': 'Budget',
@@ -40,6 +41,11 @@ class S {
     'peopleNearYou': 'people near you',
     'casualChats': 'Casual chats nearby',
     'aiRanked': 'AI-ranked',
+    'nearYouRankedByInterests': 'Near you, ranked by shared interests',
+    'freeNeedsNearYou': 'Free needs near you',
+    'closestMatches': 'CLOSEST MATCHES',
+    'matchesSomeFilters': 'MATCHES SOME FILTERS',
+    'youBothLike': 'YOU BOTH LIKE',
     // Navigation
     'hub': 'Hub',
     'home': 'Home',
@@ -275,6 +281,12 @@ class S {
   String get peopleNearYou => _get('peopleNearYou');
   String get casualChats => _get('casualChats');
   String get aiRanked => _get('aiRanked');
+  String get chitchatLabel => _get('chitchatLabel');
+  String get nearYouRankedByInterests => _get('nearYouRankedByInterests');
+  String get freeNeedsNearYou => _get('freeNeedsNearYou');
+  String get closestMatches => _get('closestMatches');
+  String get matchesSomeFilters => _get('matchesSomeFilters');
+  String get youBothLike => _get('youBothLike');
   String get hub => _get('hub');
   String get home => _get('home');
   String get chats => _get('chats');
