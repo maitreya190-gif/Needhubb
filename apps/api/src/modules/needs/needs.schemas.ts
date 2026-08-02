@@ -25,6 +25,7 @@ const decomposedNeed = z.object({
   locationText: z.string().max(200).nullable().optional(),
   lat: z.number().nullable().optional(),
   lng: z.number().nullable().optional(),
+  peopleNeeded: z.number().int().min(1).max(100).default(1),
   // Urgency Mode — optional, off unless the poster explicitly opts in on this
   // specific need. Everything downstream of this flag is additive; omitting
   // it (every existing caller) behaves exactly as before.

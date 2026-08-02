@@ -1492,6 +1492,29 @@ class _EarnCard extends StatelessWidget {
                                     ),
                                   ),
                                 ),
+                                if (need.peopleNeeded > 1 || need.acceptedCount > 0) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 2.5),
+                                    decoration: BoxDecoration(
+                                      color: need.isFullyFrozen
+                                          ? NeedHubTokens.forest.withValues(alpha: 0.15)
+                                          : NeedHubTokens.clay.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      need.freezeProgressLabel,
+                                      style: GoogleFonts.hankenGrotesk(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: need.isFullyFrozen
+                                            ? NeedHubTokens.forest
+                                            : NeedHubTokens.clay,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 if (need.isUrgent) ...[
                                   const SizedBox(width: 6),
                                   NhUrgentBadge(need: need, compact: true),

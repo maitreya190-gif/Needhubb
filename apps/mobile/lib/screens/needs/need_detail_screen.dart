@@ -91,9 +91,17 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   List<Map<String, dynamic>> _needReviews = const [];
   String _offerSortMode = 'newest';
   Timer? _pollTimer;
+  bool _feedbackMinimized = false;
 
-  bool get _isNeedFrozen =>
-      need.isFrozen || _realOffers.any((o) => o.status == 'ACCEPTED');
+  int get _acceptedOfferCount =>
+      _realOffers.where((o) => o.status.toUpperCase() == 'ACCEPTED').length;
+
+  bool get _hasAcceptedOffers => _acceptedOfferCount > 0;
+
+  bool get _isNeedFullyFrozen =>
+      need.isFullyFrozen || (_acceptedOfferCount >= need.peopleNeeded);
+
+  bool get _isNeedFrozen => _isNeedFullyFrozen;
 
   bool _renewing = false;
 
@@ -244,9 +252,13 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   }
 
   /// Shows a freeze-warning dialog before accepting. The poster must
-  /// explicitly confirm — accepting an offer permanently freezes the need.
+  /// explicitly confirm — accepting an offer freezes the responder's offer.
   Future<void> _confirmAndAcceptOffer(String responseId, String offerName) async {
     final t = context.tokens;
+    final acceptedCount = _realOffers.where((o) => o.status == 'ACCEPTED').length;
+    final nextAcceptedCount = acceptedCount + 1;
+    final isFinalAccept = nextAcceptedCount >= need.peopleNeeded;
+
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -269,11 +281,15 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text('Accept & Freeze Need?',
-                  style: GoogleFonts.bricolageGrotesque(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      color: t.ink)),
+              child: Text(
+                isFinalAccept
+                    ? 'Accept & Fully Freeze Need?'
+                    : 'Accept & Freeze Offer ($nextAcceptedCount/${need.peopleNeeded})?',
+                style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: t.ink),
+              ),
             ),
           ],
         ),
@@ -314,9 +330,9 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'This will permanently freeze your need. '  
-                      'No other applicants can respond, and '  
-                      'this action cannot be undone.',
+                      isFinalAccept
+                          ? 'This will fill all ${need.peopleNeeded} position(s) ($nextAcceptedCount/${need.peopleNeeded} Frozen) and permanently freeze your need. No other applicants can respond.'
+                          : 'This will freeze position $nextAcceptedCount of ${need.peopleNeeded} ($nextAcceptedCount/${need.peopleNeeded} Frozen). Your need will remain open for more offers.',
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 13,
                           color: NeedHubTokens.clay,
@@ -386,11 +402,10 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
             .map((o) => o.responseId == responseId ? o.withStatus('ACCEPTED') : o)
             .toList();
       });
+      final count = _realOffers.where((o) => o.status == 'ACCEPTED').length;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Offer accepted! Opening chat…')),
+        SnackBar(content: Text('Offer accepted! ($count/${need.peopleNeeded} Frozen). Opening chat…')),
       );
-      // Jump straight into the conversation so the poster can message the
-      // responder right away. The DmThread was created server-side on accept.
       if (accepted.responderId != null) {
         await Future.delayed(const Duration(milliseconds: 300));
         if (!mounted) return;
@@ -572,19 +587,17 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                   icon: const Icon(Icons.edit_outlined, size: 20),
                                   color: t.ink,
                                   tooltip: 'Edit Need',
-                                  onPressed: _isNeedFrozen
-                                      ? null
-                                      : () {
-                                          showModalBottomSheet(
-                                            context: context,
-                                            isScrollControlled: true,
-                                            backgroundColor: Colors.transparent,
-                                            builder: (_) => _EditNeedSheet(
-                                              need: need,
-                                              onUpdated: () => setState(() {}),
-                                            ),
-                                          );
-                                        },
+                                  onPressed: () {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (_) => _EditNeedSheet(
+                                        need: need,
+                                        onUpdated: () => setState(() {}),
+                                      ),
+                                    );
+                                  },
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline_rounded, size: 20),
@@ -738,6 +751,49 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                                     ),
                                                   ),
                                                 ),
+                                                if (need.peopleNeeded > 1 || _realOffers.any((o) => o.status == 'ACCEPTED')) ...[
+                                                  const SizedBox(width: 8),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 10, vertical: 4),
+                                                    decoration: BoxDecoration(
+                                                      color: _isNeedFrozen
+                                                          ? NeedHubTokens.forest.withValues(alpha: 0.15)
+                                                          : NeedHubTokens.clay.withValues(alpha: 0.15),
+                                                      borderRadius: BorderRadius.circular(20),
+                                                      border: Border.all(
+                                                        color: _isNeedFrozen
+                                                            ? NeedHubTokens.forest.withValues(alpha: 0.3)
+                                                            : NeedHubTokens.clay.withValues(alpha: 0.3),
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(
+                                                          _isNeedFrozen
+                                                              ? Icons.lock_rounded
+                                                              : Icons.lock_clock_outlined,
+                                                          size: 12,
+                                                          color: _isNeedFrozen
+                                                              ? NeedHubTokens.forest
+                                                              : NeedHubTokens.clay,
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          '${_realOffers.where((o) => o.status == 'ACCEPTED').length}/${need.peopleNeeded} Frozen',
+                                                          style: GoogleFonts.hankenGrotesk(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.w700,
+                                                            color: _isNeedFrozen
+                                                                ? NeedHubTokens.forest
+                                                                : NeedHubTokens.clay,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
                                                 if (need.isUrgent) ...[
                                                   const SizedBox(width: 8),
                                                   NhUrgentBadge(need: need),
@@ -762,8 +818,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                                       style: GoogleFonts
                                                           .hankenGrotesk(
                                                         fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.w700,
+                                                        fontWeight: FontWeight.w700,
                                                         color: t.muted,
                                                       ),
                                                     ),
@@ -1169,8 +1224,8 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                       );
                     }),
 
-                    // Feedback & Ratings section — rendered when need is frozen or accepted
-                    if (_isNeedFrozen) ...[
+                    // Feedback & Ratings section — rendered when accepted offers exist or need is fully frozen
+                    if (_hasAcceptedOffers || _isNeedFullyFrozen) ...[
                       const SizedBox(height: 18),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -1336,74 +1391,103 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.star_rounded, color: Color(0xFFEAB308), size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'FEEDBACK & RATINGS (${_needReviews.length})',
-                style: GoogleFonts.hankenGrotesk(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.08 * 12,
-                  color: t.ink,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF15803D).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'FROZEN',
+          InkWell(
+            onTap: () => setState(() => _feedbackMinimized = !_feedbackMinimized),
+            borderRadius: BorderRadius.circular(10),
+            child: Row(
+              children: [
+                const Icon(Icons.star_rounded, color: Color(0xFFEAB308), size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'FEEDBACK & RATINGS (${_needReviews.length})',
                   style: GoogleFonts.hankenGrotesk(
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: const Color(0xFF15803D),
+                    letterSpacing: 0.08 * 12,
+                    color: t.ink,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (_needReviews.isEmpty)
-            Text(
-              'No feedback submitted yet.',
-              style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
-            )
-          else
-            ..._needReviews.map((rev) {
-              final reviewer = rev['reviewer'] as Map<String, dynamic>? ?? {};
-              final reviewerProfile =
-                  reviewer['profile'] as Map<String, dynamic>?;
-              final reviewerName =
-                  reviewer['displayName'] as String? ?? 'User';
-              final rating = (rev['rating'] as num?)?.toInt() ?? 5;
-              final comment = rev['comment'] as String?;
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: t.paper,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: t.rail, width: 1),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF15803D).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    _isNeedFullyFrozen ? 'FROZEN' : '$_acceptedOfferCount/${need.peopleNeeded} FROZEN',
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF15803D),
+                    ),
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        ClipOval(
-                          child: reviewerProfile?['avatarUrl'] != null
-                              ? Image.network(
-                                  reviewerProfile!['avatarUrl'] as String,
-                                  width: 28,
-                                  height: 28,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
+                const SizedBox(width: 6),
+                Icon(
+                  _feedbackMinimized
+                      ? Icons.keyboard_arrow_down_rounded
+                      : Icons.keyboard_arrow_up_rounded,
+                  size: 20,
+                  color: t.muted,
+                ),
+              ],
+            ),
+          ),
+          if (!_feedbackMinimized) ...[
+            const SizedBox(height: 12),
+            if (_needReviews.isEmpty)
+              Text(
+                'No feedback submitted yet.',
+                style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
+              )
+            else
+              ..._needReviews.map((rev) {
+                final reviewer = rev['reviewer'] as Map<String, dynamic>? ?? {};
+                final reviewerProfile =
+                    reviewer['profile'] as Map<String, dynamic>?;
+                final reviewerName =
+                    reviewer['displayName'] as String? ?? 'User';
+                final rating = (rev['rating'] as num?)?.toInt() ?? 5;
+                final comment = rev['comment'] as String?;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: t.paper,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: t.rail, width: 1),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          ClipOval(
+                            child: reviewerProfile?['avatarUrl'] != null
+                                ? Image.network(
+                                    reviewerProfile!['avatarUrl'] as String,
+                                    width: 28,
+                                    height: 28,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Container(
+                                      width: 28,
+                                      height: 28,
+                                      color: t.rail2,
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        reviewerName.isNotEmpty
+                                            ? reviewerName[0]
+                                            : '?',
+                                        style: GoogleFonts.hankenGrotesk(
+                                            fontSize: 11,
+                                            color: t.muted4,
+                                            fontWeight: FontWeight.w700),
+                                      ),
+                                    ),
+                                  )
+                                : Container(
                                     width: 28,
                                     height: 28,
                                     color: t.rail2,
@@ -1418,120 +1502,105 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                           fontWeight: FontWeight.w700),
                                     ),
                                   ),
-                                )
-                              : Container(
-                                  width: 28,
-                                  height: 28,
-                                  color: t.rail2,
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    reviewerName.isNotEmpty
-                                        ? reviewerName[0]
-                                        : '?',
-                                    style: GoogleFonts.hankenGrotesk(
-                                        fontSize: 11,
-                                        color: t.muted4,
-                                        fontWeight: FontWeight.w700),
-                                  ),
-                                ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            reviewerName,
-                            style: GoogleFonts.hankenGrotesk(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: t.ink,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              reviewerName,
+                              style: GoogleFonts.hankenGrotesk(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: t.ink,
+                              ),
                             ),
                           ),
-                        ),
-                        Row(
-                          children: List.generate(
-                            5,
-                            (i) => Icon(
-                              i < rating
-                                  ? Icons.star_rounded
-                                  : Icons.star_outline_rounded,
-                              size: 14,
-                              color:
-                                  i < rating ? const Color(0xFFEAB308) : t.muted,
+                          Row(
+                            children: List.generate(
+                              5,
+                              (i) => Icon(
+                                i < rating
+                                    ? Icons.star_rounded
+                                    : Icons.star_outline_rounded,
+                                size: 14,
+                                color:
+                                    i < rating ? const Color(0xFFEAB308) : t.muted,
+                              ),
                             ),
                           ),
+                        ],
+                      ),
+                      if (comment != null && comment.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          comment,
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 12.5, color: t.ink),
                         ),
                       ],
-                    ),
-                    if (comment != null && comment.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        comment,
-                        style: GoogleFonts.hankenGrotesk(
-                            fontSize: 12.5, color: t.ink),
-                      ),
                     ],
-                  ],
-                ),
-              );
-            }),
-          if (isParticipant &&
-              counterpartyId != null &&
-              counterpartyId.isNotEmpty &&
-              !hasMyReview) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.rate_review_outlined, size: 18),
-                label: Text('Rate & Give Feedback to $counterpartyName'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: NeedHubTokens.forest,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  elevation: 0,
-                ),
-                onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: Colors.transparent,
-                    builder: (_) => _FeedbackSheet(
-                      needId: need.id,
-                      revieweeId: counterpartyId,
-                      revieweeName: counterpartyName,
-                      onSubmitted: _fetchNeedReviews,
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-          if (isParticipant &&
-              counterpartyId != null &&
-              counterpartyId.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.thumb_up_outlined, size: 18),
-                label: Text('Vouch for $counterpartyName\'s Skills'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: NeedHubTokens.forest,
-                  side: BorderSide(
-                      color: NeedHubTokens.forest.withValues(alpha: 0.4)),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: () => NhVouchPickerSheet.open(
-                  context,
-                  needId: need.id,
-                  voucheeId: counterpartyId,
-                  voucheeName: counterpartyName,
+                  ),
+                );
+              }),
+            if (isParticipant &&
+                counterpartyId != null &&
+                counterpartyId.isNotEmpty &&
+                !hasMyReview) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.rate_review_outlined, size: 18),
+                  label: Text('Rate & Give Feedback to $counterpartyName'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: NeedHubTokens.forest,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => _FeedbackSheet(
+                        needId: need.id,
+                        revieweeId: counterpartyId,
+                        revieweeName: counterpartyName,
+                        onSubmitted: _fetchNeedReviews,
+                      ),
+                    );
+                  },
                 ),
               ),
-            ),
+            ],
+            if (isParticipant &&
+                counterpartyId != null &&
+                counterpartyId.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.thumb_up_outlined, size: 18),
+                  label: Text('Vouch for $counterpartyName\'s Skills'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: NeedHubTokens.forest,
+                    side: BorderSide(
+                        color: NeedHubTokens.forest.withValues(alpha: 0.4)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => NhVouchPickerSheet.open(
+                    context,
+                    needId: need.id,
+                    voucheeId: counterpartyId,
+                    voucheeName: counterpartyName,
+                  ),
+                ),
+              ),
+            ],
           ],
         ],
       ),
@@ -3387,6 +3456,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
   late final TextEditingController _descController;
   late final TextEditingController _budgetMinController;
   late final TextEditingController _budgetMaxController;
+  late int _peopleNeeded;
   bool _saving = false;
   String? _error;
 
@@ -3399,6 +3469,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
         text: widget.need.budgetMin != null ? '${widget.need.budgetMin}' : '');
     _budgetMaxController = TextEditingController(
         text: widget.need.budgetMax != null ? '${widget.need.budgetMax}' : '');
+    _peopleNeeded = widget.need.peopleNeeded;
   }
 
   @override
@@ -3529,6 +3600,81 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                 ),
               ],
             ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: t.paper,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: t.rail),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'PEOPLE NEEDED',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                            color: t.muted2,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Number of positions to fill',
+                          style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12,
+                            color: t.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: t.card,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: t.rail),
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.remove, size: 18),
+                          onPressed: _peopleNeeded > 1
+                              ? () => setState(() => _peopleNeeded--)
+                              : null,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text(
+                            '$_peopleNeeded',
+                            style: GoogleFonts.bricolageGrotesque(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: t.ink,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.add, size: 18),
+                          onPressed: _peopleNeeded < 100
+                              ? () => setState(() => _peopleNeeded++)
+                              : null,
+                          padding: const EdgeInsets.all(6),
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
             if (_error != null) ...[
               const SizedBox(height: 10),
               Text(_error!,
@@ -3565,6 +3711,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                                   int.tryParse(_budgetMinController.text.trim()),
                               budgetMax:
                                   int.tryParse(_budgetMaxController.text.trim()),
+                              peopleNeeded: _peopleNeeded,
                             );
                             if (!mounted) return;
                             Navigator.of(context).pop();

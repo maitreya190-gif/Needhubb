@@ -106,6 +106,8 @@ class Need {
   /// returns its internal confidence score. See lib/urgency.ts on the API.
   final bool isUrgent;
   final DateTime? deadline;
+  final int peopleNeeded;
+  final int acceptedCount;
 
   const Need({
     required this.id,
@@ -135,21 +137,33 @@ class Need {
     this.lng,
     this.isUrgent = false,
     this.deadline,
+    this.peopleNeeded = 1,
+    this.acceptedCount = 0,
   });
 
-  Need copyWith({String? title}) => Need(
+  Need copyWith({
+    String? title,
+    String? description,
+    int? budgetMin,
+    int? budgetMax,
+    String? location,
+    String? status,
+    int? peopleNeeded,
+    int? acceptedCount,
+  }) =>
+      Need(
         id: id,
         posterId: posterId,
         title: title ?? this.title,
-        description: description,
+        description: description ?? this.description,
         category: category,
         authorName: authorName,
         authorInitials: authorInitials,
-        location: location,
+        location: location ?? this.location,
         distanceKm: distanceKm,
         createdAt: createdAt,
-        budgetMin: budgetMin,
-        budgetMax: budgetMax,
+        budgetMin: budgetMin ?? this.budgetMin,
+        budgetMax: budgetMax ?? this.budgetMax,
         tags: tags,
         posterGender: posterGender,
         posterAvatarUrl: posterAvatarUrl,
@@ -160,12 +174,18 @@ class Need {
         posterInterests: posterInterests,
         posterPersonalityTraits: posterPersonalityTraits,
         posterPersonalityNickname: posterPersonalityNickname,
-        status: status,
+        status: status ?? this.status,
         lat: lat,
         lng: lng,
+        isUrgent: isUrgent,
+        deadline: deadline,
+        peopleNeeded: peopleNeeded ?? this.peopleNeeded,
+        acceptedCount: acceptedCount ?? this.acceptedCount,
       );
 
-  bool get isFrozen => status.toUpperCase() != 'OPEN';
+  bool get isFullyFrozen => acceptedCount >= peopleNeeded || status.toUpperCase() != 'OPEN';
+  bool get isFrozen => isFullyFrozen;
+  String get freezeProgressLabel => '$acceptedCount/$peopleNeeded Frozen';
   bool get isExpiredUrgent => status.toUpperCase() == 'EXPIRED';
 
   /// Short "3h left" / "45m left" for an urgent need's deadline. Null once it

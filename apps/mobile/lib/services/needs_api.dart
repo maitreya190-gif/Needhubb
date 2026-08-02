@@ -72,6 +72,7 @@ class NeedsApi {
     int? budgetMin,
     int? budgetMax,
     String? locationText,
+    int? peopleNeeded,
   }) async {
     final res = await _api.patch('/needs/$id', {
       if (title != null) 'title': title,
@@ -80,6 +81,7 @@ class NeedsApi {
       if (budgetMin != null) 'budgetMin': budgetMin,
       if (budgetMax != null) 'budgetMax': budgetMax,
       if (locationText != null) 'locationText': locationText,
+      if (peopleNeeded != null) 'peopleNeeded': peopleNeeded,
     });
     return _needFromJson(res);
   }
@@ -177,6 +179,8 @@ Need _needFromJson(Map<String, dynamic> j) {
     deadline: j['deadline'] != null
         ? DateTime.tryParse(j['deadline'] as String)
         : null,
+    peopleNeeded: (j['peopleNeeded'] as num?)?.toInt() ?? 1,
+    acceptedCount: (j['acceptedCount'] as num?)?.toInt() ?? 0,
   );
 }
 

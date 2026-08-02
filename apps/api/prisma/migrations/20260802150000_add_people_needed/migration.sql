@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Need" ADD COLUMN "peopleNeeded" INTEGER NOT NULL DEFAULT 1;

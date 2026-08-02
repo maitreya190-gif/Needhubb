@@ -103,6 +103,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
   // path: decomposed sub-needs post as-is, without a per-need urgent toggle.
   bool _isUrgent = false;
   DateTime? _urgentDeadline;
+  int _peopleNeeded = 1;
 
   // Decomposed needs from the API — each item matches the /needs/decompose response shape.
   List<Map<String, dynamic>> _subNeeds = [];
@@ -230,6 +231,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
         'budgetMin': budgetMin,
         'budgetMax': budgetMax,
         'deadline': _isUrgent ? _urgentDeadline!.toIso8601String() : null,
+        'peopleNeeded': _peopleNeeded,
         if (_isUrgent) 'isUrgent': true,
       }];
     }
@@ -253,6 +255,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
       deadline: n['deadline'] != null
           ? DateTime.tryParse(n['deadline'] as String)
           : null,
+      peopleNeeded: (n['peopleNeeded'] as num?)?.toInt() ?? _peopleNeeded,
     );
 
     try {
@@ -297,6 +300,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
           budgetMax: int.tryParse(_budgetMaxController.text.trim()),
           isUrgent: _isUrgent,
           deadline: _isUrgent ? _urgentDeadline : null,
+          peopleNeeded: _peopleNeeded,
         ));
       }
     }
@@ -410,6 +414,8 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
               canPost: _canPost,
               isUrgent: _isUrgent,
               urgentDeadline: _urgentDeadline,
+              peopleNeeded: _peopleNeeded,
+              onPeopleNeededChanged: (v) => setState(() => _peopleNeeded = v),
               onToggleUrgent: (v) => setState(() {
                 _isUrgent = v;
                 if (!v) _urgentDeadline = null;
@@ -459,6 +465,8 @@ class _NeedForm extends StatelessWidget {
   final bool canPost;
   final bool isUrgent;
   final DateTime? urgentDeadline;
+  final int peopleNeeded;
+  final ValueChanged<int> onPeopleNeededChanged;
   final ValueChanged<bool> onToggleUrgent;
   final VoidCallback onPickDeadline;
   final ValueChanged<String> onCategoryChanged;
@@ -490,6 +498,8 @@ class _NeedForm extends StatelessWidget {
     required this.canPost,
     required this.isUrgent,
     required this.urgentDeadline,
+    required this.peopleNeeded,
+    required this.onPeopleNeededChanged,
     required this.onToggleUrgent,
     required this.onPickDeadline,
     required this.onCategoryChanged,
@@ -625,6 +635,85 @@ class _NeedForm extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+
+        // People Needed counter — manual single-need path only
+        if (!decomposed) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: t.paper,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: t.rail),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'PEOPLE NEEDED',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: t.muted2,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'How many people do you need?',
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12,
+                          color: t.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: t.card,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: t.rail),
+                  ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove, size: 18),
+                        onPressed: peopleNeeded > 1
+                            ? () => onPeopleNeededChanged(peopleNeeded - 1)
+                            : null,
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          '$peopleNeeded',
+                          style: GoogleFonts.bricolageGrotesque(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: t.ink,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add, size: 18),
+                        onPressed: peopleNeeded < 100
+                            ? () => onPeopleNeededChanged(peopleNeeded + 1)
+                            : null,
+                        padding: const EdgeInsets.all(6),
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
 

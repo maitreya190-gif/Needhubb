@@ -155,6 +155,7 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
           lng: first.lng ?? defaultLng,
           isPaid: first.budgetMin != null || first.budgetMax != null,
           isUrgent: first.isUrgent ?? false,
+          peopleNeeded: first.peopleNeeded ?? 1,
         },
       })
 
@@ -175,6 +176,7 @@ needsRouter.post('/', authenticate, async (req, res, next) => {
             lng: n.lng ?? defaultLng,
             isPaid: n.budgetMin != null || n.budgetMax != null,
             isUrgent: n.isUrgent ?? false,
+            peopleNeeded: n.peopleNeeded ?? 1,
             parentNeedId: parent.id,
           },
         }),
@@ -318,6 +320,7 @@ needsRouter.get('/', async (req, res, next) => {
           },
         },
         subNeeds: { select: { id: true, title: true, budgetMin: true, budgetMax: true } },
+        responses: { where: { status: 'ACCEPTED' }, select: { id: true } },
         _count: { select: { responses: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -479,6 +482,7 @@ needsRouter.get('/', async (req, res, next) => {
           profile: r.need.poster.profile ? { ...r.need.poster.profile, trustScore } : r.need.poster.profile,
         },
         offerCount: r.need._count.responses,
+        acceptedCount: (r.need as any).responses ? (r.need as any).responses.length : 0,
         tags: tagsById.get(r.need.id) ?? [],
         _score: Math.round(r.score * 100) / 100,
         _semantic: r.semantic != null ? Math.round(r.semantic * 100) / 100 : null,
@@ -580,6 +584,7 @@ needsRouter.get('/:id', async (req, res, next) => {
           },
         },
         subNeeds: true,
+        responses: { where: { status: 'ACCEPTED' }, select: { id: true } },
         _count: { select: { responses: true } },
       },
     })
@@ -617,6 +622,7 @@ needsRouter.get('/:id', async (req, res, next) => {
       ...stripInternalUrgencyFields(need),
       poster: { ...need.poster, profile: need.poster.profile ? { ...need.poster.profile, trustScore } : need.poster.profile },
       offerCount: need._count.responses,
+      acceptedCount: need.responses ? need.responses.length : 0,
     })
   } catch (err) { next(err) }
 })
@@ -629,9 +635,19 @@ needsRouter.get('/mine/list', authenticate, async (req, res, next) => {
     const rows = await prisma.need.findMany({
       where: { posterId: userId },
       orderBy: { createdAt: 'desc' },
-      include: { subNeeds: { select: { id: true, title: true, status: true } } },
+      include: {
+        subNeeds: { select: { id: true, title: true, status: true } },
+        responses: { where: { status: 'ACCEPTED' }, select: { id: true } },
+        _count: { select: { responses: true } },
+      },
     })
-    res.json({ needs: rows.map(stripInternalUrgencyFields) })
+    res.json({
+      needs: rows.map((r) => ({
+        ...stripInternalUrgencyFields(r),
+        offerCount: r._count.responses,
+        acceptedCount: r.responses ? r.responses.length : 0,
+      })),
+    })
   } catch (err) { next(err) }
 })
 
@@ -671,11 +687,8 @@ const editNeedSchema = z.object({
   budgetMin: z.number().int().min(0).nullable().optional(),
   budgetMax: z.number().int().min(0).nullable().optional(),
   locationText: z.string().optional(),
-  // Urgency deadline — editable so a poster can adjust it without deleting
-  // and reposting. Only meaningful when the need is already urgent; edits on
-  // a non-urgent need still store it (matches how deadline already behaved
-  // pre-Urgency-Mode) but trigger nothing further.
   deadline: z.string().nullable().optional(),
+  peopleNeeded: z.number().int().min(1).max(100).optional(),
 })
 
 needsRouter.patch('/:id', authenticate, async (req, res, next) => {
@@ -683,10 +696,27 @@ needsRouter.patch('/:id', authenticate, async (req, res, next) => {
   if (!parsed.success) return next(badRequest('Invalid edit payload', 'INVALID_BODY'))
   const userId = (req as AuthedRequest).userId
   try {
-    const need = await prisma.need.findUnique({ where: { id: req.params.id } })
+    const need = await prisma.need.findUnique({
+      where: { id: req.params.id },
+      include: { responses: { where: { status: 'ACCEPTED' }, select: { id: true } } },
+    })
     if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
     if (need.posterId !== userId) return next(forbidden('Only the poster can edit this need', 'NOT_POSTER'))
-    if (need.status === 'FULFILLED') return next(forbidden('Cannot edit a frozen/fulfilled need', 'NEED_FROZEN'))
+
+    const acceptedCount = need.responses ? need.responses.length : 0
+    const newPeopleNeeded = parsed.data.peopleNeeded ?? need.peopleNeeded
+    if (need.status === 'FULFILLED' && parsed.data.peopleNeeded === undefined) {
+      return next(forbidden('Cannot edit a frozen/fulfilled need', 'NEED_FROZEN'))
+    }
+
+    let newStatus = need.status
+    if (parsed.data.peopleNeeded !== undefined) {
+      if (acceptedCount >= newPeopleNeeded) {
+        newStatus = 'FULFILLED'
+      } else if (need.status === 'FULFILLED') {
+        newStatus = 'OPEN'
+      }
+    }
 
     const newDeadline = parsed.data.deadline !== undefined
       ? (parsed.data.deadline ? new Date(parsed.data.deadline) : null)
@@ -701,14 +731,12 @@ needsRouter.patch('/:id', authenticate, async (req, res, next) => {
         ...(parsed.data.budgetMin !== undefined && { budgetMin: parsed.data.budgetMin }),
         ...(parsed.data.budgetMax !== undefined && { budgetMax: parsed.data.budgetMax }),
         ...(parsed.data.locationText !== undefined && { locationText: parsed.data.locationText }),
+        ...(parsed.data.peopleNeeded !== undefined && { peopleNeeded: parsed.data.peopleNeeded }),
         ...(newDeadline !== undefined && { deadline: newDeadline }),
+        status: newStatus,
       },
     })
 
-    // Automatic re-evaluation: any edit that actually changes title,
-    // description or deadline on an urgent need invalidates the confidence
-    // computed for the old text/date, so a fresh evaluation runs — same
-    // fire-and-forget call used at creation and renewal.
     const titleChanged = parsed.data.title !== undefined && parsed.data.title !== need.title
     const descriptionChanged =
       parsed.data.description !== undefined && parsed.data.description !== need.description
@@ -719,7 +747,10 @@ needsRouter.patch('/:id', authenticate, async (req, res, next) => {
         console.error('[urgency] re-evaluation failed for edited need', updated.id, err))
     }
 
-    res.json(stripInternalUrgencyFields(updated))
+    res.json({
+      ...stripInternalUrgencyFields(updated),
+      acceptedCount,
+    })
   } catch (err) { next(err) }
 })
 
@@ -1011,10 +1042,16 @@ needsRouter.patch('/:id/responses/:respId', authenticate, async (req, res, next)
       // (surfaces in /chats). Guarantees the two users can DM after acceptance,
       // even without a friendship, because /chats/dm/:userId/messages checks
       // for accepted InterestResponse to bypass the friends-only rule.
+      let currentAcceptedCount = 0
       if (parsed.data.status === 'ACCEPTED') {
+        const acceptedCount = await tx.interestResponse.count({
+          where: { needId: resp.needId, status: 'ACCEPTED' },
+        })
+        currentAcceptedCount = acceptedCount + (resp.status === 'ACCEPTED' ? 0 : 1)
+        const isFulfilled = currentAcceptedCount >= resp.need.peopleNeeded
         await tx.need.update({
           where: { id: resp.needId },
-          data: { status: 'FULFILLED' },
+          data: { status: isFulfilled ? 'FULFILLED' : 'OPEN' },
         })
         await tx.messageThread.upsert({
           where: { responseId: r.id },
@@ -1037,19 +1074,21 @@ needsRouter.patch('/:id/responses/:respId', authenticate, async (req, res, next)
         refId: resp.needId,
       })
       emitToUser(resp.responderId, 'response_decision', { needId: resp.needId, status: parsed.data.status })
-      return { r, dmThreadId }
+      return { r, dmThreadId, currentAcceptedCount, peopleNeeded: resp.need.peopleNeeded }
     })
 
-    // This is the primary way a need actually gets fulfilled in this app —
-    // accepting an offer, not the separate manual PATCH /:id/status. Same
-    // "genuinely justified" reliability signal as that path — see lib/urgency.ts.
     if (parsed.data.status === 'ACCEPTED' && resp.need.isUrgent &&
         (!resp.need.deadline || resp.need.deadline.getTime() > Date.now())) {
       recordUrgentNeedFulfilled(resp.need.posterId).catch((err: unknown) =>
         console.error('[urgency] failed to record fulfillment', resp.needId, err))
     }
 
-    res.json({ ...updated.r, dmThreadId: updated.dmThreadId })
+    res.json({
+      ...updated.r,
+      dmThreadId: updated.dmThreadId,
+      acceptedCount: updated.currentAcceptedCount,
+      peopleNeeded: updated.peopleNeeded,
+    })
   } catch (err) { next(err) }
 })
 

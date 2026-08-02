@@ -112,6 +112,7 @@ CREATE TABLE "Need" (
     "lat" DOUBLE PRECISION,
     "lng" DOUBLE PRECISION,
     "status" "NeedStatus" NOT NULL DEFAULT 'OPEN',
+    "peopleNeeded" INTEGER NOT NULL DEFAULT 1,
     "parentNeedId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

@@ -269,6 +269,7 @@ model Need {
   lat             Float?
   lng             Float?
   status          NeedStatus       @default(OPEN)
+  peopleNeeded    Int              @default(1)
   parentNeedId    String?
   createdAt       DateTime         @default(now())
 
