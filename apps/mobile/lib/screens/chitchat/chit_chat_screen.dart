@@ -28,15 +28,17 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
     uiLanguageNotifier.addListener(_bump);
     // Trigger an immediate refresh — main.dart's poller runs every 15s but we
     // want the screen to feel snappy on open.
-    Future.microtask(() async {
-      final api = ref.read(chitchatApiProvider);
-      try {
-        final status = await api.status();
-        chitChatAvailableNotifier.value = status.available;
-        chitchatAvailableUntilNotifier.value = status.availableUntil;
-        chitchatRosterNotifier.value = await api.availablePeople();
-      } catch (_) {/* swallow */}
-    });
+    Future.microtask(_refresh);
+  }
+
+  Future<void> _refresh() async {
+    final api = ref.read(chitchatApiProvider);
+    try {
+      final status = await api.status();
+      chitChatAvailableNotifier.value = status.available;
+      chitchatAvailableUntilNotifier.value = status.availableUntil;
+      chitchatRosterNotifier.value = await api.availablePeople();
+    } catch (_) {/* swallow */}
   }
 
   @override
@@ -99,7 +101,11 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: ListView(
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        color: NeedHubTokens.clay,
+        child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
             20, 0, 20, MediaQuery.of(context).padding.bottom + 24),
         children: [
@@ -213,6 +219,7 @@ class _ChitChatScreenState extends ConsumerState<ChitChatScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

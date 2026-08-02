@@ -290,7 +290,11 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
             style: GoogleFonts.bricolageGrotesque(
                 fontSize: 18, fontWeight: FontWeight.w700, color: t.ink)),
       ),
-      body: ListView(
+      body: RefreshIndicator(
+        onRefresh: () => Future.wait([_load(), _loadChitBoostStatus()]),
+        color: NeedHubTokens.clay,
+        child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
             20, 8, 20, MediaQuery.of(context).padding.bottom + 24),
         children: [
@@ -442,6 +446,7 @@ class _RedeemScreenState extends ConsumerState<RedeemScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

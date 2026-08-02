@@ -50,9 +50,38 @@ class YouScreen extends ConsumerWidget {
     final name = auth.displayName ?? auth.email ?? 'You';
     final initials = _initials(name);
 
+    Future<void> handlePullToRefresh() async {
+      final profilesApi = ref.read(profilesApiProvider);
+      try {
+        final me = await profilesApi.me();
+        myProfileNotifier.value = me;
+        pointsNotifier.value = me.pointsTotal;
+        bioNotifier.value = me.bio ?? '';
+        promptSkillNotifier.value = me.promptSkill ?? '';
+        promptCollabNotifier.value = me.promptCollab ?? '';
+        promptNeedNotifier.value = me.promptNeed ?? '';
+        genderNotifier.value = me.gender;
+        locationNotifier.value = me.locationText ?? '';
+        avatarUrlNotifier.value = me.avatarUrl;
+        customInterestsNotifier.value = me.interestLabels;
+        customSkillsNotifier.value = me.skillLabels;
+      } catch (_) {/* keep last-known profile */}
+      final uploadsApi = ref.read(uploadsApiProvider);
+      try {
+        myCertificatesNotifier.value = await uploadsApi.myCertificates();
+      } catch (_) {/* keep last-known list */}
+      try {
+        myAchievementsNotifier.value = await uploadsApi.myAchievements();
+      } catch (_) {/* keep last-known list */}
+    }
+
     return Scaffold(
       backgroundColor: t.paper,
-      body: CustomScrollView(
+      body: RefreshIndicator(
+        onRefresh: handlePullToRefresh,
+        color: NeedHubTokens.clay,
+        child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           // Dark profile header
           SliverToBoxAdapter(
@@ -865,6 +894,7 @@ class YouScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

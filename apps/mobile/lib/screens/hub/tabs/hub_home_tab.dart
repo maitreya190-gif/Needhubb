@@ -5,6 +5,7 @@ import '../../../l10n/app_strings.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/language_provider.dart';
 import '../../../services/reviews_api.dart';
+import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
 import '../../chitchat/chit_chat_screen.dart';
 import '../../personality/personality_test_screen.dart';
@@ -36,7 +37,16 @@ class HubHomeTab extends ConsumerWidget {
       backgroundColor: t.paper,
       body: SafeArea(
         bottom: false,
-        child: SingleChildScrollView(
+        child: RefreshIndicator(
+          color: NeedHubTokens.clay,
+          onRefresh: () async {
+            try {
+              pendingReviewsNotifier.value =
+                  await ref.read(reviewsApiProvider).pending();
+            } catch (_) {/* keep last-known list */}
+          },
+          child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,6 +287,7 @@ class HubHomeTab extends ConsumerWidget {
               // Pending ratings section
               _PendingRatingsSection(t: t),
             ],
+          ),
           ),
         ),
       ),

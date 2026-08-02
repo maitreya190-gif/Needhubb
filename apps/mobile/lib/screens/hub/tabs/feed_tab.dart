@@ -332,6 +332,25 @@ class _FeedTabState extends ConsumerState<FeedTab> {
     _batchTranslateFeed();
   }
 
+  /// Pull-to-refresh: re-fetches whatever data backs the currently visible
+  /// surface. ChitChat has its own status+roster fetch (mirrors the one
+  /// _ChitChatFeedInline runs on first open); Earn/Connect share the same
+  /// underlying feed fetch since they're just two client-side filtered views
+  /// over feedNeedsNotifier.
+  Future<void> _handlePullToRefresh() async {
+    if (_surface == 'chitchat') {
+      try {
+        final api = ref.read(chitchatApiProvider);
+        final status = await api.status();
+        if (!mounted) return;
+        chitChatAvailableNotifier.value = status.available;
+        chitchatRosterNotifier.value = await api.availablePeople();
+      } catch (_) {}
+    } else {
+      await _fetchFeed();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
@@ -562,21 +581,25 @@ class _FeedTabState extends ConsumerState<FeedTab> {
 
             // Feed — Connect = connect category, Earn = earn category
             Expanded(
-              child: _surface == 'connect'
-                  ? _ConnectFeed(
-                      needs: feedNeeds
-                          .where((n) => n.category.toLowerCase() == 'connect')
-                          .toList(),
-                      t: t,
-                      isAiRanked: isAiRanked)
-                  : _surface == 'earn'
-                      ? _EarnFeed(
-                          needs: feedNeeds
-                              .where((n) => n.category.toLowerCase() == 'earn')
-                              .toList(),
-                          t: t,
-                          isAiRanked: isAiRanked)
-                      : _ChitChatFeedInline(t: t),
+              child: RefreshIndicator(
+                onRefresh: _handlePullToRefresh,
+                color: NeedHubTokens.clay,
+                child: _surface == 'connect'
+                    ? _ConnectFeed(
+                        needs: feedNeeds
+                            .where((n) => n.category.toLowerCase() == 'connect')
+                            .toList(),
+                        t: t,
+                        isAiRanked: isAiRanked)
+                    : _surface == 'earn'
+                        ? _EarnFeed(
+                            needs: feedNeeds
+                                .where((n) => n.category.toLowerCase() == 'earn')
+                                .toList(),
+                            t: t,
+                            isAiRanked: isAiRanked)
+                        : _ChitChatFeedInline(t: t),
+              ),
             ),
           ],
         ),
@@ -725,6 +748,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
 
     if (_loading) {
       return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
         children: const [
           NhPersonCardSkeleton(),
@@ -738,6 +762,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
 
     if (filteredPeople.isEmpty && needs.isEmpty) {
       return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
         children: [
           _ActiveFilterRibbon(filter: filter, surface: 'connect', t: t),
@@ -756,6 +781,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
     }
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
       children: [
         _RankerBadge(isAi: widget.isAiRanked, t: t),
@@ -1128,6 +1154,7 @@ class _EarnFeedState extends State<_EarnFeed> {
 
     if (_loading) {
       return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 120),
         children: const [
           NhEarnCardSkeleton(),
@@ -1141,6 +1168,7 @@ class _EarnFeedState extends State<_EarnFeed> {
 
     if (needs.isEmpty) {
       return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 120),
         children: [
           _ActiveFilterRibbon(filter: filter, surface: 'earn', t: t),
@@ -1165,6 +1193,7 @@ class _EarnFeedState extends State<_EarnFeed> {
     }
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 120),
       children: [
         _RankerBadge(isAi: widget.isAiRanked, t: t),
@@ -1796,6 +1825,7 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
 
     if (_loading) {
       return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
         children: [
           NhSkeleton(width: double.infinity, height: 52, radius: 14),
@@ -1814,6 +1844,7 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
     }
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
       children: [
         // Availability toggle

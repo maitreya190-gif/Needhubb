@@ -456,23 +456,39 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
             // ── Body ─────────────────────────────────────────────────────
             if (list.isEmpty)
               Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  color: NeedHubTokens.clay,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     children: [
-                      Icon(Icons.notifications_none_rounded,
-                          size: 44, color: t.muted),
-                      const SizedBox(height: 12),
-                      Text(s.noNotificationsYet,
-                          style: GoogleFonts.hankenGrotesk(
-                              fontSize: 14, color: t.muted)),
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.6,
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.notifications_none_rounded,
+                                  size: 44, color: t.muted),
+                              const SizedBox(height: 12),
+                              Text(s.noNotificationsYet,
+                                  style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 14, color: t.muted)),
+                            ],
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               )
             else
               Expanded(
-                child: ListView(
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  color: NeedHubTokens.clay,
+                  child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
                   children: groupOrder
                       .where((g) => groups.containsKey(g))
@@ -533,6 +549,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
                       const SizedBox(height: 8),
                     ];
                   }).toList(),
+                  ),
                 ),
               ),
           ],

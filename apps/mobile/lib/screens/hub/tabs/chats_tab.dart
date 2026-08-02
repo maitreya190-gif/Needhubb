@@ -215,14 +215,30 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                       ],
                     )
                   : realChats.isEmpty && allChats.isEmpty && _pendingRequests.isEmpty && friendRequestsInboxNotifier.value.isEmpty
-                      ? Center(
-                          child: NhEmptyState(
-                            icon: Icons.chat_bubble_outline_rounded,
-                            title: s.noChatsYet,
-                            subtitle: s.noChatsSubtitle,
+                      ? RefreshIndicator(
+                          onRefresh: _refreshChats,
+                          color: NeedHubTokens.clay,
+                          child: ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: [
+                              SizedBox(
+                                height: MediaQuery.of(context).size.height * 0.6,
+                                child: Center(
+                                  child: NhEmptyState(
+                                    icon: Icons.chat_bubble_outline_rounded,
+                                    title: s.noChatsYet,
+                                    subtitle: s.noChatsSubtitle,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         )
-                      : ListView(
+                      : RefreshIndicator(
+                onRefresh: _refreshChats,
+                color: NeedHubTokens.clay,
+                child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
                 children: [
                   // Friend requests section — real ones (hydrated from API) first
@@ -411,6 +427,7 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                 ],
               ),
             ),
+          ),
           ],
         ),
       ),

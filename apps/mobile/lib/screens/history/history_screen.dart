@@ -158,7 +158,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ),
         ),
       ),
-      body: ListView(
+      body: RefreshIndicator(
+        onRefresh: _fetchRealReviews,
+        color: NeedHubTokens.clay,
+        child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
         children: [
           // Summary Banner
@@ -238,6 +242,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               ),
             ),
         ],
+        ),
       ),
     );
   }

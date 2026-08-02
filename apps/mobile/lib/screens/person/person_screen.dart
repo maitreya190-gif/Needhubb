@@ -189,7 +189,11 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
     final person = _real ?? mockPersonLookup[name];
     return Scaffold(
       backgroundColor: t.paper,
-      body: CustomScrollView(
+      body: RefreshIndicator(
+        onRefresh: _hydrate,
+        color: NeedHubTokens.clay,
+        child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           // Dark profile header
           SliverToBoxAdapter(
@@ -925,6 +929,7 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

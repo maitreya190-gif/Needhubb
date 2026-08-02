@@ -202,6 +202,14 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
     } catch (_) {}
   }
 
+  /// Pull-to-refresh: re-fetches everything shown on this page — the need
+  /// itself, its offers/responses, and its reviews — in parallel.
+  Future<void> _handlePullToRefresh() => Future.wait([
+        _fetchNeedDetails(),
+        _hydrateOffers(),
+        _fetchNeedReviews(),
+      ]);
+
   bool get _isPoster {
     final myId = ref.read(authProvider).userId;
     if (myId != null && need.posterId.isNotEmpty) return need.posterId == myId;
@@ -572,7 +580,11 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
+              child: RefreshIndicator(
+                onRefresh: _handlePullToRefresh,
+                color: NeedHubTokens.clay,
+                child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.only(bottom: 40),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1298,6 +1310,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                     ],
                   ],
                 ),
+              ),
               ),
             ),
 
