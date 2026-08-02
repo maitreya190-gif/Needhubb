@@ -590,6 +590,18 @@ needsRouter.get('/:id', async (req, res, next) => {
     })
     if (!need) return next(notFound('Need not found', 'NEED_NOT_FOUND'))
 
+    // Same block enforcement as the feed listing (see the isBlockedBetween
+    // filter there) — without it, a blocked user could still reach this
+    // need's full detail by id (a notification, a shared link, a stale
+    // reference) even though it is filtered out of every list they see.
+    // Reported as a plain 404, matching "not found" rather than a distinct
+    // "blocked" error, so this response can never be used to detect whether
+    // a block exists between the two accounts.
+    const viewerId = tryGetUserId(req)
+    if (viewerId && await isBlockedBetween(viewerId, need.posterId)) {
+      return next(notFound('Need not found', 'NEED_NOT_FOUND'))
+    }
+
     // Same lazy expiry as the feed (see lib/urgency.ts) — best-effort, and the
     // in-memory status is corrected immediately so this response doesn't show
     // a stale OPEN for the one request before the write lands.
