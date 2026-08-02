@@ -288,7 +288,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => _AddOtherSheet(
         label: label,
-        hint: isSkill ? 'e.g. Public speaking' : 'e.g. Board games',
+        hint: isSkill ? S.current.customSkillHint : S.current.customInterestHint,
       ),
     );
     if (!mounted) return;
@@ -752,7 +752,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 8),
             _MultilineField(
               label: '',
-              hint: 'e.g. Public speaking — I can help you structure talks and overcome stage fear.',
+              hint: s.skillPromptHint,
               controller: _promptSkillController,
               t: t,
               minLines: 2,
@@ -771,7 +771,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 8),
             _MultilineField(
               label: '',
-              hint: 'e.g. A designer who loves clean UI and shipping fast.',
+              hint: s.collabPromptHint,
               controller: _promptCollabController,
               t: t,
               minLines: 2,
@@ -790,7 +790,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             const SizedBox(height: 8),
             _MultilineField(
               label: '',
-              hint: 'e.g. Someone to help test my mobile app and give honest feedback.',
+              hint: s.needPromptHint,
               controller: _promptNeedController,
               t: t,
               minLines: 2,

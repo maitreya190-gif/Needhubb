@@ -322,67 +322,67 @@ class _AchievementsTab extends StatelessWidget {
 
   const _AchievementsTab({required this.t});
 
-  static const _achievements = [
+  static List<({IconData icon, String label, String desc, bool earned, Color color, int pts})> get _achievements => [
     (
       icon: Icons.handshake_outlined,
-      label: 'First Help',
-      desc: 'Helped someone for the first time',
+      label: S.current.achievementFirstHelp,
+      desc: S.current.achievementFirstHelpDesc,
       earned: true,
       color: NeedHubTokens.forest,
       pts: 20,
     ),
     (
       icon: Icons.star_rounded,
-      label: '5-Star',
-      desc: 'Received your first 5-star review',
+      label: S.current.achievement5Star,
+      desc: S.current.achievement5StarDesc,
       earned: true,
       color: NeedHubTokens.ochre,
       pts: 30,
     ),
     (
       icon: Icons.bolt_rounded,
-      label: 'Quick Reply',
-      desc: 'Responded to a need within 5 minutes',
+      label: S.current.achievementQuickReply,
+      desc: S.current.achievementQuickReplyDesc,
       earned: true,
       color: NeedHubTokens.ochre,
       pts: 15,
     ),
     (
       icon: Icons.emoji_events_outlined,
-      label: 'Top Helper',
-      desc: 'Help 10 people in a month',
+      label: S.current.achievementTopHelper,
+      desc: S.current.achievementTopHelperDesc,
       earned: false,
       color: NeedHubTokens.clay,
       pts: 100,
     ),
     (
       icon: Icons.diversity_3_outlined,
-      label: 'Connector',
-      desc: 'Send 5 connect requests that get accepted',
+      label: S.current.achievementConnector,
+      desc: S.current.achievementConnectorDesc,
       earned: false,
       color: NeedHubTokens.forest,
       pts: 50,
     ),
     (
       icon: Icons.military_tech_outlined,
-      label: 'Impact Pro',
-      desc: 'Upload 3 verified certificates',
+      label: S.current.achievementImpactPro,
+      desc: S.current.achievementImpactProDesc,
       earned: false,
       color: NeedHubTokens.clay,
       pts: 150,
     ),
     (
       icon: Icons.local_fire_department_outlined,
-      label: '7-Day Streak',
-      desc: 'Be active on NeedHub for 7 days in a row',
+      label: S.current.achievement7DayStreak,
+      desc: S.current.achievement7DayStreakDesc,
       earned: false,
       color: NeedHubTokens.clay,
       pts: 70,
     ),
     (
       icon: Icons.groups_outlined,
-      label: 'Community Pillar',
-      desc: 'Help 25 different people',
+      label: S.current.achievementCommunityPillar,
+      desc: S.current.achievementCommunityPillarDesc,
       earned: false,
       color: NeedHubTokens.forest,
       pts: 200,
@@ -535,8 +535,8 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
     if (myNeeds.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("You don't have any open needs to boost."),
+          SnackBar(
+            content: Text(S.current.noOpenNeedsToBoost),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -579,9 +579,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
           _balance = (res['newBalance'] as int?) ?? (_balance - _tierCost);
         });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            '🚀 "${selected.title}" is now boosted for $_selectedTier!',
-          ),
+          content: Text(S.current.needBoostedSuccess(selected.title, _selectedTier)),
           behavior: SnackBarBehavior.floating,
         ));
       }
@@ -647,7 +645,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
         _SectionLabel(label: S.current.boostANeed, t: t),
         const SizedBox(height: 4),
         Text(
-          'Spend points to pin your need at the top of the feed so more helpers see it.',
+          S.current.boostNeedDesc,
           style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted, height: 1.4),
         ),
         const SizedBox(height: 16),
@@ -747,7 +745,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Boost active! Expires ${_timeLeft(_boostExpiresAt!)}',
+                    S.current.boostActiveExpires(_timeLeft(_boostExpiresAt!)),
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         color: NeedHubTokens.forest,
@@ -824,7 +822,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '24-Hour Profile Boost',
+                      S.current.profileBoost24h,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -833,7 +831,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'Your profile appears at top of search for 24h',
+                      S.current.profileBoost24hDesc,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 12, color: t.muted, height: 1.4),
                     ),
@@ -866,7 +864,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        'Active',
+                        S.current.active,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -914,7 +912,7 @@ class _RedeemTabState extends ConsumerState<_RedeemTab> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Boost active! Your profile is featured until tomorrow.',
+                    S.current.profileBoostActiveDesc,
                     style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         color: NeedHubTokens.forest,

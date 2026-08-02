@@ -1398,17 +1398,32 @@ class _TranslatedEarnCardState extends State<_TranslatedEarnCard> {
   @override
   void initState() {
     super.initState();
-    feedLanguageNotifier.addListener(_bump);
+    feedLanguageNotifier.addListener(_onLangChange);
+    _translate();
   }
 
   @override
   void dispose() {
-    feedLanguageNotifier.removeListener(_bump);
+    feedLanguageNotifier.removeListener(_onLangChange);
     super.dispose();
   }
 
-  void _bump() {
-    if (mounted) setState(() {});
+  void _onLangChange() {
+    if (mounted) {
+      setState(() {});
+      _translate();
+    }
+  }
+
+  Future<void> _translate() async {
+    final lang = feedLanguageNotifier.value;
+    if (lang == 'en') return;
+    if (translationCache[widget.need.id]?[lang] != null) return;
+    final translated = await translateText(widget.need.title, lang);
+    if (!mounted) return;
+    translationCache[widget.need.id] ??= {};
+    translationCache[widget.need.id]![lang] = translated;
+    setState(() {});
   }
 
   @override

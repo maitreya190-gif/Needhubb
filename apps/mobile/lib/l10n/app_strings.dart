@@ -596,6 +596,25 @@ class S {
     'imageOptional': 'IMAGE (OPTIONAL)',
     'chooseImageOptional': 'Choose image (optional)',
     'achievementSubmittedForReview': 'Achievement submitted for review',
+    // Achievement badge labels & descriptions
+    'achievementFirstHelp': 'First Help',
+    'achievementFirstHelpDesc': 'Helped someone for the first time',
+    'achievement5Star': '5-Star',
+    'achievement5StarDesc': 'Received your first 5-star review',
+    'achievementQuickReply': 'Quick Reply',
+    'achievementQuickReplyDesc': 'Responded to a need within 5 minutes',
+    'achievementTopHelper': 'Top Helper',
+    'achievementTopHelperDesc': 'Help 10 people in a month',
+    'achievementConnector': 'Connector',
+    'achievementConnectorDesc': 'Send 5 connect requests that get accepted',
+    'achievementImpactPro': 'Impact Pro',
+    'achievementImpactProDesc': 'Upload 3 verified certificates',
+    'achievement7DayStreak': '7-Day Streak',
+    'achievement7DayStreakDesc': 'Be active on NeedHub for 7 days in a row',
+    'achievementCommunityPillar': 'Community Pillar',
+    'achievementCommunityPillarDesc': 'Help 25 different people',
+    'customSkillHint': 'e.g. Public speaking',
+    'customInterestHint': 'e.g. Board games',
   };
 
   static String _get(String key) {
@@ -1132,6 +1151,26 @@ class S {
   String get traitOpenness => _get('traitOpenness');
   String get twentyFourHours => _get('twentyFourHours');
   String xOfYEarned(int earned, int total) => _get('xOfYEarned').replaceAll('{earned}', '$earned').replaceAll('{total}', '$total');
+
+  // Achievement badge labels & descriptions
+  String get achievementFirstHelp => _get('achievementFirstHelp');
+  String get achievementFirstHelpDesc => _get('achievementFirstHelpDesc');
+  String get achievement5Star => _get('achievement5Star');
+  String get achievement5StarDesc => _get('achievement5StarDesc');
+  String get achievementQuickReply => _get('achievementQuickReply');
+  String get achievementQuickReplyDesc => _get('achievementQuickReplyDesc');
+  String get achievementTopHelper => _get('achievementTopHelper');
+  String get achievementTopHelperDesc => _get('achievementTopHelperDesc');
+  String get achievementConnector => _get('achievementConnector');
+  String get achievementConnectorDesc => _get('achievementConnectorDesc');
+  String get achievementImpactPro => _get('achievementImpactPro');
+  String get achievementImpactProDesc => _get('achievementImpactProDesc');
+  String get achievement7DayStreak => _get('achievement7DayStreak');
+  String get achievement7DayStreakDesc => _get('achievement7DayStreakDesc');
+  String get achievementCommunityPillar => _get('achievementCommunityPillar');
+  String get achievementCommunityPillarDesc => _get('achievementCommunityPillarDesc');
+  String get customSkillHint => _get('customSkillHint');
+  String get customInterestHint => _get('customInterestHint');
 
   // You screen section headers / labels
   String get addBioPrompt => _get('addBioPrompt');
