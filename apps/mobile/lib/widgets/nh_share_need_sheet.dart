@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/need.dart';
 import '../services/api_client.dart';
@@ -80,46 +79,15 @@ class _NhShareNeedSheetState extends State<NhShareNeedSheet> {
     }
   }
 
-  /// Opens a platform's share URL, falling back to copying the link so the
-  /// user is never left with a button that silently does nothing.
-  Future<void> _launchOrCopy(String url, String platformName) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-      return;
-    }
-    await Clipboard.setData(ClipboardData(text: _shareText));
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text('$platformName isn\'t installed — link copied instead'),
-        ));
-    }
-  }
-
-  Future<void> _shareWhatsApp() => _run(() => _launchOrCopy(
-        'https://api.whatsapp.com/send?text=${Uri.encodeComponent(_shareText)}',
-        'WhatsApp',
-      ));
-
-  Future<void> _shareTelegram() => _run(() => _launchOrCopy(
-        'https://t.me/share/url?url=${Uri.encodeComponent(_shareUrl)}'
-        '&text=${Uri.encodeComponent(widget.need.title)}',
-        'Telegram',
-      ));
-
-  Future<void> _shareX() => _run(() => _launchOrCopy(
-        'https://twitter.com/intent/tweet?text=${Uri.encodeComponent(widget.need.title)}'
-        '&url=${Uri.encodeComponent(_shareUrl)}',
-        'X',
-      ));
-
-  /// Instagram has no public text-share URL, so the card image goes through
-  /// the system sheet — which is where Instagram's Stories/Feed targets live.
-  Future<void> _shareInstagram() => _run(() => _shareImage(
-        fallbackMessage: 'Pick Instagram from the share menu',
-      ));
+  /// Every platform button routes through the system share sheet.
+  ///
+  /// The direct URL schemes (api.whatsapp.com/send, t.me/share, twitter
+  /// intent) can only carry *text* — there is no way to attach the card
+  /// image to them. Since the card is the whole point of the feature, the
+  /// image wins and the system sheet is the only route that can carry it.
+  /// The per-platform hint tells the user which target to pick.
+  Future<void> _shareTo(String platform) =>
+      _run(() => _shareImage(fallbackMessage: 'Pick $platform from the share menu'));
 
   Future<void> _shareMore() => _run(() => _shareImage());
 
@@ -203,7 +171,8 @@ class _NhShareNeedSheetState extends State<NhShareNeedSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Anyone who opens the link can view it — no account needed.',
+              'Sends this card as an image, plus a link anyone can open — '
+              'no account needed.',
               style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
             ),
             const SizedBox(height: 18),
@@ -240,28 +209,28 @@ class _NhShareNeedSheetState extends State<NhShareNeedSheet> {
                   icon: Icons.chat_bubble_rounded,
                   label: 'WhatsApp',
                   color: const Color(0xFF25D366),
-                  onTap: _shareWhatsApp,
+                  onTap: () => _shareTo('WhatsApp'),
                   t: t,
                 ),
                 _ShareTarget(
                   icon: Icons.photo_camera_rounded,
                   label: 'Instagram',
                   color: const Color(0xFFE1306C),
-                  onTap: _shareInstagram,
+                  onTap: () => _shareTo('Instagram'),
                   t: t,
                 ),
                 _ShareTarget(
                   icon: Icons.send_rounded,
                   label: 'Telegram',
                   color: const Color(0xFF229ED9),
-                  onTap: _shareTelegram,
+                  onTap: () => _shareTo('Telegram'),
                   t: t,
                 ),
                 _ShareTarget(
                   icon: Icons.close_rounded,
                   label: 'X',
                   color: t.ink,
-                  onTap: _shareX,
+                  onTap: () => _shareTo('X'),
                   t: t,
                 ),
               ],
