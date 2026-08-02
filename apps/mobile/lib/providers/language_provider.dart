@@ -25,8 +25,16 @@ const Map<String, String> kLangLocaleIds = {
   'kn': 'kn_IN',
 };
 
+/// ValueNotifier subclass that exposes a public refresh() to force listeners
+/// to re-run without changing the value. Used to trigger a UI rebuild after
+/// the Groq translation cache finishes loading in the background.
+class _LangNotifier extends ValueNotifier<String> {
+  _LangNotifier(super.value);
+  void refresh() => notifyListeners();
+}
+
 // UI language — drives all localised string rendering
-final uiLanguageNotifier = ValueNotifier<String>('en');
+final _LangNotifier uiLanguageNotifier = _LangNotifier('en');
 
 // Feed language — drives card-level translation
 final feedLanguageNotifier = ValueNotifier<String>('en');
@@ -34,17 +42,18 @@ final feedLanguageNotifier = ValueNotifier<String>('en');
 // Translation cache: needId → langCode → translated title
 final Map<String, Map<String, String>> translationCache = {};
 
-/// Set UI language, trigger Groq batch translation of all UI strings,
-/// then notify listeners so the whole app re-renders in the new language.
+/// Set UI language optimistically — flip the notifiers IMMEDIATELY so the
+/// UI reflects the chosen language (with English fallback for uncached
+/// keys), then load Groq translations in the background. When translations
+/// arrive, call refresh() to force a rebuild.
 Future<void> setUiLanguage(String code) async {
-  // Update feed language immediately so cards start translating
   feedLanguageNotifier.value = code;
-  _persist('feed_lang', code);
-  // Load Groq translations (async — UI shows English briefly while loading)
-  await S.loadTranslations(code);
-  // Now flip the UI language so all S.current getters return translated text
   uiLanguageNotifier.value = code;
+  _persist('feed_lang', code);
   _persist('ui_lang', code);
+  // Background: pull translations and re-render when they arrive.
+  await S.loadTranslations(code);
+  uiLanguageNotifier.refresh();
 }
 
 void setFeedLanguage(String code) {

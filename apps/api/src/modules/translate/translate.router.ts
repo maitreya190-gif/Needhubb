@@ -64,7 +64,7 @@ translateRouter.post('/batch', async (req, res) => {
   }
 
   const safeTexts = (texts as unknown[])
-    .slice(0, 200)
+    .slice(0, 500)
     .map((t) => (typeof t === 'string' ? t.slice(0, 500) : ''))
 
   const result = await callGroq([

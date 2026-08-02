@@ -841,11 +841,34 @@ class S {
     }
     final keys = _en.keys.toList();
     final values = _en.values.toList();
-    final translated = await translateBatch(values, langCode);
+
+    // Pre-populate the cache with English so any chunk that fails still has a
+    // usable fallback for its keys.
     final map = <String, String>{};
     for (int i = 0; i < keys.length; i++) {
-      map[keys[i]] = translated[i];
+      map[keys[i]] = values[i];
     }
+
+    // Chunk the strings into small batches. One giant Groq call is fragile —
+    // if the LLM returns even one malformed element, the whole batch is
+    // rejected and every UI string falls back to English. Small chunks in
+    // parallel isolate failures and stay well under any server-side cap.
+    const chunkSize = 40;
+    final futures = <Future<void>>[];
+    for (int start = 0; start < values.length; start += chunkSize) {
+      final end = (start + chunkSize > values.length) ? values.length : start + chunkSize;
+      final chunkValues = values.sublist(start, end);
+      futures.add(() async {
+        final translated = await translateBatch(chunkValues, langCode);
+        if (translated.length == chunkValues.length) {
+          for (int j = 0; j < chunkValues.length; j++) {
+            map[keys[start + j]] = translated[j];
+          }
+        }
+      }());
+    }
+    await Future.wait(futures);
+
     _cache = map;
     _cacheFor = langCode;
   }
