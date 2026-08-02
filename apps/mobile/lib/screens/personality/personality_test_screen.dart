@@ -170,7 +170,7 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
     if (firstMissing != -1) {
       setState(() {
         _step = firstMissing;
-        _error = 'Please answer question ${firstMissing + 1} first.';
+        _error = S.current.pleaseAnswerFirst(firstMissing + 1);
       });
       return;
     }
@@ -214,7 +214,7 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
         _submitting = false;
         _error = failure != null
             ? _friendlyError(failure)
-            : 'Something went wrong. Please try again.';
+            : S.current.somethingWentWrongRetry;
       });
       return;
     }
@@ -249,23 +249,23 @@ class _PersonalityTestScreenState extends ConsumerState<PersonalityTestScreen> {
       final serverErr = data is Map ? data['error']?.toString() : null;
 
       if (status == 401 || code == 'AUTH_REQUIRED') {
-        return 'Your session expired. Log out and log in, then retry.';
+        return S.current.sessionExpired;
       }
       if (code == 'ALREADY_TAKEN') {
-        return "You've already taken the test — check your You tab.";
+        return S.current.alreadyTakenTest;
       }
       if (serverErr != null && serverErr.isNotEmpty) {
         return serverErr;
       }
       if (status == 400) {
-        return 'Something in your answers was invalid.';
+        return S.current.answersInvalid;
       }
       if (status == 404) {
-        return 'Personality test service not found. Please restart the backend server.';
+        return S.current.testServiceNotFound;
       }
-      return 'Network error (${status ?? "no connection"}). Please check if the server is running.';
+      return S.current.networkErrorRetry(status?.toString() ?? 'no connection');
     }
-    return 'Could not analyze your answers. Please try again.';
+    return S.current.couldNotAnalyzeAnswers;
   }
 
   @override
@@ -632,11 +632,11 @@ class PersonalityResultScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _TraitBar(label: 'Openness', value: traits.openness, t: t),
-            _TraitBar(label: 'Conscientiousness', value: traits.conscientiousness, t: t),
-            _TraitBar(label: 'Extraversion', value: traits.extraversion, t: t),
-            _TraitBar(label: 'Agreeableness', value: traits.agreeableness, t: t),
-            _TraitBar(label: 'Emotional Stability', value: traits.emotionalStability, t: t),
+            _TraitBar(label: S.current.traitOpenness, value: traits.openness, t: t),
+            _TraitBar(label: S.current.traitConscientiousness, value: traits.conscientiousness, t: t),
+            _TraitBar(label: S.current.traitExtraversion, value: traits.extraversion, t: t),
+            _TraitBar(label: S.current.traitAgreeableness, value: traits.agreeableness, t: t),
+            _TraitBar(label: S.current.traitEmotionalStability, value: traits.emotionalStability, t: t),
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(14),

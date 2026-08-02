@@ -4,20 +4,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 const List<Map<String, String>> kSupportedLanguages = [
   {'code': 'en', 'name': 'English', 'native': 'English'},
   {'code': 'hi', 'name': 'Hindi', 'native': 'हिंदी'},
-  {'code': 'bn', 'name': 'Bengali', 'native': 'বাংলা'},
-  {'code': 'te', 'name': 'Telugu', 'native': 'తెలుగు'},
   {'code': 'mr', 'name': 'Marathi', 'native': 'मराठी'},
-  {'code': 'ta', 'name': 'Tamil', 'native': 'தமிழ்'},
 ];
 
 // STT locale IDs per language code — used by speech_to_text
 const Map<String, String> kLangLocaleIds = {
   'en': 'en_IN',
   'hi': 'hi_IN',
-  'bn': 'bn_IN',
-  'te': 'te_IN',
   'mr': 'mr_IN',
-  'ta': 'ta_IN',
 };
 
 /// ValueNotifier subclass that exposes a public refresh() to force listeners

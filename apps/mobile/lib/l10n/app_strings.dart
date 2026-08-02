@@ -1,9 +1,6 @@
 import '../providers/language_provider.dart';
 import 'strings_hi.dart';
-import 'strings_bn.dart';
-import 'strings_te.dart';
 import 'strings_mr.dart';
-import 'strings_ta.dart';
 class S {
   const S._();
 
@@ -606,10 +603,7 @@ class S {
     final Map<String, String> map;
     switch (lang) {
       case 'hi': map = stringsHi; break;
-      case 'bn': map = stringsBn; break;
-      case 'te': map = stringsTe; break;
       case 'mr': map = stringsMr; break;
-      case 'ta': map = stringsTa; break;
       default: return _en[key] ?? key;
     }
     return map[key] ?? _en[key] ?? key;
