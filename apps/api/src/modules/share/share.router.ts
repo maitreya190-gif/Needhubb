@@ -66,6 +66,42 @@ shareRouter.get('/need/:id', async (req, res, next) => {
 
 export const shareLandingRouter: IRouter = Router()
 
+/**
+ * Android App Links verification.
+ *
+ * With this served over https and the matching autoVerify intent-filter in
+ * AndroidManifest.xml, tapping a shared https link opens the Need straight
+ * in the app instead of bouncing through the browser first.
+ *
+ * The fingerprint is the release signing certificate's SHA-256 (read from
+ * the signed APK via `apksigner verify --print-certs`). It is a public
+ * value — it identifies the app, it does not authenticate anything — so
+ * serving it is the entire point.
+ *
+ * If verification ever fails (wrong build signed, domain changed), Android
+ * simply stops auto-opening and the link falls back to the web preview,
+ * which still offers "Open in NeedHub" via the custom scheme. Degrading to
+ * the previous behaviour is why this is safe to add.
+ */
+const ANDROID_APP_LINK_TARGETS = [
+  {
+    relation: ['delegate_permission/common.handle_all_urls'],
+    target: {
+      namespace: 'android_app',
+      package_name: 'com.needhub.needhub',
+      sha256_cert_fingerprints: [
+        '7C:6F:97:3D:50:73:D5:CF:4F:FB:BE:84:6B:11:1F:19:21:BC:08:DB:B5:F0:45:F1:66:BC:D1:63:86:B9:81:01',
+      ],
+    },
+  },
+]
+
+shareLandingRouter.get('/.well-known/assetlinks.json', (_req, res) => {
+  res.type('application/json')
+  res.set('Cache-Control', 'public, max-age=3600')
+  res.json(ANDROID_APP_LINK_TARGETS)
+})
+
 shareLandingRouter.get('/n/:id', async (req, res, next) => {
   try {
     const need = await fetchShareableNeed(req.params.id)

@@ -48,6 +48,21 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="needhub"/>
             </intent-filter>
+            <!-- App Link for the https share URL, so tapping a shared link in
+                 WhatsApp opens the Need directly instead of via the browser.
+                 autoVerify checks /.well-known/assetlinks.json on the host
+                 (served by the API). If that check ever fails Android just
+                 opens the link in a browser, which still shows the web
+                 preview and its "Open in NeedHub" button — so the worst case
+                 is exactly the behaviour without this filter. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https"
+                      android:host="needhubapi-production.up.railway.app"
+                      android:pathPrefix="/n/"/>
+            </intent-filter>
             <!-- Lets Flutter hand the incoming URI to go_router instead of
                  just cold-starting the app on its default screen. -->
             <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>

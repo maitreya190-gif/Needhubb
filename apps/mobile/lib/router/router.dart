@@ -42,8 +42,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         redirect: (_, __) => '/hub',
       ),
       // Opened from a shared Need card — see lib/share-card.ts on the API.
+      // Two paths for the two link forms that reach us: the custom scheme
+      // (needhub:///need/<id>) and the https App Link, whose public URL is
+      // <api>/n/<id>. Both resolve to the same screen.
       GoRoute(
         path: '/need/:id',
+        builder: (_, state) => NeedDeepLinkScreen(needId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/n/:id',
         builder: (_, state) => NeedDeepLinkScreen(needId: state.pathParameters['id']!),
       ),
       GoRoute(
