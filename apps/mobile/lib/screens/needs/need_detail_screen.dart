@@ -4,9 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/need.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/language_provider.dart';
 import '../../services/api_client.dart';
+import '../../services/translate_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_report_sheet.dart';
@@ -88,6 +91,8 @@ class NeedDetailScreen extends ConsumerStatefulWidget {
 
 class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   late Need _currentNeed;
+  String? _translatedTitle;
+  String? _translatedDesc;
 
   Need get need => _currentNeed;
   List<_OfferData> _realOffers = const [];
@@ -113,10 +118,12 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
     super.initState();
     _currentNeed = widget.need;
     offersNotifier.addListener(_rebuild);
+    uiLanguageNotifier.addListener(_onLangChange);
     Future.microtask(() {
       _fetchNeedDetails();
       _hydrateOffers();
       _fetchNeedReviews();
+      _translateContent();
     });
     // Poll for new responses and updated need status every 15 s
     _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
@@ -531,7 +538,25 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   void dispose() {
     _pollTimer?.cancel();
     offersNotifier.removeListener(_rebuild);
+    uiLanguageNotifier.removeListener(_onLangChange);
     super.dispose();
+  }
+
+  void _onLangChange() {
+    _translatedTitle = null;
+    _translatedDesc = null;
+    _translateContent();
+  }
+
+  Future<void> _translateContent() async {
+    final lang = uiLanguageNotifier.value;
+    if (lang == 'en') return;
+    final results = await translateBatch([need.title, need.description], lang);
+    if (!mounted) return;
+    setState(() {
+      _translatedTitle = results[0];
+      _translatedDesc = results[1];
+    });
   }
 
   Color get _categoryColor {
@@ -547,23 +572,17 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
 
   String get _categoryLabel {
     switch (need.category) {
-      case 'earn':
-        return 'Earn';
-      case 'chitchat':
-        return 'Chit-chat';
-      default:
-        return 'Connect';
+      case 'earn': return S.current.earn;
+      case 'chitchat': return S.current.chitchat;
+      default: return S.current.connect;
     }
   }
 
   String get _actionLabel {
     switch (need.category) {
-      case 'earn':
-        return 'Apply to Help';
-      case 'chitchat':
-        return 'Start a chat';
-      default:
-        return 'Connect';
+      case 'earn': return S.current.applyToHelp;
+      case 'chitchat': return S.current.startAChat;
+      default: return S.current.connect;
     }
   }
 
@@ -904,7 +923,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                             ),
                                             const SizedBox(height: 12),
                                             Text(
-                                              need.title,
+                                              _translatedTitle ?? need.title,
                                               style: GoogleFonts
                                                   .bricolageGrotesque(
                                                 fontSize: 22,
@@ -962,7 +981,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(top: 16),
                                     child: Text(
-                                      need.description,
+                                      _translatedDesc ?? need.description,
                                       style: GoogleFonts.hankenGrotesk(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w500,

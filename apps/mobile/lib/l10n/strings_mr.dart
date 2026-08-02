@@ -569,4 +569,6 @@ const Map<String, String> stringsMr = {
   'achievementCommunityPillarDesc': '25 वेगवेगळ्या लोकांना मदत करा',
   'customSkillHint': 'उदा: सार्वजनिक भाषण',
   'customInterestHint': 'उदा: बोर्ड गेम्स',
+  'applyToHelp': 'मदत करण्यासाठी अर्ज करा',
+  'startAChat': 'गप्पा सुरू करा',
 };

@@ -615,6 +615,9 @@ class S {
     'achievementCommunityPillarDesc': 'Help 25 different people',
     'customSkillHint': 'e.g. Public speaking',
     'customInterestHint': 'e.g. Board games',
+    // Need detail screen action labels
+    'applyToHelp': 'Apply to Help',
+    'startAChat': 'Start a chat',
   };
 
   static String _get(String key) {
@@ -1171,6 +1174,8 @@ class S {
   String get achievementCommunityPillarDesc => _get('achievementCommunityPillarDesc');
   String get customSkillHint => _get('customSkillHint');
   String get customInterestHint => _get('customInterestHint');
+  String get applyToHelp => _get('applyToHelp');
+  String get startAChat => _get('startAChat');
 
   // You screen section headers / labels
   String get addBioPrompt => _get('addBioPrompt');
