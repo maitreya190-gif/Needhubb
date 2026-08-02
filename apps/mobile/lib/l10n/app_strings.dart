@@ -618,6 +618,21 @@ class S {
     // Need detail screen action labels
     'applyToHelp': 'Apply to Help',
     'startAChat': 'Start a chat',
+    // Feed empty states
+    'noMatchesFilters': 'No matches for these filters',
+    'noOneNearby': 'No one nearby yet',
+    'noNeedsMatchFilters': 'No needs match these filters',
+    'nothingNearby': 'Nothing nearby yet',
+    'tapEditFiltersHint': 'Tap "Edit filters" or "Clear all" above to change your search',
+    'tryExpandingRadius': 'Try expanding the radius or check back soon',
+    'startChitchat': 'Start a Chat',
+    // Verification
+    'faceVerifiedSuccess': 'Face verified! Badge now appears on your connect needs',
+    'verificationFailedLight': 'Verification failed. Please retake in good lighting.',
+    'verificationFailedError': 'Verification failed',
+    // Post need errors
+    'profanityDetected': 'Profanity detected. Please revise your post.',
+    'resendCode': 'Resend code',
   };
 
   static String _get(String key) {
@@ -1176,6 +1191,18 @@ class S {
   String get customInterestHint => _get('customInterestHint');
   String get applyToHelp => _get('applyToHelp');
   String get startAChat => _get('startAChat');
+  String get noMatchesFilters => _get('noMatchesFilters');
+  String get noOneNearby => _get('noOneNearby');
+  String get noNeedsMatchFilters => _get('noNeedsMatchFilters');
+  String get nothingNearby => _get('nothingNearby');
+  String get tapEditFiltersHint => _get('tapEditFiltersHint');
+  String get tryExpandingRadius => _get('tryExpandingRadius');
+  String get startChitchat => _get('startChitchat');
+  String get faceVerifiedSuccess => _get('faceVerifiedSuccess');
+  String get verificationFailedLight => _get('verificationFailedLight');
+  String get verificationFailedError => _get('verificationFailedError');
+  String get profanityDetected => _get('profanityDetected');
+  String get resendCode => _get('resendCode');
 
   // You screen section headers / labels
   String get addBioPrompt => _get('addBioPrompt');

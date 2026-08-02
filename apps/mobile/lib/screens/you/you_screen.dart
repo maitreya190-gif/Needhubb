@@ -2183,8 +2183,8 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Face verified! Badge now appears on your connect needs'),
+          SnackBar(
+            content: Text(S.current.faceVerifiedSuccess),
           ),
         );
         setState(() {});
@@ -2193,14 +2193,14 @@ class _FaceVerifySectionState extends ConsumerState<_FaceVerifySection> {
       if (!mounted) return;
       final data = e.response?.data;
       final reason = (data is Map ? data['reason'] : null) as String? ??
-          'Verification failed. Please retake in good lighting.';
+          S.current.verificationFailedLight;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(reason)),
       );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Verification failed: $e')),
+          SnackBar(content: Text('${S.current.verificationFailedError}: $e')),
         );
       }
     } finally {
@@ -2800,7 +2800,7 @@ class _PhoneVerifySheetState extends ConsumerState<_PhoneVerifySheet> {
               Center(
                 child: TextButton(
                   onPressed: _loading ? null : _sendCode,
-                  child: Text('Resend code',
+                  child: Text(S.current.resendCode,
                       style: GoogleFonts.hankenGrotesk(fontSize: 12.5, color: t.muted)),
                 ),
               ),

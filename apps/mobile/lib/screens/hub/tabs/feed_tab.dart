@@ -770,11 +770,11 @@ class _ConnectFeedState extends State<_ConnectFeed> {
           NhEmptyState(
             icon: Icons.people_outline_rounded,
             title: activeCount > 0
-                ? 'No matches for these filters'
-                : 'No one nearby yet',
+                ? S.current.noMatchesFilters
+                : S.current.noOneNearby,
             subtitle: activeCount > 0
-                ? 'Tap "Edit filters" or "Clear all" above to change your search'
-                : 'Try expanding the radius or check back soon',
+                ? S.current.tapEditFiltersHint
+                : S.current.tryExpandingRadius,
           ),
         ],
       );
@@ -1176,11 +1176,11 @@ class _EarnFeedState extends State<_EarnFeed> {
           NhEmptyState(
             icon: Icons.search_off_rounded,
             title: activeCount > 0
-                ? 'No needs match these filters'
-                : 'Nothing nearby yet',
+                ? S.current.noNeedsMatchFilters
+                : S.current.nothingNearby,
             subtitle: activeCount > 0
-                ? 'Tap "Edit filters" or "Clear all" above to change your search'
-                : 'Try expanding the radius or check back soon',
+                ? S.current.tapEditFiltersHint
+                : S.current.tryExpandingRadius,
           ),
           if (partials.isNotEmpty) ...[
             const SizedBox(height: 30),
@@ -2144,7 +2144,7 @@ class _ChitChatProfileSheetState extends State<_ChitChatProfileSheet> {
                   color: NeedHubTokens.clay,
                   borderRadius: BorderRadius.circular(14)),
               alignment: Alignment.center,
-              child: Text('Start a Chat',
+              child: Text(S.current.startChitchat,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -2501,13 +2501,13 @@ class _SelfChitChatTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('You (visible for 24h)',
+                  Text(S.current.visibleFor24h,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: t.ink)),
                   const SizedBox(height: 3),
-                  Text('Nearby people will see you first',
+                  Text(S.current.nearbyWillSeeYouFirst,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 12, color: t.muted)),
                 ],
@@ -2530,7 +2530,7 @@ class _SelfChitChatTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  Text('Live',
+                  Text(S.current.live,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,

@@ -170,11 +170,11 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
         if (code == 'MODERATION_BLOCKED') {
           _error = 'moderation';
         } else {
-          _error = e.response?.data?['error'] as String? ?? 'Could not reach the server.';
+          _error = e.response?.data?['error'] as String? ?? S.current.couldNotReachServer;
         }
       });
     } catch (_) {
-      setState(() { _decomposing = false; _error = 'Something went wrong.'; });
+      setState(() { _decomposing = false; _error = S.current.somethingWentWrong; });
     }
   }
 
@@ -375,7 +375,7 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Profanity detected. Please revise your post.',
+                        S.current.profanityDetected,
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 13, color: Colors.red.shade700),
                       ),
