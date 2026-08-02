@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +14,7 @@ import '../../models/need.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_client.dart';
+import '../../services/league_api.dart';
 import '../../services/needs_api.dart';
 import '../../services/referrals_api.dart';
 import '../../services/personality_api.dart';
@@ -21,9 +24,11 @@ import '../../services/uploads_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_badge_row.dart';
+import '../../widgets/nh_seasonal_badge.dart';
 import '../../widgets/nh_skill_vouch_section.dart';
 import '../history/history_screen.dart';
 import '../hub/tabs/feed_tab.dart';
+import '../league/impact_league_screen.dart';
 import '../needs/need_detail_screen.dart';
 import '../personality/personality_test_screen.dart';
 import '../redeem/redeem_screen.dart';
@@ -638,6 +643,28 @@ class YouScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                   _SkillVouchesSection(t: t),
+                  const SizedBox(height: 24),
+                  Divider(color: t.rail, height: 1),
+                  const SizedBox(height: 22),
+
+                  // ── Impact League (seasonal leaderboard + badges) ─────────
+                  Text(
+                    s.impactLeague,
+                    style: GoogleFonts.hankenGrotesk(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: t.muted2,
+                      letterSpacing: 0.7,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    s.impactLeagueDesc,
+                    style: GoogleFonts.hankenGrotesk(
+                        fontSize: 12.5, color: t.muted),
+                  ),
+                  const SizedBox(height: 14),
+                  const _ImpactLeagueSection(),
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
@@ -1565,6 +1592,200 @@ class _SkillVouchesSection extends StatelessWidget {
           t: t,
         );
       },
+    );
+  }
+}
+
+// ── Impact League (rank teaser, seasonal badges, achievement showcase) ──────
+
+/// Own profile only. Seasonal badges and milestone achievements come from
+/// the same profile fetch that already loaded [myProfileNotifier] (see
+/// ProfileMe.seasonalBadges / .leagueAchievements) — no extra call needed.
+/// Current rank is genuinely live (it changes as the season progresses), so
+/// that alone is fetched separately from lib/impact-league.ts's /league/me.
+class _ImpactLeagueSection extends ConsumerStatefulWidget {
+  const _ImpactLeagueSection();
+
+  @override
+  ConsumerState<_ImpactLeagueSection> createState() => _ImpactLeagueSectionState();
+}
+
+class _ImpactLeagueSectionState extends ConsumerState<_ImpactLeagueSection> {
+  bool _loading = true;
+  MyRank? _rank;
+  bool _busy = false;
+  /// Optimistic local override after a successful feature/unfeature save —
+  /// avoids reconstructing the entire (30+ field) ProfileMe just to update
+  /// one list. Cleared automatically whenever the profile notifier itself
+  /// refreshes with newer data.
+  List<String>? _featuredOverride;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadRank());
+  }
+
+  Future<void> _loadRank() async {
+    try {
+      final rank = await ref.read(leagueApiProvider).myRank();
+      if (mounted) setState(() { _rank = rank; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggleFeatured(String id, List<String> current) async {
+    if (_busy) return;
+    final isFeatured = current.contains(id);
+    if (!isFeatured && current.length >= 3) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(S.current.featuredLimitReached)));
+      return;
+    }
+    final next = isFeatured ? current.where((x) => x != id).toList() : [...current, id];
+    setState(() => _busy = true);
+    try {
+      final saved = await ref.read(leagueApiProvider).setFeatured(next);
+      if (mounted) setState(() => _featuredOverride = saved);
+    } catch (_) {
+      // Leave state as-is — a failed save just means the toggle didn't stick.
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final s = S.current;
+
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+      );
+    }
+
+    final rank = _rank;
+
+    return ValueListenableBuilder<ProfileMe?>(
+      valueListenable: myProfileNotifier,
+      builder: (_, profile, __) => _buildBody(context, t, s, rank, profile),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, NeedHubTokens t, S s, MyRank? rank, ProfileMe? profile) {
+    final seasonalBadges = profile?.seasonalBadges ?? const <SeasonalBadge>[];
+    final achievements = profile?.leagueAchievements ?? const <LeagueAchievement>[];
+    final featuredIds = _featuredOverride ?? profile?.featuredAchievementIds ?? const <String>[];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ImpactLeagueScreen()),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: t.card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: t.rail, width: 1),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: NeedHubTokens.forest.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.leaderboard_rounded, color: NeedHubTokens.forest, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        rank?.rank != null ? '#${rank!.rank} ${s.impactLeague}' : s.impactLeague,
+                        style: GoogleFonts.hankenGrotesk(fontSize: 13.5, fontWeight: FontWeight.w800, color: t.ink),
+                      ),
+                      Text(
+                        rank != null && rank.seasonPoints > 0
+                            ? '${rank.seasonPoints} ${s.impactPointsThisSeason}'
+                            : s.notRankedYet,
+                        style: GoogleFonts.hankenGrotesk(fontSize: 12, fontWeight: FontWeight.w600, color: t.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, color: t.muted),
+              ],
+            ),
+          ),
+        ),
+        if (seasonalBadges.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Text(
+            s.seasonalBadges,
+            style: GoogleFonts.hankenGrotesk(fontSize: 10.5, fontWeight: FontWeight.w700, color: t.muted2, letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 8),
+          NhSeasonalBadgeRow(badges: seasonalBadges, t: t),
+        ],
+        if (achievements.any((a) => a.earned)) ...[
+          const SizedBox(height: 14),
+          Text(
+            s.leagueAchievements,
+            style: GoogleFonts.hankenGrotesk(fontSize: 10.5, fontWeight: FontWeight.w700, color: t.muted2, letterSpacing: 0.5),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            s.leagueAchievementsDesc,
+            style: GoogleFonts.hankenGrotesk(fontSize: 11.5, color: t.muted),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: achievements.where((a) => a.earned).map((a) {
+              final featured = featuredIds.contains(a.id);
+              return GestureDetector(
+                onTap: () => _toggleFeatured(a.id, featuredIds),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: featured ? NeedHubTokens.forest.withValues(alpha: 0.12) : t.card,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: featured ? NeedHubTokens.forest : t.rail, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (featured) const Icon(Icons.star_rounded, size: 14, color: NeedHubTokens.forest),
+                      if (featured) const SizedBox(width: 4),
+                      Text(
+                        a.label,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: featured ? NeedHubTokens.forest : t.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
     );
   }
 }

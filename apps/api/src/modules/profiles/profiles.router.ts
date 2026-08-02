@@ -12,6 +12,9 @@ import { computeTrustScore } from '../../lib/trust-score'
 import { computeBadges, earnedBadgeCount } from '../../lib/badges'
 import { fetchTrackRecord, toBadgeInputs, totalFulfilledCount } from '../../lib/track-record'
 import { countTrustEligibleVouches, fetchSkillVouchSummaries, tryGetUserId } from '../../lib/vouching'
+import {
+  fetchSeasonHistory, fetchMilestoneTimestamps, seasonalBadgesFromHistory, computeLeagueAchievements,
+} from '../../lib/impact-league'
 import { otpLimiter } from '../../middleware/rateLimiter'
 
 export const profilesRouter: IRouter = Router()
@@ -81,6 +84,15 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
       (user.profile?.skills ?? []).map((s) => s.skillId),
       userId,
     )
+    // Impact League: seasonal badges + milestone achievements are derived
+    // read-only, same as badges above — see lib/impact-league.ts.
+    const seasonHistory = await fetchSeasonHistory(userId)
+    const milestoneReachedAt = await fetchMilestoneTimestamps(userId)
+    const leagueAchievements = computeLeagueAchievements({
+      lifetimePoints: user.profile?.pointsTotal ?? 0,
+      seasonHistory,
+      milestoneReachedAt,
+    })
     res.json({
       ...user,
       avgRating: record.avgRating,
@@ -90,6 +102,8 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
       helpedNeedCount: record.helpedNeedCount,
       fulfilledPostedCount: record.fulfilledPostedCount,
       skillVouches: Object.fromEntries(skills),
+      seasonalBadges: seasonalBadgesFromHistory(seasonHistory),
+      leagueAchievements,
     })
   } catch (err) { next(err) }
 })
@@ -533,6 +547,15 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       (user.profile?.skills ?? []).map((s) => s.skillId),
       viewerId,
     )
+    // Seasonal badges and milestone achievements are public, same reasoning
+    // as badges above — see lib/impact-league.ts.
+    const seasonHistory = await fetchSeasonHistory(req.params.userId)
+    const milestoneReachedAt = await fetchMilestoneTimestamps(req.params.userId)
+    const leagueAchievements = computeLeagueAchievements({
+      lifetimePoints: user.profile?.pointsTotal ?? 0,
+      seasonHistory,
+      milestoneReachedAt,
+    })
     res.json({
       ...user,
       avgRating: record.avgRating,
@@ -542,6 +565,8 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       helpedNeedCount: record.helpedNeedCount,
       fulfilledPostedCount: record.fulfilledPostedCount,
       skillVouches: Object.fromEntries(skills),
+      seasonalBadges: seasonalBadgesFromHistory(seasonHistory),
+      leagueAchievements,
     })
   } catch (err) { next(err) }
 })

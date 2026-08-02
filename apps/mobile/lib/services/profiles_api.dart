@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'api_client.dart';
+import 'league_api.dart';
 import 'personality_api.dart';
 import 'vouches_api.dart';
 
@@ -100,6 +101,13 @@ class ProfileMe {
   /// SkillVouchSummary.mapFrom.
   final Map<String, SkillVouchSummary> skillVouches;
 
+  /// Permanent Impact League badges (top-5 season finishes) and derived
+  /// milestone achievements — piggybacks on this same profile fetch rather
+  /// than a separate call, see lib/impact-league.ts on the server.
+  final List<SeasonalBadge> seasonalBadges;
+  final List<LeagueAchievement> leagueAchievements;
+  final List<String> featuredAchievementIds;
+
   const ProfileMe({
     required this.id,
     required this.displayName,
@@ -131,6 +139,9 @@ class ProfileMe {
     this.fulfilledPostedCount = 0,
     this.skillEntries = const [],
     this.skillVouches = const {},
+    this.seasonalBadges = const [],
+    this.leagueAchievements = const [],
+    this.featuredAchievementIds = const [],
   });
 
   /// Vouch summary for a skill, or an empty placeholder if it has none yet.
@@ -279,6 +290,11 @@ class ProfileMe {
       fulfilledPostedCount: (j['fulfilledPostedCount'] as num?)?.toInt() ?? 0,
       skillEntries: skillEntries,
       skillVouches: SkillVouchSummary.mapFrom(j['skillVouches']),
+      seasonalBadges: SeasonalBadge.listFrom(j['seasonalBadges']),
+      leagueAchievements: LeagueAchievement.listFrom(j['leagueAchievements']),
+      featuredAchievementIds: ((j['featuredAchievementIds'] as List?) ?? const [])
+          .whereType<String>()
+          .toList(),
     );
   }
 }

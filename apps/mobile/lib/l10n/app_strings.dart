@@ -109,6 +109,32 @@ class S {
     'badgesDesc': 'Earned automatically from what you actually do. Each one adds to your Trust Score.',
     'achievements': 'ACHIEVEMENTS',
     'achievementsDesc': 'Earned through doing — not spendable.',
+    // Impact League
+    'impactLeague': 'Impact League',
+    'impactLeagueDesc': 'A season-long leaderboard, ranked by the Impact Points you earn.',
+    'season': 'Season',
+    'leaderboard': 'Leaderboard',
+    'hallOfImpact': 'Hall of Impact',
+    'hallOfImpactEmpty': 'No seasons have finished yet — check back once the first one ends.',
+    'global': 'Global',
+    'friends': 'Friends',
+    'myRank': 'MY RANK',
+    'notRankedYet': 'Not ranked yet',
+    'impactPointsThisSeason': 'points this season',
+    'noSeasonActivityYet': 'No one has earned points this season yet — be the first.',
+    'noFriendsOnLeaderboardYet': 'None of your friends have earned points this season yet.',
+    'endingSoon': 'ending soon',
+    'dayLeft': 'day left',
+    'daysLeft': 'days left',
+    'seasonalBadges': 'SEASONAL BADGES',
+    'seasonalBadgesDesc': 'Permanent — awarded for finishing in the top 5 of a season. Never expire.',
+    'leagueAchievements': 'ACHIEVEMENT SHOWCASE',
+    'leagueAchievementsDesc': 'Milestones earned through the Impact League. Feature up to 3 on your profile.',
+    'featured': 'Featured',
+    'feature': 'Feature',
+    'unfeature': 'Unfeature',
+    'featuredLimitReached': 'You can feature up to 3 at a time — unfeature one first.',
+    'somethingWentWrong': 'Something went wrong — pull to refresh.',
     'nothingSubmitted': 'Nothing submitted yet — add a certificate or competition win above.',
     'pastWorkHistory': 'Past Work & Review History',
     'referAFriend': 'Refer a Friend',
@@ -542,6 +568,31 @@ class S {
   String get badgesDesc => _get('badgesDesc');
   String get achievements => _get('achievements');
   String get achievementsDesc => _get('achievementsDesc');
+  String get impactLeague => _get('impactLeague');
+  String get impactLeagueDesc => _get('impactLeagueDesc');
+  String get season => _get('season');
+  String get leaderboard => _get('leaderboard');
+  String get hallOfImpact => _get('hallOfImpact');
+  String get hallOfImpactEmpty => _get('hallOfImpactEmpty');
+  String get global => _get('global');
+  String get friends => _get('friends');
+  String get myRank => _get('myRank');
+  String get notRankedYet => _get('notRankedYet');
+  String get impactPointsThisSeason => _get('impactPointsThisSeason');
+  String get noSeasonActivityYet => _get('noSeasonActivityYet');
+  String get noFriendsOnLeaderboardYet => _get('noFriendsOnLeaderboardYet');
+  String get endingSoon => _get('endingSoon');
+  String get dayLeft => _get('dayLeft');
+  String get daysLeft => _get('daysLeft');
+  String get seasonalBadges => _get('seasonalBadges');
+  String get seasonalBadgesDesc => _get('seasonalBadgesDesc');
+  String get leagueAchievements => _get('leagueAchievements');
+  String get leagueAchievementsDesc => _get('leagueAchievementsDesc');
+  String get featured => _get('featured');
+  String get feature => _get('feature');
+  String get unfeature => _get('unfeature');
+  String get featuredLimitReached => _get('featuredLimitReached');
+  String get somethingWentWrong => _get('somethingWentWrong');
   String get nothingSubmitted => _get('nothingSubmitted');
   String get pastWorkHistory => _get('pastWorkHistory');
   String get referAFriend => _get('referAFriend');

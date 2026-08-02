@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'api_client.dart';
 import 'chitchat_api.dart';
 import 'friends_api.dart';
+import 'league_api.dart';
 import 'messaging_api.dart';
 import 'needs_api.dart';
 import 'notifications_api.dart';
@@ -34,6 +35,10 @@ final profilesApiProvider = Provider<ProfilesApi>((ref) {
 
 final vouchesApiProvider = Provider<VouchesApi>((ref) {
   return VouchesApi(ref.watch(apiClientProvider));
+});
+
+final leagueApiProvider = Provider<LeagueApi>((ref) {
+  return LeagueApi(ref.watch(apiClientProvider));
 });
 
 final personalityApiProvider = Provider<PersonalityApi>((ref) {

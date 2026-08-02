@@ -11,6 +11,7 @@ import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_report_sheet.dart';
+import '../../widgets/nh_seasonal_badge.dart';
 import '../../widgets/nh_skill_vouch_section.dart';
 import '../../widgets/nh_vouch_sheet.dart';
 import '../history/history_screen.dart';
@@ -843,6 +844,56 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                           fontSize: 13, color: t.muted2),
                     ),
                   const SizedBox(height: 24),
+
+                  if (_profile != null &&
+                      (_profile!.seasonalBadges.isNotEmpty ||
+                          _profile!.leagueAchievements.any((a) => a.earned))) ...[
+                    Divider(color: t.rail, height: 1),
+                    const SizedBox(height: 22),
+                    // Impact League — read-only on someone else's profile,
+                    // same permanent data as your own (see
+                    // you_screen.dart's _ImpactLeagueSection).
+                    Text(
+                      'IMPACT LEAGUE',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: t.muted2,
+                        letterSpacing: 0.7,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (_profile!.seasonalBadges.isNotEmpty) ...[
+                      NhSeasonalBadgeRow(badges: _profile!.seasonalBadges, t: t),
+                      const SizedBox(height: 14),
+                    ],
+                    if (_profile!.leagueAchievements.any((a) => a.earned))
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _profile!.leagueAchievements
+                            .where((a) => a.earned)
+                            .map((a) => Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: t.card,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: t.rail, width: 1),
+                                  ),
+                                  child: Text(
+                                    a.label,
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: t.ink,
+                                    ),
+                                  ),
+                                ))
+                            .toList(),
+                      ),
+                    const SizedBox(height: 24),
+                  ],
+
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
 

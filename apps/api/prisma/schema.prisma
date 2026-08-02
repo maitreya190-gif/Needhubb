@@ -132,6 +132,7 @@ model User {
   urgencyProfile         UrgencyProfile?
   vouchesGiven           Vouch[]            @relation("VouchesGiven")
   vouchesReceived        Vouch[]            @relation("VouchesReceived")
+  seasonRankSnapshots    SeasonRankSnapshot[]
 }
 
 // Internal-only track record of how this user has used Urgency Mode.
@@ -171,6 +172,13 @@ model Profile {
   personalitySummary     String?
   personalityVibeTags    String[]  @default([])
   personalityTakenAt     DateTime?
+  // Impact League: user-chosen highlight reel of their own seasonal badges /
+  // milestone achievements — see lib/impact-league.ts. Everything else about
+  // the league is derived at read time; this is the one genuinely editable
+  // piece of state, so it alone needs a column. IDs only, never validated
+  // against a fixed catalog here — computeLeagueAchievements() ignores any
+  // id it doesn't recognize, so this can never render something bogus.
+  featuredAchievementIds String[] @default([])
   updatedAt              DateTime  @updatedAt
 
   user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -406,6 +414,58 @@ model PointsLedger {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Impact League seasonal aggregation (see lib/impact-league.ts) sums
+  // positive deltas for one user within a date range — this index makes
+  // that aggregation and the existing lifetime-point reads efficient.
+  @@index([userId, createdAt])
+}
+
+enum SeasonStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+// One 3-month Impact League season. Season boundaries are the only thing
+// about the league that isn't derived from data that already exists — see
+// lib/impact-league.ts ensureCurrentSeason(). Lifetime Impact Points
+// (Profile.pointsTotal, PointsLedger) are never read, deducted or reset by
+// this model or anything that touches it.
+model Season {
+  id           String       @id @default(cuid())
+  seasonNumber Int          @unique
+  year         Int
+  startsAt     DateTime
+  endsAt       DateTime
+  status       SeasonStatus @default(ACTIVE)
+  archivedAt   DateTime?
+  createdAt    DateTime     @default(now())
+
+  rankSnapshots SeasonRankSnapshot[]
+}
+
+// A permanent, immutable record written once per participant when a season
+// ends (see lib/impact-league.ts finalizeSeason()). Never updated after
+// creation. Backs the Previous Season Archive, Hall of Impact (badgeId !=
+// null means top 5), the permanent seasonal badges shown on a profile, and
+// the milestone achievements derived from a user's history across seasons.
+model SeasonRankSnapshot {
+  id           String   @id @default(cuid())
+  seasonId     String
+  userId       String
+  rank         Int
+  seasonPoints Int
+  // Set only for rank 1-5 — one of SEASON_BADGE_IDS in lib/impact-league.ts.
+  // Null for every other participant.
+  badgeId      String?
+  createdAt    DateTime @default(now())
+
+  season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([seasonId, userId])
+  @@index([seasonId, rank])
+  @@index([userId])
 }
 
 model VisibilityBoost {
