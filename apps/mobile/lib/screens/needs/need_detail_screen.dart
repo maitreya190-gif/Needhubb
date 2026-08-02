@@ -86,7 +86,9 @@ class NeedDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
-  Need get need => widget.need;
+  late Need _currentNeed;
+
+  Need get need => _currentNeed;
   List<_OfferData> _realOffers = const [];
   List<Map<String, dynamic>> _needReviews = const [];
   String _offerSortMode = 'newest';
@@ -104,6 +106,45 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   bool get _isNeedFrozen => _isNeedFullyFrozen;
 
   bool _renewing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentNeed = widget.need;
+    offersNotifier.addListener(_rebuild);
+    Future.microtask(() {
+      _fetchNeedDetails();
+      _hydrateOffers();
+      _fetchNeedReviews();
+    });
+    // Poll for new responses and updated need status every 15 s
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      _fetchNeedDetails();
+      _hydrateOffers();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant NeedDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.need.id != widget.need.id ||
+        oldWidget.need.peopleNeeded != widget.need.peopleNeeded ||
+        oldWidget.need.status != widget.need.status) {
+      _currentNeed = widget.need;
+    }
+  }
+
+  Future<void> _fetchNeedDetails() async {
+    if (widget.need.id.startsWith('posted_')) return;
+    try {
+      final api = ref.read(needsApiProvider);
+      final fresh = await api.getById(widget.need.id);
+      if (!mounted) return;
+      setState(() {
+        _currentNeed = fresh;
+      });
+    } catch (_) {}
+  }
 
   /// Reposts an expired urgent need with a fresh deadline — the owner-only
   /// counterpart to Rescue Mode's expiry (see POST /needs/:id/renew, and
@@ -146,18 +187,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    offersNotifier.addListener(_rebuild);
-    Future.microtask(() {
-      _hydrateOffers();
-      _fetchNeedReviews();
-    });
-    // Poll for new responses every 15 s so the poster sees them without refreshing
-    _pollTimer =
-        Timer.periodic(const Duration(seconds: 15), (_) => _hydrateOffers());
-  }
+
 
   Future<void> _fetchNeedReviews() async {
     try {
@@ -397,14 +427,22 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
           tint: NeedHubTokens.forest,
         ),
       );
+      final newAcceptedCount = (res['acceptedCount'] as num?)?.toInt() ?? (_acceptedOfferCount + 1);
+      final newPeopleNeeded = (res['peopleNeeded'] as num?)?.toInt() ?? need.peopleNeeded;
+      final isFulfilled = newAcceptedCount >= newPeopleNeeded;
+
       setState(() {
         _realOffers = _realOffers
             .map((o) => o.responseId == responseId ? o.withStatus('ACCEPTED') : o)
             .toList();
+        _currentNeed = _currentNeed.copyWith(
+          acceptedCount: newAcceptedCount,
+          peopleNeeded: newPeopleNeeded,
+          status: isFulfilled ? 'FULFILLED' : 'OPEN',
+        );
       });
-      final count = _realOffers.where((o) => o.status == 'ACCEPTED').length;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Offer accepted! ($count/${need.peopleNeeded} Frozen). Opening chat…')),
+        SnackBar(content: Text('Offer accepted! ($newAcceptedCount/$newPeopleNeeded Frozen). Opening chat…')),
       );
       if (accepted.responderId != null) {
         await Future.delayed(const Duration(milliseconds: 300));
@@ -594,7 +632,9 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                       backgroundColor: Colors.transparent,
                                       builder: (_) => _EditNeedSheet(
                                         need: need,
-                                        onUpdated: () => setState(() {}),
+                                        onUpdated: (freshNeed) => setState(() {
+                                          _currentNeed = freshNeed;
+                                        }),
                                       ),
                                     );
                                   },
@@ -3443,7 +3483,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
 
 class _EditNeedSheet extends StatefulWidget {
   final Need need;
-  final VoidCallback onUpdated;
+  final ValueChanged<Need> onUpdated;
 
   const _EditNeedSheet({required this.need, required this.onUpdated});
 
@@ -3703,7 +3743,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                           }
                           try {
                             final api = ref.read(needsApiProvider);
-                            await api.updateNeed(
+                            final freshNeed = await api.updateNeed(
                               widget.need.id,
                               title: _titleController.text.trim(),
                               description: _descController.text.trim(),
@@ -3715,7 +3755,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                             );
                             if (!mounted) return;
                             Navigator.of(context).pop();
-                            widget.onUpdated();
+                            widget.onUpdated(freshNeed);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                   content: Text('Need updated successfully!')),
