@@ -22,7 +22,7 @@ class ImpactLeagueScreen extends ConsumerStatefulWidget {
 
 class _ImpactLeagueScreenState extends ConsumerState<ImpactLeagueScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 2, vsync: this);
+  late final TabController _tabs = TabController(length: 3, vsync: this);
   SeasonInfo? _season;
 
   @override
@@ -100,12 +100,12 @@ class _ImpactLeagueScreenState extends ConsumerState<ImpactLeagueScreen>
               unselectedLabelColor: t.muted,
               indicatorColor: NeedHubTokens.forest,
               labelStyle: GoogleFonts.hankenGrotesk(fontSize: 13, fontWeight: FontWeight.w700),
-              tabs: [Tab(text: s.leaderboard), Tab(text: s.hallOfImpact)],
+              tabs: [Tab(text: s.leaderboard), Tab(text: s.hallOfImpact), Tab(text: s.previousSeasons)],
             ),
             Expanded(
               child: TabBarView(
                 controller: _tabs,
-                children: const [_LeaderboardTab(), _HallOfImpactTab()],
+                children: const [_LeaderboardTab(), _HallOfImpactTab(), _PreviousSeasonsTab()],
               ),
             ),
           ],
@@ -450,6 +450,174 @@ class _HallOfImpactTabState extends ConsumerState<_HallOfImpactTab> {
           );
         }).toList(),
       ),
+    );
+  }
+}
+
+// ── Previous Seasons (archive browser) ─────────────────────────────────────
+
+class _PreviousSeasonsTab extends ConsumerStatefulWidget {
+  const _PreviousSeasonsTab();
+
+  @override
+  ConsumerState<_PreviousSeasonsTab> createState() => _PreviousSeasonsTabState();
+}
+
+class _PreviousSeasonsTabState extends ConsumerState<_PreviousSeasonsTab> {
+  bool _loading = true;
+  List<SeasonInfo> _seasons = const [];
+  // When set, shows that season's final leaderboard instead of the list.
+  SeasonArchive? _selected;
+  bool _loadingDetail = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final seasons = await ref.read(leagueApiProvider).seasons();
+      if (mounted) setState(() { _seasons = seasons; _loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _open(SeasonInfo season) async {
+    if (season.status != 'ARCHIVED') return; // current season has no archive yet
+    setState(() => _loadingDetail = true);
+    try {
+      final archive = await ref.read(leagueApiProvider).archive(season.seasonNumber);
+      if (mounted) setState(() { _selected = archive; _loadingDetail = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingDetail = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.tokens;
+    final s = S.current;
+
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final selected = _selected;
+    if (selected != null) {
+      return _SeasonArchiveDetail(
+        archive: selected,
+        t: t,
+        s: s,
+        onBack: () => setState(() => _selected = null),
+      );
+    }
+
+    if (_seasons.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            s.noPreviousSeasonsYet,
+            style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+        children: _seasons.map((season) {
+          final isArchived = season.status == 'ARCHIVED';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: GestureDetector(
+              onTap: isArchived ? () => _open(season) : null,
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: t.card,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: t.rail, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${s.season} ${season.seasonNumber} · ${season.year}',
+                        style: GoogleFonts.hankenGrotesk(fontSize: 13.5, fontWeight: FontWeight.w700, color: t.ink),
+                      ),
+                    ),
+                    if (!isArchived)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: NeedHubTokens.forest.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          s.currentSeasonBadge,
+                          style: GoogleFonts.hankenGrotesk(fontSize: 10.5, fontWeight: FontWeight.w700, color: NeedHubTokens.forest),
+                        ),
+                      )
+                    else if (_loadingDetail)
+                      const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    else
+                      Icon(Icons.chevron_right_rounded, color: t.muted),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _SeasonArchiveDetail extends StatelessWidget {
+  final SeasonArchive archive;
+  final NeedHubTokens t;
+  final S s;
+  final VoidCallback onBack;
+
+  const _SeasonArchiveDetail({required this.archive, required this.t, required this.s, required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    final season = archive.season;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          child: GestureDetector(
+            onTap: onBack,
+            child: Row(
+              children: [
+                Icon(Icons.arrow_back_rounded, size: 18, color: t.muted),
+                const SizedBox(width: 6),
+                Text(
+                  season != null ? '${s.season} ${season.seasonNumber} · ${season.year}' : s.previousSeasons,
+                  style: GoogleFonts.hankenGrotesk(fontSize: 13.5, fontWeight: FontWeight.w800, color: t.ink),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+            children: archive.rows.map((row) => _LeaderboardRow(entry: row, t: t)).toList(),
+          ),
+        ),
+      ],
     );
   }
 }

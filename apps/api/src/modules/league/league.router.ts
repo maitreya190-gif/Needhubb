@@ -6,6 +6,7 @@ import {
   ensureCurrentSeason,
   getCurrentLeaderboard,
   getMyRank,
+  listSeasons,
   getSeasonArchive,
   getHallOfImpact,
   fetchSeasonHistory,
@@ -45,6 +46,14 @@ leagueRouter.get('/me', authenticate, async (req, res, next) => {
   const userId = (req as AuthedRequest).userId!
   try {
     res.json(await getMyRank(userId))
+  } catch (err) { next(err) }
+})
+
+// ─── GET /league/seasons — every season, newest first ────────────────────
+
+leagueRouter.get('/seasons', authenticate, async (_req, res, next) => {
+  try {
+    res.json({ seasons: await listSeasons() })
   } catch (err) { next(err) }
 })
 

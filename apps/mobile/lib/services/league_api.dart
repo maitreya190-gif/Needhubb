@@ -205,6 +205,22 @@ class LeagueAchievement {
   }
 }
 
+/// Earned achievements only, most recently earned first — the Achievement
+/// Showcase's required "chronological order". Achievements with no known
+/// earnedAt (shouldn't happen for anything actually earned) sort last.
+List<LeagueAchievement> earnedAchievementsChronological(List<LeagueAchievement> achievements) {
+  final earned = achievements.where((a) => a.earned).toList();
+  earned.sort((a, b) {
+    final aAt = a.earnedAt;
+    final bAt = b.earnedAt;
+    if (aAt == null && bAt == null) return 0;
+    if (aAt == null) return 1;
+    if (bAt == null) return -1;
+    return bAt.compareTo(aAt);
+  });
+  return earned;
+}
+
 /// Everything shown on a profile's Achievement Showcase: permanent seasonal
 /// badges, derived milestone achievements, and which of them (up to 3) this
 /// user has chosen to feature.
@@ -249,6 +265,17 @@ class LeagueApi {
 
   Future<SeasonInfo> season() async {
     return SeasonInfo.fromJson(await _api.get('/league/season'));
+  }
+
+  /// Every season that has ever existed, newest first — powers the Previous
+  /// Season Archive picker.
+  Future<List<SeasonInfo>> seasons() async {
+    final res = await _api.get('/league/seasons');
+    final list = (res['seasons'] as List?) ?? const [];
+    return list
+        .whereType<Map>()
+        .map((m) => SeasonInfo.fromJson(Map<String, dynamic>.from(m)))
+        .toList();
   }
 
   Future<List<LeaderboardEntry>> leaderboard({String scope = 'global', int? take}) async {

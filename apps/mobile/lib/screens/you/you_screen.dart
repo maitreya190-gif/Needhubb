@@ -1754,7 +1754,7 @@ class _ImpactLeagueSectionState extends ConsumerState<_ImpactLeagueSection> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: achievements.where((a) => a.earned).map((a) {
+            children: earnedAchievementsChronological(achievements).map((a) {
               final featured = featuredIds.contains(a.id);
               return GestureDetector(
                 onTap: () => _toggleFeatured(a.id, featuredIds),

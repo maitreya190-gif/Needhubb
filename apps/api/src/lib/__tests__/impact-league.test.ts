@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   seasonFindFirst: vi.fn(),
+  seasonFindMany: vi.fn(),
   seasonCreate: vi.fn(),
   seasonUpdateMany: vi.fn(),
   seasonFindUnique: vi.fn(),
@@ -32,6 +33,7 @@ vi.mock('../prisma', () => ({
   prisma: {
     season: {
       findFirst: mocks.seasonFindFirst,
+      findMany: mocks.seasonFindMany,
       create: mocks.seasonCreate,
       updateMany: mocks.seasonUpdateMany,
       findUnique: mocks.seasonFindUnique,
@@ -52,7 +54,7 @@ vi.mock('../prisma', () => ({
 }))
 
 import {
-  ensureCurrentSeason, getCurrentLeaderboard, getMyRank, getSeasonArchive, getHallOfImpact,
+  ensureCurrentSeason, getCurrentLeaderboard, getMyRank, listSeasons, getSeasonArchive, getHallOfImpact,
   fetchSeasonHistory, fetchMilestoneTimestamps, seasonalBadgesFromHistory, computeLeagueAchievements,
   setFeaturedAchievements, SEASON_BADGE_IDS, IMPACT_POINT_MILESTONES, CONSECUTIVE_TOP5_STREAK,
   MAX_FEATURED_ACHIEVEMENTS, __resetImpactLeagueCachesForTests,
@@ -308,6 +310,23 @@ describe('getMyRank', () => {
 })
 
 // ── Archive & Hall of Impact ──────────────────────────────────────────────
+
+describe('listSeasons', () => {
+  it('returns every season newest first, for the Previous Season Archive picker', async () => {
+    mocks.seasonFindMany.mockResolvedValue([
+      season({ id: 's2', seasonNumber: 2, status: 'ACTIVE' }),
+      season({ id: 's1', seasonNumber: 1, status: 'ARCHIVED' }),
+    ])
+    const seasons = await listSeasons()
+    expect(seasons.map((s) => s.seasonNumber)).toEqual([2, 1])
+    expect(mocks.seasonFindMany.mock.calls[0][0].orderBy).toEqual({ seasonNumber: 'desc' })
+  })
+
+  it('fails safe to an empty array on a DB error', async () => {
+    mocks.seasonFindMany.mockRejectedValue(new Error('down'))
+    expect(await listSeasons()).toEqual([])
+  })
+})
 
 describe('getSeasonArchive', () => {
   it('returns null for a season that has not ended yet', async () => {

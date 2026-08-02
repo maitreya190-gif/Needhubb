@@ -116,6 +116,9 @@ class S {
     'leaderboard': 'Leaderboard',
     'hallOfImpact': 'Hall of Impact',
     'hallOfImpactEmpty': 'No seasons have finished yet — check back once the first one ends.',
+    'previousSeasons': 'Previous Seasons',
+    'noPreviousSeasonsYet': 'No seasons have finished yet — check back once the current one ends.',
+    'currentSeasonBadge': 'Current',
     'global': 'Global',
     'friends': 'Friends',
     'myRank': 'MY RANK',
@@ -574,6 +577,9 @@ class S {
   String get leaderboard => _get('leaderboard');
   String get hallOfImpact => _get('hallOfImpact');
   String get hallOfImpactEmpty => _get('hallOfImpactEmpty');
+  String get previousSeasons => _get('previousSeasons');
+  String get noPreviousSeasonsYet => _get('noPreviousSeasonsYet');
+  String get currentSeasonBadge => _get('currentSeasonBadge');
   String get global => _get('global');
   String get friends => _get('friends');
   String get myRank => _get('myRank');

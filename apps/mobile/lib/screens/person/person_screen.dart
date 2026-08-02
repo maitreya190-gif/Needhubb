@@ -6,6 +6,7 @@ import '../../models/person.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/friends_api.dart';
+import '../../services/league_api.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
@@ -871,8 +872,7 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: _profile!.leagueAchievements
-                            .where((a) => a.earned)
+                        children: earnedAchievementsChronological(_profile!.leagueAchievements)
                             .map((a) => Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                                   decoration: BoxDecoration(

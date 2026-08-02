@@ -94,6 +94,39 @@ void main() {
     });
   });
 
+  group('earnedAchievementsChronological', () {
+    LeagueAchievement a(String id, {bool earned = true, DateTime? earnedAt}) => LeagueAchievement(
+          id: id,
+          label: id,
+          description: '',
+          category: 'ranking',
+          earned: earned,
+          earnedAt: earnedAt,
+        );
+
+    test('excludes unearned achievements entirely', () {
+      final result = earnedAchievementsChronological([a('x', earned: false)]);
+      expect(result, isEmpty);
+    });
+
+    test('orders earned achievements most-recent-first', () {
+      final result = earnedAchievementsChronological([
+        a('old', earnedAt: DateTime(2026, 1, 1)),
+        a('new', earnedAt: DateTime(2026, 6, 1)),
+        a('mid', earnedAt: DateTime(2026, 3, 1)),
+      ]);
+      expect(result.map((x) => x.id).toList(), ['new', 'mid', 'old']);
+    });
+
+    test('achievements with no known earnedAt sort last, never crash the comparator', () {
+      final result = earnedAchievementsChronological([
+        a('dated', earnedAt: DateTime(2026, 1, 1)),
+        a('undated'),
+      ]);
+      expect(result.map((x) => x.id).toList(), ['dated', 'undated']);
+    });
+  });
+
   group('NhSeasonalBadgeRow', () {
     testWidgets('shows an empty-state message with no badges', (tester) async {
       await tester.pumpWidget(wrap(const NhSeasonalBadgeRow(badges: [], t: t)));

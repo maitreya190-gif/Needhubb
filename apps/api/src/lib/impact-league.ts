@@ -455,6 +455,18 @@ export async function getMyRank(userId: string): Promise<MyRank> {
 
 // ── Archive & Hall of Impact (permanent, read-only) ─────────────────────
 
+/** Every season that has ever existed, newest first — lets the client
+ * browse the Previous Season Archive without guessing season numbers. */
+export async function listSeasons(): Promise<SeasonInfo[]> {
+  try {
+    const seasons = await prisma.season.findMany({ orderBy: { seasonNumber: 'desc' } })
+    return seasons.map(toSeasonInfo)
+  } catch (err) {
+    console.error('[impact-league] failed to list seasons', err)
+    return []
+  }
+}
+
 export async function getSeasonArchive(seasonNumber: number): Promise<{ season: SeasonInfo; rows: LeaderboardEntry[] } | null> {
   try {
     const season = await prisma.season.findUnique({ where: { seasonNumber } })
