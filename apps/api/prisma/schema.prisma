@@ -179,6 +179,10 @@ model Profile {
   // against a fixed catalog here — computeLeagueAchievements() ignores any
   // id it doesn't recognize, so this can never render something bogus.
   featuredAchievementIds String[] @default([])
+  // Privacy: whether this user's real-time online presence (see lib/socket.ts)
+  // is exposed to other users at all. When false, GET /profile/:userId/online
+  // always reports offline regardless of actual connection state.
+  showOnlineStatus       Boolean   @default(true)
   updatedAt              DateTime  @updatedAt
 
   user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -582,6 +586,9 @@ model DmMessage {
   reactions Json?
   readAt    DateTime?
   createdAt DateTime  @default(now())
+  // Set the moment a sender edits their own message — see EDIT_WINDOW_MS in
+  // messaging.router.ts, which only allows edits within 23 minutes of send.
+  editedAt  DateTime?
 
   thread  DmThread    @relation(fields: [threadId], references: [id], onDelete: Cascade)
   sender  User        @relation("DmSender", fields: [senderId], references: [id], onDelete: Cascade)

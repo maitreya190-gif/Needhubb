@@ -469,9 +469,6 @@ const Map<String, String> stringsHi = {
   'oldestFirst': 'सबसे पुराना पहले',
   'highestBudget': 'सबसे ज़्यादा बजट',
   'reset': 'रीसेट',
-  'genderFemale': 'महिला',
-  'genderMale': 'पुरुष',
-  'genderNonBinary': 'नॉन-बाइनरी',
   // Impact League
   'impactLeague': 'इम्पैक्ट लीग',
   'impactLeagueDesc': 'पूरे सीज़न का लीडरबोर्ड, आपके इम्पैक्ट पॉइंट से रैंक किया।',

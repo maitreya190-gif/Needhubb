@@ -5,6 +5,30 @@ import { config } from '../config'
 
 let _io: Server | null = null
 
+// userId -> set of connected socket ids. A user is "online" iff this set is
+// non-empty — supports multiple simultaneous devices/tabs correctly, since
+// presence only flips to offline once every socket has disconnected.
+const onlineSockets = new Map<string, Set<string>>()
+
+function markSocketOnline(userId: string, socketId: string): void {
+  const existing = onlineSockets.get(userId)
+  if (existing) existing.add(socketId)
+  else onlineSockets.set(userId, new Set([socketId]))
+}
+
+function markSocketOffline(userId: string, socketId: string): void {
+  const existing = onlineSockets.get(userId)
+  if (!existing) return
+  existing.delete(socketId)
+  if (existing.size === 0) onlineSockets.delete(userId)
+}
+
+// Raw connection check — callers combine this with the user's
+// showOnlineStatus preference via computeIsOnline() in lib/presence.ts.
+export function isUserConnected(userId: string): boolean {
+  return (onlineSockets.get(userId)?.size ?? 0) > 0
+}
+
 export function initSocket(httpServer: HttpServer): Server {
   _io = new Server(httpServer, {
     cors: { origin: '*', methods: ['GET', 'POST'] },
@@ -41,6 +65,7 @@ export function initSocket(httpServer: HttpServer): Server {
     const userId = socket.data.userId as string
     // Each user joins their own private room for personal events
     socket.join(`user:${userId}`)
+    markSocketOnline(userId, socket.id)
 
     // Client joins a thread room when opening a conversation
     socket.on('join_thread', (threadId: string) => {
@@ -48,6 +73,9 @@ export function initSocket(httpServer: HttpServer): Server {
     })
     socket.on('leave_thread', (threadId: string) => {
       if (typeof threadId === 'string') socket.leave(`thread:${threadId}`)
+    })
+    socket.on('disconnect', () => {
+      markSocketOffline(userId, socket.id)
     })
   })
 

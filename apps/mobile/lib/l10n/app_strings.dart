@@ -447,6 +447,11 @@ class S {
     'alertsWhenResponds': 'Alerts when someone responds',
     'hidePreciseLocation': 'Hide precise location',
     'showNeighbourhoodOnly': 'Show only neighbourhood level',
+    'showOnlineStatusLabel': 'Show online status',
+    'showOnlineStatusSubtitle': "Let others see when you're active",
+    'online': 'Online',
+    'editingMessage': 'Editing message',
+    'editedLabel': 'Edited',
     'blockedUsers': 'Blocked users',
     'logOut': 'Log out',
     'noOneIsBlocked': 'No one is blocked',
@@ -563,6 +568,7 @@ class S {
     'genderPreferNotToSay': 'Prefer not to say',
     'noVouchesYet': 'No vouches yet',
     'vouch': 'Vouch',
+    'vouchCountUnit': 'vouch',
     'profileUpdated': 'Profile updated!',
     'editBioHint': 'Write a short bio about yourself (e.g. Passionate developer, coffee lover & avid reader…)',
     'approved': 'Approved',
@@ -1043,6 +1049,11 @@ class S {
   String get alertsWhenResponds => _get('alertsWhenResponds');
   String get hidePreciseLocation => _get('hidePreciseLocation');
   String get showNeighbourhoodOnly => _get('showNeighbourhoodOnly');
+  String get showOnlineStatusLabel => _get('showOnlineStatusLabel');
+  String get showOnlineStatusSubtitle => _get('showOnlineStatusSubtitle');
+  String get online => _get('online');
+  String get editingMessage => _get('editingMessage');
+  String get editedLabel => _get('editedLabel');
   String get blockedUsers => _get('blockedUsers');
   String get logOut => _get('logOut');
   String get noOneIsBlocked => _get('noOneIsBlocked');
@@ -1137,6 +1148,7 @@ class S {
   String get genderPreferNotToSay => _get('genderPreferNotToSay');
   String get noVouchesYet => _get('noVouchesYet');
   String get vouch => _get('vouch');
+  String get vouchCountUnit => _get('vouchCountUnit');
   String get profileUpdated => _get('profileUpdated');
   String get editBioHint => _get('editBioHint');
   String get approved => _get('approved');

@@ -108,6 +108,10 @@ class ProfileMe {
   final List<LeagueAchievement> leagueAchievements;
   final List<String> featuredAchievementIds;
 
+  /// Privacy: whether this user's real-time online presence is exposed to
+  /// other users at all — see GET /profile/:userId/online on the server.
+  final bool showOnlineStatus;
+
   const ProfileMe({
     required this.id,
     required this.displayName,
@@ -142,6 +146,7 @@ class ProfileMe {
     this.seasonalBadges = const [],
     this.leagueAchievements = const [],
     this.featuredAchievementIds = const [],
+    this.showOnlineStatus = true,
   });
 
   /// Vouch summary for a skill, or an empty placeholder if it has none yet.
@@ -295,6 +300,7 @@ class ProfileMe {
       featuredAchievementIds: ((j['featuredAchievementIds'] as List?) ?? const [])
           .whereType<String>()
           .toList(),
+      showOnlineStatus: profile['showOnlineStatus'] as bool? ?? true,
     );
   }
 }
@@ -320,6 +326,7 @@ class ProfilesApi {
     String? displayName,
     List<String>? interests,
     List<String>? skills,
+    bool? showOnlineStatus,
   }) async {
     final r = await _api.patch('/profile/me', {
       if (bio != null) 'bio': bio,
@@ -333,6 +340,7 @@ class ProfilesApi {
       if (displayName != null) 'displayName': displayName,
       if (interests != null) 'interests': interests,
       if (skills != null) 'skills': skills,
+      if (showOnlineStatus != null) 'showOnlineStatus': showOnlineStatus,
     });
     return ProfileMe.fromJson(r);
   }
@@ -340,6 +348,13 @@ class ProfilesApi {
   Future<ProfileMe> getById(String userId) async {
     final r = await _api.get('/profile/$userId');
     return ProfileMe.fromJson(r);
+  }
+
+  /// Cheap poll for a single user's online presence — see
+  /// GET /profile/:userId/online on the server.
+  Future<bool> onlineStatus(String userId) async {
+    final r = await _api.get('/profile/$userId/online');
+    return r['online'] as bool? ?? false;
   }
 
   Future<List<Map<String, dynamic>>> pointsLedger({int take = 50}) async {

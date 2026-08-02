@@ -241,6 +241,7 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
       avatarUrlNotifier.value = me.avatarUrl;
       customInterestsNotifier.value = me.interestLabels;
       customSkillsNotifier.value = me.skillLabels;
+      showOnlineStatusNotifier.value = me.showOnlineStatus;
     } catch (_) {/* swallow */}
   }
 

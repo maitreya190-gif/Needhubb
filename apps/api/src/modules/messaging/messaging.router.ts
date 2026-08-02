@@ -10,6 +10,15 @@ import { emitToThread, emitToUser } from '../../lib/socket'
 
 export const messagingRouter: IRouter = Router()
 
+// A sender can fix a typo or add context, but not rewrite history long after
+// the other party has read and possibly replied — 23 minutes, same spirit as
+// email clients' "undo send" windows, just longer since chat is less instant.
+export const EDIT_WINDOW_MS = 23 * 60 * 1000
+
+export function withinEditWindow(createdAt: Date, now: Date = new Date()): boolean {
+  return now.getTime() - createdAt.getTime() <= EDIT_WINDOW_MS
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -300,6 +309,38 @@ messagingRouter.delete('/messages/:id', authenticate, async (req, res, next) => 
     await prisma.dmMessage.delete({ where: { id: req.params.id } })
     emitToThread(msg.threadId, 'message_deleted', { messageId: req.params.id })
     res.json({ ok: true })
+  } catch (err) { next(err) }
+})
+
+// ── PATCH /chats/messages/:id ──────────────────────────────────────────────────
+// Edit the text of your own message, only within EDIT_WINDOW_MS of sending it.
+// Image-only messages and messages with no text body can't be "edited" here —
+// that's a delete + resend, same as everywhere else.
+
+messagingRouter.patch('/messages/:id', authenticate, async (req, res, next) => {
+  try {
+    const userId = (req as AuthedRequest).userId!
+    const body = (req.body.body as string | undefined)?.trim()
+    if (!body) return next(badRequest('Message body is required', 'EMPTY_MESSAGE'))
+
+    const msg = await prisma.dmMessage.findUnique({ where: { id: req.params.id } })
+    if (!msg) return next(notFound('Message not found', 'NOT_FOUND'))
+    if (msg.senderId !== userId) return next(forbidden('Not your message', 'FORBIDDEN'))
+    if (!withinEditWindow(msg.createdAt)) {
+      return next(forbidden('Edit window has expired', 'EDIT_WINDOW_EXPIRED'))
+    }
+
+    const updated = await prisma.dmMessage.update({
+      where: { id: req.params.id },
+      data: { body, editedAt: new Date() },
+    })
+
+    emitToThread(updated.threadId, 'message_edited', {
+      messageId: updated.id,
+      body: updated.body,
+      editedAt: updated.editedAt,
+    })
+    res.json({ ok: true, message: updated })
   } catch (err) { next(err) }
 })
 

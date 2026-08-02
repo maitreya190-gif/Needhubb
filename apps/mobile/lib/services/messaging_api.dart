@@ -83,6 +83,7 @@ class DmMessage {
   final Map<String, dynamic> reactions;
   final DateTime createdAt;
   final DateTime? readAt;
+  final DateTime? editedAt;
 
   const DmMessage({
     required this.id,
@@ -94,6 +95,7 @@ class DmMessage {
     this.reactions = const {},
     required this.createdAt,
     this.readAt,
+    this.editedAt,
   });
 
   factory DmMessage.fromJson(Map<String, dynamic> j) {
@@ -108,6 +110,7 @@ class DmMessage {
       reactions: j['reactions'] is Map ? (j['reactions'] as Map).cast<String, dynamic>() : const {},
       createdAt: _parseDateTime(j['createdAt']),
       readAt: j['readAt'] != null ? _parseDateTime(j['readAt']) : null,
+      editedAt: j['editedAt'] != null ? _parseDateTime(j['editedAt']) : null,
     );
   }
 }
@@ -139,6 +142,11 @@ class MessagingApi {
   }
 
   Future<void> deleteMessage(String id) => _api.delete('/chats/messages/$id');
+
+  /// Edit a message you sent — server rejects this once EDIT_WINDOW_MS
+  /// (23 minutes) has passed since it was sent, see messaging.router.ts.
+  Future<void> editMessage(String id, String body) =>
+      _api.patch('/chats/messages/$id', {'body': body});
 
   /// Lightweight: mark the other party's unread messages in this thread as
   /// read and trigger a socket emit so their tick turns blue instantly.

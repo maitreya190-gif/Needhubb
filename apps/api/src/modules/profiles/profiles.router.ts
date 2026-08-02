@@ -16,6 +16,8 @@ import {
   fetchSeasonHistory, fetchMilestoneTimestamps, seasonalBadgesFromHistory, computeLeagueAchievements,
 } from '../../lib/impact-league'
 import { otpLimiter } from '../../middleware/rateLimiter'
+import { isUserConnected } from '../../lib/socket'
+import { computeIsOnline } from '../../lib/presence'
 
 export const profilesRouter: IRouter = Router()
 
@@ -113,7 +115,7 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
 profilesRouter.patch('/me', authenticate, async (req, res, next) => {
   try {
     const userId = (req as AuthedRequest).userId!
-    const { bio, location, lat, lng, gender, promptSkill, promptCollab, promptNeed, displayName, interests, skills } =
+    const { bio, location, lat, lng, gender, promptSkill, promptCollab, promptNeed, displayName, interests, skills, showOnlineStatus } =
       req.body as {
         bio?: string
         location?: string
@@ -126,6 +128,7 @@ profilesRouter.patch('/me', authenticate, async (req, res, next) => {
         displayName?: string
         interests?: string[]
         skills?: string[]
+        showOnlineStatus?: boolean
       }
 
     if (displayName !== undefined) {
@@ -143,8 +146,9 @@ profilesRouter.patch('/me', authenticate, async (req, res, next) => {
         ...(promptSkill !== undefined && { promptSkill }),
         ...(promptCollab !== undefined && { promptCollab }),
         ...(promptNeed !== undefined && { promptNeed }),
+        ...(showOnlineStatus !== undefined && { showOnlineStatus }),
       },
-      create: { userId, bio, locationText: location, lat, lng, gender, promptSkill, promptCollab, promptNeed },
+      create: { userId, bio, locationText: location, lat, lng, gender, promptSkill, promptCollab, promptNeed, showOnlineStatus },
     })
 
     if (Array.isArray(interests)) {
@@ -568,5 +572,20 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       seasonalBadges: seasonalBadgesFromHistory(seasonHistory),
       leagueAchievements,
     })
+  } catch (err) { next(err) }
+})
+
+// ── GET /profile/:userId/online ───────────────────────────────────────────────
+// Cheap, dedicated endpoint for polling a single user's presence (e.g. the
+// conversation header) without re-fetching their whole profile every time.
+profilesRouter.get('/:userId/online', async (req, res, next) => {
+  try {
+    const profile = await prisma.profile.findUnique({
+      where: { userId: req.params.userId },
+      select: { showOnlineStatus: true },
+    })
+    // Missing profile (no row yet) behaves like the default: visible, just never connected.
+    const showOnlineStatus = profile?.showOnlineStatus ?? true
+    res.json({ online: computeIsOnline(showOnlineStatus, isUserConnected(req.params.userId)) })
   } catch (err) { next(err) }
 })

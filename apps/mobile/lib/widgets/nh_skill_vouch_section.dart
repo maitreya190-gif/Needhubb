@@ -142,7 +142,7 @@ class _SkillVouchRowState extends State<_SkillVouchRow> {
               Text(
                 vouchCount == 0
                     ? S.current.noVouchesYet
-                    : '$vouchCount ${S.current.vouch}${vouchCount == 1 ? '' : 'es'}',
+                    : '$vouchCount ${S.current.vouchCountUnit}${vouchCount == 1 ? '' : 'es'}',
                 style: GoogleFonts.hankenGrotesk(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

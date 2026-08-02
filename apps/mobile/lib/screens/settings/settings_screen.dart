@@ -33,6 +33,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _toggleOnlineStatus(bool value) async {
+    final previous = showOnlineStatusNotifier.value;
+    showOnlineStatusNotifier.value = value;
+    try {
+      await ref.read(profilesApiProvider).update(showOnlineStatus: value);
+    } catch (_) {
+      showOnlineStatusNotifier.value = previous;
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(S.current.error)));
+      }
+    }
+  }
+
   @override
   void dispose() {
     uiLanguageNotifier.removeListener(_onLangChange);
@@ -227,7 +241,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         value: _hidePreciseLocation,
                         onChanged: (v) =>
                             setState(() => _hidePreciseLocation = v),
-                        showDivider: false,
+                        showDivider: true,
+                      ),
+                      ValueListenableBuilder<bool>(
+                        valueListenable: showOnlineStatusNotifier,
+                        builder: (_, showOnline, __) => _ToggleRow(
+                          icon: Icons.circle_outlined,
+                          title: s.showOnlineStatusLabel,
+                          subtitle: s.showOnlineStatusSubtitle,
+                          value: showOnline,
+                          onChanged: _toggleOnlineStatus,
+                          showDivider: false,
+                        ),
                       ),
                     ],
                   ),

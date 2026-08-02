@@ -77,6 +77,9 @@ final promptNeedNotifier = ValueNotifier<String>("");
 final genderNotifier = ValueNotifier<String?>(null);
 final locationNotifier = ValueNotifier<String>('');
 final avatarUrlNotifier = ValueNotifier<String?>(null);
+// Privacy: whether other users can see this account as "online" — mirrors
+// Profile.showOnlineStatus on the server, toggled from Settings.
+final showOnlineStatusNotifier = ValueNotifier<bool>(true);
 
 // ── Actions ──────────────────────────────────────────────────────────────────
 

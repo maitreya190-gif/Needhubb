@@ -116,6 +116,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   bool _sending = false;
   bool _loading = false;
   _Message? _replyingTo;
+  _Message? _editingMessage;
 
   bool get _isFriend =>
       widget.userId != null &&
@@ -132,6 +133,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   late List<_Message> _messages;
   String? _resolvedThreadId;
   Timer? _tailPoller;
+
+  /// Real online presence for widget.userId — null while unknown/loading, so
+  /// the header shows nothing rather than a guess. See GET
+  /// /profile/:userId/online on the server; polled rather than pushed to
+  /// match this screen's existing poll-based freshness model.
+  bool? _otherOnline;
+  Timer? _presencePoller;
 
   @override
   void initState() {
@@ -159,6 +167,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         });
       }
       Future.microtask(_hydrateReal);
+      if (widget.userId != null) {
+        Future.microtask(_fetchOnlineStatus);
+        _presencePoller = Timer.periodic(
+            const Duration(seconds: 20), (_) => _fetchOnlineStatus());
+      }
     } else {
       // Mock conversation demo data for legacy screens.
       final now = DateTime.now();
@@ -216,6 +229,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     ) : null,
                     isRead: m.readAt != null,
                     remoteId: m.id,
+                    editedAt: m.editedAt,
                   ))
               .toList();
         final cacheKey = _resolvedThreadId ?? widget.userId ?? '';
@@ -234,6 +248,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     // Fallback poll every 30s in case socket drops
     _tailPoller?.cancel();
     _tailPoller = Timer.periodic(const Duration(seconds: 30), (_) => _tail());
+  }
+
+  Future<void> _fetchOnlineStatus() async {
+    if (widget.userId == null) return;
+    try {
+      final online = await ref.read(profilesApiProvider).onlineStatus(widget.userId!);
+      if (mounted) setState(() => _otherOnline = online);
+    } catch (_) {/* keep last-known status */}
   }
 
   void _saveCache() {
@@ -373,6 +395,31 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         _saveCache();
       }
     });
+
+    socket.onMessageDeleted((messageId) {
+      if (!mounted) return;
+      final idx = _messages.indexWhere((m) => m.remoteId == messageId);
+      if (idx == -1) return;
+      setState(() => _messages.removeAt(idx));
+      _saveCache();
+    });
+
+    socket.onMessageEdited((data) {
+      if (!mounted) return;
+      final msgId = data['messageId'] as String?;
+      if (msgId == null) return;
+      final idx = _messages.indexWhere((m) => m.remoteId == msgId);
+      if (idx == -1) return;
+      final newBody = data['body'] as String?;
+      final editedAtStr = data['editedAt'] as String?;
+      setState(() {
+        _messages[idx] = _messages[idx].copyWith(
+          text: (newBody != null && newBody.isNotEmpty) ? newBody : _messages[idx].text,
+          editedAt: editedAtStr != null ? DateTime.tryParse(editedAtStr) : _messages[idx].editedAt,
+        );
+      });
+      _saveCache();
+    });
   }
 
   Future<void> _tail() async {
@@ -435,11 +482,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   @override
   void dispose() {
     _tailPoller?.cancel();
+    _presencePoller?.cancel();
     final socket = SocketService();
     if (_resolvedThreadId != null) socket.leaveThread(_resolvedThreadId!);
     socket.off('new_message');
     socket.off('message_reaction');
     socket.off('messages_read');
+    socket.off('message_deleted');
+    socket.off('message_edited');
     friendsNotifier.removeListener(_bump);
     blockedNotifier.removeListener(_bump);
     friendUserIdsNotifier.removeListener(_bump);
@@ -558,6 +608,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
   Future<void> _send() async {
     if (_isBlocked) return;
+    if (_editingMessage != null) {
+      await _confirmEdit();
+      return;
+    }
     final text = _controller.text.trim();
     if (text.isEmpty || _sending) return;
     _controller.clear();
@@ -595,6 +649,59 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         if (mounted) setState(() => _isTyping = false);
         _scrollToBottom();
       });
+    }
+  }
+
+  void _startEdit(_Message message) {
+    if (!message.isEditable) return;
+    setState(() {
+      _editingMessage = message;
+      _replyingTo = null;
+      _controller.text = message.text ?? '';
+      _controller.selection =
+          TextSelection.collapsed(offset: _controller.text.length);
+    });
+  }
+
+  void _cancelEdit() {
+    setState(() {
+      _editingMessage = null;
+      _controller.clear();
+    });
+  }
+
+  Future<void> _confirmEdit() async {
+    final editing = _editingMessage;
+    if (editing == null || editing.remoteId == null) return;
+    final newText = _controller.text.trim();
+    if (newText.isEmpty) return;
+    _controller.clear();
+    setState(() => _editingMessage = null);
+
+    final previousText = editing.text;
+    final idx = _messages.indexWhere((m) => m.remoteId == editing.remoteId);
+    if (idx != -1) {
+      setState(() => _messages[idx] = _messages[idx].copyWith(text: newText));
+    }
+    try {
+      await ref.read(messagingApiProvider).editMessage(editing.remoteId!, newText);
+      final confirmedIdx = _messages.indexWhere((m) => m.remoteId == editing.remoteId);
+      if (confirmedIdx != -1) {
+        setState(() => _messages[confirmedIdx] =
+            _messages[confirmedIdx].copyWith(editedAt: DateTime.now()));
+        _saveCache();
+      }
+    } catch (e) {
+      if (mounted) {
+        final revertIdx = _messages.indexWhere((m) => m.remoteId == editing.remoteId);
+        if (revertIdx != -1 && previousText != null) {
+          setState(() => _messages[revertIdx] =
+              _messages[revertIdx].copyWith(text: previousText));
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_sendErrorMessage(e))),
+        );
+      }
     }
   }
 
@@ -823,7 +930,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           onTap: () {
                             Navigator.of(context).pop();
                             HapticFeedback.lightImpact();
-                            setState(() => _replyingTo = message);
+                            setState(() {
+                              _replyingTo = message;
+                              _editingMessage = null;
+                            });
                           },
                         ),
                         if (message.text != null && message.text!.isNotEmpty)
@@ -835,6 +945,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             onTap: () {
                               Navigator.of(context).pop();
                               _copyMessage(index);
+                            },
+                          ),
+                        if (message.isEditable)
+                          _QuickActionButton(
+                            icon: Icons.edit_outlined,
+                            label: S.current.edit,
+                            color: NeedHubTokens.forest,
+                            t: t,
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              _startEdit(message);
                             },
                           ),
                         if (message.isMe)
@@ -905,7 +1026,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     initials: widget.initials,
                     avatarColor: widget.avatarColor,
                     avatarUrl: widget.avatarUrl,
-                    subtitle: 'Active now',
+                    subtitle: _otherOnline == true ? S.current.online : null,
                     userId: widget.userId,
                   ),
                 ),
@@ -920,19 +1041,20 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       textColor: widget.avatarColor,
                       fontSize: 13,
                     ),
-                  Positioned(
-                    bottom: 1,
-                    right: 1,
-                    child: Container(
-                      width: 11,
-                      height: 11,
-                      decoration: BoxDecoration(
-                        color: NeedHubTokens.forest,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: t.paper, width: 2),
+                  if (_otherOnline == true)
+                    Positioned(
+                      bottom: 1,
+                      right: 1,
+                      child: Container(
+                        width: 11,
+                        height: 11,
+                        decoration: BoxDecoration(
+                          color: NeedHubTokens.forest,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: t.paper, width: 2),
+                        ),
                       ),
                     ),
-                  ),
                   ],
                 ),
               ),
@@ -952,14 +1074,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text(
-                      'Online',
-                      style: GoogleFonts.hankenGrotesk(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: NeedHubTokens.forest,
+                    if (_otherOnline == true)
+                      Text(
+                        S.current.online,
+                        style: GoogleFonts.hankenGrotesk(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: NeedHubTokens.forest,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -1198,6 +1321,69 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       ],
                     ),
                   ),
+                if (_editingMessage != null)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: t.card,
+                      border: Border(top: BorderSide(color: t.rail, width: 1)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 3,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: NeedHubTokens.forest,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.edit_rounded, color: NeedHubTokens.forest, size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    S.current.editingMessage,
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: NeedHubTokens.forest,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _editingMessage!.text ?? '',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.hankenGrotesk(fontSize: 12.5, color: t.muted),
+                              ),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _cancelEdit,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: t.chip,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.close_rounded, color: t.muted2, size: 16),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Container(
                   padding: EdgeInsets.fromLTRB(12, 10, 12, bottomPad + 10),
                   decoration: BoxDecoration(
@@ -1268,8 +1454,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                               color: NeedHubTokens.clay,
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(Icons.arrow_upward_rounded,
-                                color: Colors.white, size: 20),
+                            child: Icon(
+                              _editingMessage != null
+                                  ? Icons.check_rounded
+                                  : Icons.arrow_upward_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                           ),
                         ),
                       ],
@@ -1306,6 +1497,9 @@ class _Message {
   /// Server message id — set for messages loaded from the API.
   final String? remoteId;
   final String senderName;
+  /// Set once the sender edits this message — see EDIT_WINDOW_MS on the
+  /// server (23 minutes from [time]).
+  final DateTime? editedAt;
 
   _Message({
     this.text,
@@ -1318,9 +1512,19 @@ class _Message {
     this.isRead = false,
     this.remoteId,
     this.senderName = '',
+    this.editedAt,
   }) : reactionsMap = reactionsMap ?? const {};
 
   List<String> get reactions => reactionsMap.values.toList();
+
+  /// Whether the sender can still edit this message — own, text-bearing,
+  /// sent messages only, within the same 23-minute window the server
+  /// enforces (see EDIT_WINDOW_MS in messaging.router.ts).
+  bool get isEditable =>
+      isMe &&
+      remoteId != null &&
+      (text != null && text!.isNotEmpty) &&
+      DateTime.now().difference(time) <= const Duration(minutes: 23);
 
   _Message copyWith({
     String? text,
@@ -1333,6 +1537,7 @@ class _Message {
     bool? isRead,
     String? remoteId,
     String? senderName,
+    DateTime? editedAt,
   }) {
     return _Message(
       text: text ?? this.text,
@@ -1345,6 +1550,7 @@ class _Message {
       isRead: isRead ?? this.isRead,
       remoteId: remoteId ?? this.remoteId,
       senderName: senderName ?? this.senderName,
+      editedAt: editedAt ?? this.editedAt,
     );
   }
 
@@ -2127,6 +2333,18 @@ class _BubbleState extends State<_Bubble> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (msg.editedAt != null) ...[
+                              Text(
+                                '${S.current.editedLabel} · ',
+                                style: GoogleFonts.hankenGrotesk(
+                                  fontSize: 10.5,
+                                  fontStyle: FontStyle.italic,
+                                  color: msg.isMe
+                                      ? Colors.white.withValues(alpha: 0.65)
+                                      : t.muted,
+                                ),
+                              ),
+                            ],
                             Text(
                               msg.timeLabel,
                               style: GoogleFonts.hankenGrotesk(

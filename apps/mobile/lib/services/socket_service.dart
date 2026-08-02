@@ -104,8 +104,9 @@ class SocketService {
       // ignore: avoid_print
       print('[socket] 📨 new_message event fired! data type: ${data.runtimeType}');
       final m = _asMap(data);
-      if (m != null) handler(m);
-      else {
+      if (m != null) {
+        handler(m);
+      } else {
         // ignore: avoid_print
         print('[socket] ❌ new_message data was null after asMap');
       }
@@ -135,6 +136,14 @@ class SocketService {
       if (m == null) return;
       final id = m['messageId'] as String?;
       if (id != null) handler(id);
+    });
+  }
+
+  /// Listen for edited messages.
+  void onMessageEdited(void Function(Map<String, dynamic> data) handler) {
+    _socket?.on('message_edited', (data) {
+      final m = _asMap(data);
+      if (m != null) handler(m);
     });
   }
 
