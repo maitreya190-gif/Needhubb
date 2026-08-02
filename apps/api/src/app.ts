@@ -11,13 +11,14 @@ import { messagingRouter } from './modules/messaging/messaging.router'
 import { friendsRouter } from './modules/friends/friends.router'
 import { chitchatRouter } from './modules/chitchat/chitchat.router'
 import { notificationsRouter } from './modules/notifications/notifications.router'
+import { achievementsRouter } from './modules/achievements/achievements.router'
 import { reviewsRouter } from './modules/reviews/reviews.router'
 import { redemptionsRouter } from './modules/redemptions/redemptions.router'
-import { achievementsRouter } from './modules/achievements/achievements.router'
 import { referralsRouter } from './modules/referrals/referrals.router'
 import { translateRouter } from './modules/translate/translate.router'
 import { vouchesRouter } from './modules/vouches/vouches.router'
 import { leagueRouter } from './modules/league/league.router'
+import { adsRouter } from './modules/ads/ads.router'
 import { adminAuth } from './middleware/adminAuth'
 import { authenticate } from './middleware/authenticate'
 import { errorHandler } from './middleware/errorHandler'
@@ -284,6 +285,9 @@ app.use('/reviews', reviewsRouter)
 // Vouches — skill endorsements between users. See lib/vouching.ts.
 app.use('/vouches', writeLimiter, vouchesRouter)
 app.use('/league', writeLimiter, leagueRouter)
+
+// Ads — ad inquiries
+app.use('/ads', writeLimiter, adsRouter)
 
 // Redemptions — catalog + redeem + history.
 app.use('/redemptions', redemptionsRouter)

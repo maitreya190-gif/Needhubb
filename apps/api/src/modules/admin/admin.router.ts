@@ -7,13 +7,14 @@ export const adminRouter: ExpressRouter = Router()
 // ── Stats overview ────────────────────────────────────────────────────────────
 
 adminRouter.get('/stats', async (_req, res) => {
-  const [users, needs, pendingCerts, openReports] = await Promise.all([
+  const [users, needs, pendingCerts, openReports, pendingAdInquiries] = await Promise.all([
     prisma.user.count(),
     prisma.need.count(),
     prisma.certificate.count({ where: { status: 'PENDING_REVIEW' } }),
     prisma.report.count({ where: { status: 'OPEN' } }),
+    prisma.adInquiry.count({ where: { status: 'PENDING' } }),
   ])
-  res.json({ users, needs, pendingCerts, openReports })
+  res.json({ users, needs, pendingCerts, openReports, pendingAdInquiries })
 })
 
 // ── Certificates ──────────────────────────────────────────────────────────────
@@ -377,4 +378,38 @@ adminRouter.get('/needs', async (req, res) => {
 adminRouter.delete('/needs/:id', async (req, res) => {
   await prisma.need.delete({ where: { id: req.params.id } })
   res.json({ ok: true })
+})
+
+// ── Ad Inquiries ──────────────────────────────────────────────────────────────
+
+adminRouter.get('/ad-inquiries', async (req, res) => {
+  const status = req.query.status as string | undefined
+  const inquiries = await prisma.adInquiry.findMany({
+    where: status ? { status: status as any } : undefined,
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+  })
+  res.json(inquiries)
+})
+
+adminRouter.patch('/ad-inquiries/:id', async (req, res, next) => {
+  const { id } = req.params
+  const { status, adminNotes } = req.body as { status?: string; adminNotes?: string }
+  try {
+    const updated = await prisma.adInquiry.update({
+      where: { id },
+      data: {
+        ...(status ? { status: status as any } : {}),
+        ...(adminNotes !== undefined ? { adminNotes } : {}),
+      },
+    })
+    res.json(updated)
+  } catch (err) { next(err) }
+})
+
+adminRouter.delete('/ad-inquiries/:id', async (req, res, next) => {
+  try {
+    await prisma.adInquiry.delete({ where: { id: req.params.id } })
+    res.json({ success: true })
+  } catch (err) { next(err) }
 })

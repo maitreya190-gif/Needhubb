@@ -6,6 +6,7 @@ import 'admin_users_screen.dart';
 import 'admin_needs_screen.dart';
 import 'admin_certs_screen.dart';
 import 'admin_reports_screen.dart';
+import 'admin_ads_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -145,6 +146,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           _StatChip(
                               label: 'Reports',
                               value: _stats!.openReports),
+                          const SizedBox(width: 8),
+                          _StatChip(label: 'Ads', value: _stats!.pendingAdInquiries),
                         ],
                       ),
                   ],
@@ -209,6 +212,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   t: t,
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const AdminReportsScreen())),
+                ),
+                const SizedBox(height: 10),
+                _NavCard(
+                  icon: Icons.campaign_outlined,
+                  title: 'Ad Inquiries',
+                  desc: _stats != null
+                      ? '${_stats!.pendingAdInquiries} pending inquiries'
+                      : 'Review advertising requests',
+                  t: t,
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const AdminAdsScreen())),
                 ),
               ]),
             ),

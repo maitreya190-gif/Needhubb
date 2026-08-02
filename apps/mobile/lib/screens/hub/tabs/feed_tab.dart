@@ -28,6 +28,7 @@ import 'package:needhub/services/messaging_api.dart';
 import '../../../l10n/app_strings.dart';
 import '../../../providers/language_provider.dart';
 import '../../../services/translate_api.dart';
+import '../../../widgets/nh_ad_card.dart';
 
 // ── Feed filtering & sorting ─────────────────────────────────────────────────
 // Earn and Connect share these so the two surfaces can't drift apart again.
@@ -214,6 +215,22 @@ class _PartialMatchDivider extends StatelessWidget {
       ],
     );
   }
+}
+
+List<Widget> _interleaveAds(List<Widget> cards, NeedHubTokens t, {int interval = 10}) {
+  if (cards.isEmpty) return cards;
+  final result = <Widget>[];
+  for (int i = 0; i < cards.length; i++) {
+    result.add(cards[i]);
+    // After every `interval` items, insert an ad card
+    if ((i + 1) % interval == 0 && i < cards.length - 1) {
+      result.add(Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: NhAdCard(t: t),
+      ));
+    }
+  }
+  return result;
 }
 
 class FeedTab extends ConsumerStatefulWidget {
@@ -839,7 +856,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
 
   List<Widget> _needCards(
       BuildContext context, List<Need> list, NeedHubTokens t) {
-    return list.asMap().entries.map((e) {
+    final cards = list.asMap().entries.map((e) {
       final need = e.value;
       return Padding(
         padding: EdgeInsets.only(bottom: e.key < list.length - 1 ? 14 : 0),
@@ -852,6 +869,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
         ),
       );
     }).toList();
+    return _interleaveAds(cards, t);
   }
 }
 
@@ -1197,29 +1215,12 @@ class _EarnFeedState extends State<_EarnFeed> {
         ),
         const SizedBox(height: 12),
         _ActiveFilterRibbon(filter: filter, surface: 'earn', t: t),
-        ...needs.asMap().entries.map((e) {
-          final i = e.key;
-          final need = e.value;
-          return Padding(
-            padding: EdgeInsets.only(bottom: i < needs.length - 1 ? 14 : 0),
-            child: _TranslatedEarnCard(
-              need: need,
-              t: t,
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
-              ),
-            ),
-          );
-        }),
-        if (partials.isNotEmpty) ...[
-          const SizedBox(height: 26),
-          _PartialMatchDivider(title: S.current.matchesSomeFilters, t: t),
-          const SizedBox(height: 16),
-          ...partials.asMap().entries.map((e) {
+        ..._interleaveAds(
+          needs.asMap().entries.map((e) {
             final i = e.key;
             final need = e.value;
             return Padding(
-              padding: EdgeInsets.only(bottom: i < partials.length - 1 ? 14 : 0),
+              padding: EdgeInsets.only(bottom: i < needs.length - 1 ? 14 : 0),
               child: _TranslatedEarnCard(
                 need: need,
                 t: t,
@@ -1228,7 +1229,30 @@ class _EarnFeedState extends State<_EarnFeed> {
                 ),
               ),
             );
-          }),
+          }).toList(),
+          t,
+        ),
+        if (partials.isNotEmpty) ...[
+          const SizedBox(height: 26),
+          _PartialMatchDivider(title: S.current.matchesSomeFilters, t: t),
+          const SizedBox(height: 16),
+          ..._interleaveAds(
+            partials.asMap().entries.map((e) {
+              final i = e.key;
+              final need = e.value;
+              return Padding(
+                padding: EdgeInsets.only(bottom: i < partials.length - 1 ? 14 : 0),
+                child: _TranslatedEarnCard(
+                  need: need,
+                  t: t,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => NeedDetailScreen(need: need)),
+                  ),
+                ),
+              );
+            }).toList(),
+            t,
+          ),
         ],
       ],
     );
@@ -1236,7 +1260,7 @@ class _EarnFeedState extends State<_EarnFeed> {
 
   List<Widget> _earnCards(
       BuildContext context, List<Need> list, NeedHubTokens t) {
-    return list.asMap().entries.map((e) {
+    final cards = list.asMap().entries.map((e) {
       final need = e.value;
       return Padding(
         padding: EdgeInsets.only(bottom: e.key < list.length - 1 ? 14 : 0),
@@ -1249,6 +1273,7 @@ class _EarnFeedState extends State<_EarnFeed> {
         ),
       );
     }).toList();
+    return _interleaveAds(cards, t);
   }
 }
 

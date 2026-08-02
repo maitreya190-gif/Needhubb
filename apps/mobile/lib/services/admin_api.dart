@@ -87,22 +87,44 @@ class AdminApi {
             if (message != null && message.isNotEmpty) 'message': message,
           },
           options: _opts);
+
+  Future<List<AdminAdInquiry>> adInquiries({String? status}) async {
+    final qs = {if (status != null) 'status': status};
+    final r = await _dio.get<List>('/admin/ad-inquiries',
+        queryParameters: qs, options: _opts);
+    return (r.data ?? [])
+        .map((e) => AdminAdInquiry.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> updateAdInquiry(String id, {String? status, String? adminNotes}) =>
+      _dio.patch('/admin/ad-inquiries/$id',
+          data: {
+            if (status != null) 'status': status,
+            if (adminNotes != null) 'adminNotes': adminNotes,
+          },
+          options: _opts);
+
+  Future<void> deleteAdInquiry(String id) =>
+      _dio.delete('/admin/ad-inquiries/$id', options: _opts);
 }
 
 // ── Models ────────────────────────────────────────────────────────────────────
 
 class AdminStats {
-  final int users, needs, pendingCerts, openReports;
+  final int users, needs, pendingCerts, openReports, pendingAdInquiries;
   AdminStats(
       {required this.users,
       required this.needs,
       required this.pendingCerts,
-      required this.openReports});
+      required this.openReports,
+      required this.pendingAdInquiries});
   factory AdminStats.fromJson(Map<String, dynamic> j) => AdminStats(
         users: j['users'] ?? 0,
         needs: j['needs'] ?? 0,
         pendingCerts: j['pendingCerts'] ?? 0,
         openReports: j['openReports'] ?? 0,
+        pendingAdInquiries: j['pendingAdInquiries'] ?? 0,
       );
 }
 
@@ -281,4 +303,33 @@ class AdminReport {
       contextMessages: contextMessages,
     );
   }
+}
+
+class AdminAdInquiry {
+  final String id, name, product, status, createdAt;
+  final String? email, phone, message, adminNotes;
+
+  AdminAdInquiry({
+    required this.id,
+    required this.name,
+    required this.product,
+    required this.status,
+    required this.createdAt,
+    this.email,
+    this.phone,
+    this.message,
+    this.adminNotes,
+  });
+
+  factory AdminAdInquiry.fromJson(Map<String, dynamic> j) => AdminAdInquiry(
+    id: j['id'] ?? '',
+    name: j['name'] ?? '',
+    product: j['product'] ?? '',
+    status: j['status'] ?? 'PENDING',
+    createdAt: j['createdAt'] ?? '',
+    email: j['email'] as String?,
+    phone: j['phone'] as String?,
+    message: j['message'] as String?,
+    adminNotes: j['adminNotes'] as String?,
+  );
 }
