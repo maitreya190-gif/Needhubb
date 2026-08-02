@@ -2,8 +2,9 @@ import { Router, type IRouter } from 'express'
 import { z } from 'zod'
 import { prisma } from '../../lib/prisma'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
-import { badRequest } from '../../lib/http-error'
+import { badRequest, notFound } from '../../lib/http-error'
 import { isBlockedBetween } from '../friends/friends.service'
+import { CHITCHAT_BOOST_TIERS, fetchActiveChitchatBoosts } from '../../lib/visibility-boost'
 
 export const chitchatRouter: IRouter = Router()
 
@@ -51,6 +52,75 @@ chitchatRouter.get('/status', async (req, res, next) => {
     const until = p?.chitchatAvailableUntil
     const available = until ? until.getTime() > Date.now() : false
     res.json({ available, availableUntil: until?.toISOString() ?? null })
+  } catch (err) { next(err) }
+})
+
+// ── Visibility boost — spend Impact Points to appear first in ChitChat ──────
+// Body: { "tier": "3h" | "6h" | "12h" }. Same shape as the existing
+// POST /needs/:id/boost (see needs.router.ts): verify affordability, debit
+// PointsLedger + Profile in one transaction, create a VisibilityBoost.
+// Reuses the VisibilityBoost model's existing (until now unused) PROFILE
+// target type — no schema change.
+
+chitchatRouter.post('/boost', async (req, res, next) => {
+  const userId = (req as AuthedRequest).userId!
+  const tier = (req.body?.tier as string | undefined)?.toLowerCase()
+
+  if (!tier || !CHITCHAT_BOOST_TIERS[tier]) {
+    return next(badRequest('tier must be "3h", "6h", or "12h"', 'INVALID_TIER'))
+  }
+  const { hours, cost } = CHITCHAT_BOOST_TIERS[tier]
+
+  try {
+    const existingBoost = await prisma.visibilityBoost.findFirst({
+      where: { targetId: userId, targetType: 'PROFILE', expiresAt: { gt: new Date() } },
+    })
+    if (existingBoost) {
+      return next(badRequest(
+        `Your Chit-Chat visibility is already boosted until ${existingBoost.expiresAt.toISOString()}`,
+        'ALREADY_BOOSTED',
+      ))
+    }
+
+    const profile = await prisma.profile.findUnique({ where: { userId } })
+    if (!profile) return next(notFound('Profile not found'))
+    if (profile.pointsTotal < cost) {
+      return next(badRequest(
+        `Not enough Impact Points. You have ${profile.pointsTotal} pts but need ${cost} pts.`,
+        'INSUFFICIENT_POINTS',
+      ))
+    }
+
+    const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000)
+    const [boost] = await prisma.$transaction([
+      prisma.visibilityBoost.create({
+        data: { userId, targetType: 'PROFILE', targetId: userId, expiresAt },
+      }),
+      prisma.profile.update({
+        where: { userId },
+        data: { pointsTotal: { decrement: cost } },
+      }),
+      prisma.pointsLedger.create({
+        data: { userId, delta: -cost, reason: `Boost Chit-Chat visibility for ${hours}h`, refId: userId },
+      }),
+    ])
+
+    res.json({
+      ok: true,
+      boost: { id: boost.id, expiresAt: boost.expiresAt, tier, cost },
+      newBalance: profile.pointsTotal - cost,
+    })
+  } catch (err) { next(err) }
+})
+
+// GET /chitchat/boost — check my active boost status
+chitchatRouter.get('/boost', async (req, res, next) => {
+  const userId = (req as AuthedRequest).userId!
+  try {
+    const boost = await prisma.visibilityBoost.findFirst({
+      where: { targetId: userId, targetType: 'PROFILE', expiresAt: { gt: new Date() } },
+    })
+    res.json({ boosted: !!boost, expiresAt: boost?.expiresAt ?? null })
   } catch (err) { next(err) }
 })
 
@@ -114,6 +184,20 @@ chitchatRouter.get('/available-people', async (req, res, next) => {
     ranked.sort((a, b) =>
       (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
 
+    // Paid visibility boost: reorders the list (boosted users first, each
+    // group still nearest-first among itself) without touching the
+    // distanceKm shown — it changes *placement*, never what's reported to
+    // the viewer, so this can't be used to misrepresent someone's location.
+    const activeBoosts = await fetchActiveChitchatBoosts(ranked.map((r) => r.row.userId))
+    if (activeBoosts.size > 0) {
+      ranked.sort((a, b) => {
+        const aBoosted = activeBoosts.has(a.row.userId) ? 1 : 0
+        const bBoosted = activeBoosts.has(b.row.userId) ? 1 : 0
+        if (aBoosted !== bBoosted) return bBoosted - aBoosted
+        return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)
+      })
+    }
+
     res.json(ranked.map(({ row, distanceKm }) => ({
       userId: row.userId,
       displayName: row.user.displayName,
@@ -123,6 +207,7 @@ chitchatRouter.get('/available-people', async (req, res, next) => {
       lat: row.lat,
       lng: row.lng,
       distanceKm: distanceKm != null ? Math.round(distanceKm * 10) / 10 : null,
+      boosted: activeBoosts.has(row.userId),
     })))
   } catch (err) { next(err) }
 })

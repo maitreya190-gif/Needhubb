@@ -23,6 +23,7 @@ import {
 } from '../../lib/urgency'
 import { countTrustEligibleVouches, fetchTrustEligibleVouchCounts } from '../../lib/vouching'
 import { tagNeedsByEmbedding } from '../../lib/need-tagging'
+import { fetchActiveNeedBoosts, NEED_BOOST_RANK_BONUS, boostVisibilityCap } from '../../lib/visibility-boost'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { isBlockedBetween } from '../friends/friends.service'
 import {
@@ -409,28 +410,35 @@ needsRouter.get('/', async (req, res, next) => {
     // heuristic if Cohere is unavailable.
     let usedEmbeddings = false
     const needSimilarityById = new Map<string, number>()
-    if (embeddingsAvailable() && filtered.length > 0 && userSignal) {
-      const [userVec, needVecs] = await Promise.all([
-        embedBatch([userSignal], 'search_query'),
-        embedBatch(filtered.map((f) => needSignalText(f.need)), 'search_document'),
-      ])
-      if (userVec && needVecs && userVec[0]) {
-        usedEmbeddings = true
-        filtered.forEach((f, i) => {
-          needSimilarityById.set(f.need.id, cosineSimilarity(userVec[0], needVecs[i]))
-        })
-      }
-    }
+    const [, activeNeedBoosts] = await Promise.all([
+      (async () => {
+        if (embeddingsAvailable() && filtered.length > 0 && userSignal) {
+          const [userVec, needVecs] = await Promise.all([
+            embedBatch([userSignal], 'search_query'),
+            embedBatch(filtered.map((f) => needSignalText(f.need)), 'search_document'),
+          ])
+          if (userVec && needVecs && userVec[0]) {
+            usedEmbeddings = true
+            filtered.forEach((f, i) => {
+              needSimilarityById.set(f.need.id, cosineSimilarity(userVec[0], needVecs[i]))
+            })
+          }
+        }
+      })(),
+      fetchActiveNeedBoosts(filtered.map((f) => f.need.id)),
+    ])
 
-    type Ranked = Filtered & { score: number; semantic: number | null; urgencyBoost: number }
+    type Ranked = Filtered & { score: number; semantic: number | null; urgencyBoost: number; boostBonus: number }
     const ranked: Ranked[] = filtered.map((f) => {
       const semantic = needSimilarityById.get(f.need.id) ?? null
       const trustScore = trustScoreByPoster.get(f.need.posterId) ?? 0
+      const boostBonus = activeNeedBoosts.has(f.need.id) ? NEED_BOOST_RANK_BONUS : 0
       return {
         ...f,
         semantic,
         urgencyBoost: urgencyRankContribution(f.need, f.need._count.responses),
-        score: scoreNeed(f.need, f.distanceKm, userInterests, semantic, trustScore, f.need._count.responses),
+        boostBonus,
+        score: scoreNeed(f.need, f.distanceKm, userInterests, semantic, trustScore, f.need._count.responses, boostBonus),
       }
     })
 
@@ -448,6 +456,21 @@ needsRouter.get('/', async (req, res, next) => {
     for (const r of ranked) {
       if (r.urgencyBoost > 0 && !allowedToKeepBoost.has(r.need.id)) {
         r.score -= r.urgencyBoost
+      }
+    }
+
+    // Same cap shape for paid boosts, but an independent budget — a page
+    // full of urgent needs must not stop a paid boost from working, and
+    // vice versa. Needs beyond the cap keep full visibility, just without
+    // the extra push once the cap's slots are already spent.
+    const boostCap = boostVisibilityCap(ranked.length)
+    const allowedToKeepPaidBoost = selectBoostedWithinCap(
+      ranked.map((r) => ({ id: r.need.id, boost: r.boostBonus })),
+      boostCap,
+    )
+    for (const r of ranked) {
+      if (r.boostBonus > 0 && !allowedToKeepPaidBoost.has(r.need.id)) {
+        r.score -= r.boostBonus
       }
     }
 
@@ -484,6 +507,7 @@ needsRouter.get('/', async (req, res, next) => {
         offerCount: r.need._count.responses,
         acceptedCount: (r.need as any).responses ? (r.need as any).responses.length : 0,
         tags: tagsById.get(r.need.id) ?? [],
+        isBoosted: r.boostBonus > 0,
         _score: Math.round(r.score * 100) / 100,
         _semantic: r.semantic != null ? Math.round(r.semantic * 100) / 100 : null,
         _distanceKm: r.distanceKm != null ? Math.round(r.distanceKm * 10) / 10 : null,
@@ -536,8 +560,9 @@ export function scoreNeed(
   semanticSimilarity: number | null,
   trustScore: number, // 0-100, ignored for EARN needs
   responseCount: number,
+  boostBonus: number = 0, // active paid VisibilityBoost — see lib/visibility-boost.ts
 ): number {
-  const urgencyBoost = urgencyRankContribution(need, responseCount)
+  const rankBonus = urgencyRankContribution(need, responseCount) + boostBonus
   // Proximity — 1 at 0km, 0 at 30km+, linear decay.
   const proximityScore = distanceKm == null
     ? 0.5
@@ -553,7 +578,7 @@ export function scoreNeed(
   if (semanticSimilarity != null) {
     // Cosine similarity is in [-1, 1]; normalize to [0, 1] for combining.
     const semanticScore = Math.max(0, (semanticSimilarity + 1) / 2)
-    return urgencyBoost + (isConnect
+    return rankBonus + (isConnect
       ? 0.45 * semanticScore + 0.20 * proximityScore + 0.15 * freshnessScore + 0.20 * trustScore01
       : 0.60 * semanticScore + 0.25 * proximityScore + 0.15 * freshnessScore)
   }
@@ -565,7 +590,7 @@ export function scoreNeed(
     const hits = userInterestLabels.filter((i) => i.length > 1 && hay.includes(i)).length
     interestScore = Math.min(1, hits / Math.min(3, userInterestLabels.length))
   }
-  return urgencyBoost + (isConnect
+  return rankBonus + (isConnect
     ? 0.40 * interestScore + 0.25 * proximityScore + 0.15 * freshnessScore + 0.20 * trustScore01
     : 0.55 * interestScore + 0.30 * proximityScore + 0.15 * freshnessScore)
 }

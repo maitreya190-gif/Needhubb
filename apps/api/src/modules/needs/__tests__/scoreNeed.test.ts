@@ -88,3 +88,23 @@ describe('urgency only ever adds on top — never replaces the base score', () =
     expect(rescued).toBeGreaterThan(notRescued)
   })
 })
+
+describe('paid visibility boost (7th, optional argument — see lib/visibility-boost.ts)', () => {
+  it('omitting it entirely scores exactly like passing 0 — existing callers are untouched', () => {
+    const omitted = score({ ...baseNeed, ...notUrgent }, 0.6)
+    const explicitZero = scoreNeed({ ...baseNeed, ...notUrgent }, 5, [], 0.6, 40, 0, 0)
+    expect(omitted).toBe(explicitZero)
+  })
+
+  it('adds on top of the organic score rather than replacing it', () => {
+    const without = score({ ...baseNeed, ...notUrgent }, 0.6)
+    const boosted = scoreNeed({ ...baseNeed, ...notUrgent }, 5, [], 0.6, 40, 0, 2.0)
+    expect(boosted).toBeCloseTo(without + 2.0, 5)
+  })
+
+  it('stacks additively with an active urgency boost rather than one overriding the other', () => {
+    const urgencyOnly = scoreNeed({ ...baseNeed, ...urgentAndActive }, 5, [], 0.6, 40, 0)
+    const urgencyAndPaid = scoreNeed({ ...baseNeed, ...urgentAndActive }, 5, [], 0.6, 40, 0, 2.0)
+    expect(urgencyAndPaid).toBeCloseTo(urgencyOnly + 2.0, 5)
+  })
+})

@@ -19,6 +19,10 @@ class ChitchatPerson {
   final double? lat;
   final double? lng;
   final double? distanceKm;
+  /// Someone spent Impact Points to appear first in this list — see
+  /// POST /chitchat/boost. Reordering only; distanceKm above is always the
+  /// real distance, never altered by a boost.
+  final bool boosted;
 
   const ChitchatPerson({
     required this.userId,
@@ -29,6 +33,7 @@ class ChitchatPerson {
     this.lat,
     this.lng,
     this.distanceKm,
+    this.boosted = false,
   });
 
   factory ChitchatPerson.fromJson(Map<String, dynamic> j) {
@@ -41,6 +46,7 @@ class ChitchatPerson {
       lat: (j['lat'] as num?)?.toDouble(),
       lng: (j['lng'] as num?)?.toDouble(),
       distanceKm: (j['distanceKm'] as num?)?.toDouble(),
+      boosted: j['boosted'] as bool? ?? false,
     );
   }
 
@@ -97,5 +103,18 @@ class ChitchatApi {
       },
     );
     return res.map(ChitchatPerson.fromJson).toList();
+  }
+
+  /// Spend Impact Points to appear first in ChitChat for other people nearby.
+  /// tier is "3h" | "6h" | "12h" — see CHITCHAT_BOOST_TIERS on the server.
+  Future<Map<String, dynamic>> boost(String tier) async {
+    final res = await _api.post('/chitchat/boost', {'tier': tier});
+    return res;
+  }
+
+  /// Whether my ChitChat visibility is currently boosted.
+  Future<Map<String, dynamic>> getBoostStatus() async {
+    final res = await _api.get('/chitchat/boost');
+    return res;
   }
 }

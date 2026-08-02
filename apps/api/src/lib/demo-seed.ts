@@ -356,15 +356,6 @@ const DEMO_NEEDS = [
   },
 ]
 
-const REDEMPTION_ITEMS = [
-  { title: 'Amazon Voucher ₹100', description: 'Redeemable on Amazon India', pointsCost: 120, stock: 50 },
-  { title: 'Cafe Coffee Day ₹150', description: 'Any small food + coffee combo', pointsCost: 180, stock: 30 },
-  { title: 'Blinkit ₹200 off', description: 'Free delivery + ₹200 off any order', pointsCost: 220, stock: 40 },
-  { title: 'BookMyShow ₹300', description: 'Movie ticket credit', pointsCost: 340, stock: 20 },
-  { title: 'Zomato Gold — 1 month', description: 'Free delivery for a month', pointsCost: 500, stock: 15 },
-  { title: 'Bluetooth Speaker (Boat)', description: 'Boat Stone 190 mini speaker', pointsCost: 900, stock: 5 },
-]
-
 export async function runSeed() {
   console.log('▶ Seeding NeedHub comprehensive demo data…')
 
@@ -773,23 +764,6 @@ export async function runSeed() {
   })
 
   console.log('  ✓ Certificates & Achievements across all categories and statuses seeded')
-
-  // ── Redemptions Catalog & User Redemptions ─────────────────────────────────
-  for (const it of REDEMPTION_ITEMS) {
-    const existing = await prisma.redemptionItem.findFirst({ where: { title: it.title } })
-    if (!existing) {
-      await prisma.redemptionItem.create({
-        data: { title: it.title, description: it.description, pointsCost: it.pointsCost, stock: it.stock, active: true },
-      })
-    }
-  }
-
-  const amazonItem = await prisma.redemptionItem.findFirst({ where: { title: 'Amazon Voucher ₹100' } })
-  if (amazonItem) {
-    await prisma.redemption.create({
-      data: { userId: aarav, itemId: amazonItem.id, code: 'NH-AMZ100-88', status: 'DELIVERED' },
-    })
-  }
 
   // ── Notifications across ALL NotificationType Enum Values ──────────────────
   await prisma.notification.createMany({
