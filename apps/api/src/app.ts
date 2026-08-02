@@ -18,6 +18,7 @@ import { referralsRouter } from './modules/referrals/referrals.router'
 import { translateRouter } from './modules/translate/translate.router'
 import { vouchesRouter } from './modules/vouches/vouches.router'
 import { leagueRouter } from './modules/league/league.router'
+import { shareRouter, shareLandingRouter } from './modules/share/share.router'
 import { adsRouter } from './modules/ads/ads.router'
 import { adminAuth } from './middleware/adminAuth'
 import { authenticate } from './middleware/authenticate'
@@ -285,6 +286,11 @@ app.use('/reviews', reviewsRouter)
 // Vouches — skill endorsements between users. See lib/vouching.ts.
 app.use('/vouches', writeLimiter, vouchesRouter)
 app.use('/league', writeLimiter, leagueRouter)
+// Shareable Need cards. Deliberately unauthenticated — a link recipient who
+// does not have the app yet has no token, and both routes only ever return
+// the allowlisted, share-safe view (see lib/share-card.ts).
+app.use('/share', shareRouter)
+app.use('/', shareLandingRouter)
 
 // Ads — ad inquiries
 app.use('/ads', writeLimiter, adsRouter)

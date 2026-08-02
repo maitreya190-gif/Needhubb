@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/signup_screen.dart';
 import '../screens/hub/hub_screen.dart';
+import '../screens/needs/need_deep_link_screen.dart';
 import '../screens/settings/settings_screen.dart';
 
 /// A ChangeNotifier that mirrors the Riverpod auth state so GoRouter's
@@ -32,6 +33,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      // Deep linking is enabled in AndroidManifest.xml so shared Need links
+      // reach the router, which means the platform can now hand us "/" on a
+      // plain launch. Without a route for it that would be an unmatched-route
+      // error screen instead of the app.
+      GoRoute(
+        path: '/',
+        redirect: (_, __) => '/hub',
+      ),
+      // Opened from a shared Need card — see lib/share-card.ts on the API.
+      GoRoute(
+        path: '/need/:id',
+        builder: (_, state) => NeedDeepLinkScreen(needId: state.pathParameters['id']!),
+      ),
       GoRoute(
         path: '/login',
         builder: (_, __) => const LoginScreen(),

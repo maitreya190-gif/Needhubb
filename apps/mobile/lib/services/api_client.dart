@@ -15,6 +15,11 @@ String get _baseUrl {
   return 'http://127.0.0.1:3000';
 }
 
+/// Public base URL of the API, for things that need to build a URL rather
+/// than call an endpoint — e.g. the shareable Need link (`<base>/n/<id>`)
+/// that gets pasted into WhatsApp and encoded into the card's QR code.
+String get apiBaseUrl => _baseUrl;
+
 final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
 
 class ApiClient {

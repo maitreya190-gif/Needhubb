@@ -63,7 +63,7 @@ function generateReferralCode(displayName: string): string {
   return (prefix + suffix).padEnd(6, 'X').slice(0, 6)
 }
 
-async function uniqueReferralCode(displayName: string): Promise<string> {
+export async function uniqueReferralCode(displayName: string): Promise<string> {
   for (let i = 0; i < 10; i++) {
     const code = generateReferralCode(displayName)
     const existing = await prisma.user.findUnique({ where: { referralCode: code } })

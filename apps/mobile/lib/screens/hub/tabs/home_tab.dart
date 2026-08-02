@@ -8,6 +8,7 @@ import '../../../providers/language_provider.dart';
 import '../../../services/needs_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
+import '../../../widgets/nh_share_need_sheet.dart';
 import '../../../widgets/nh_urgent_badge.dart';
 import '../../needs/need_detail_screen.dart';
 
@@ -417,6 +418,19 @@ class NeedCard extends StatelessWidget {
                     color: t.muted,
                   ),
                 ),
+                // Share this need — only while it is still open, matching
+                // canShareNeed() and the API's own eligibility rule.
+                if (canShareNeed(need)) ...[
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => NhShareNeedSheet.open(context, need: need),
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Icon(Icons.ios_share_rounded, size: 16, color: t.muted),
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 10),

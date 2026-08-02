@@ -10,6 +10,7 @@ import '../../services/api_client.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_empty_state.dart';
 import '../../widgets/nh_report_sheet.dart';
+import '../../widgets/nh_share_need_sheet.dart';
 import '../../widgets/nh_urgent_badge.dart';
 import '../../widgets/nh_vouch_picker_sheet.dart';
 import '../hub/conversation_screen.dart';
@@ -709,6 +710,29 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                   const SizedBox(width: 5),
                                   Text(
                                     'Report',
+                                    style: GoogleFonts.hankenGrotesk(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: t.muted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          // Share — available to poster and viewer alike, but
+                          // only while the need is still open (see canShareNeed).
+                          if (canShareNeed(need)) ...[
+                            const SizedBox(width: 14),
+                            GestureDetector(
+                              onTap: () => NhShareNeedSheet.open(context, need: need),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.ios_share_rounded,
+                                      size: 15, color: t.muted),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Share',
                                     style: GoogleFonts.hankenGrotesk(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,

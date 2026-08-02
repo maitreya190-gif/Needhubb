@@ -36,6 +36,21 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Shareable Need cards: a shared link's "Open in NeedHub" button
+                 hands off to this scheme, which Flutter routes straight to
+                 /need/<id> (see lib/router/router.dart). Custom scheme rather
+                 than an https App Link on purpose — App Links additionally
+                 require a verified assetlinks.json on the domain, and without
+                 that verification Android silently stops opening the app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="needhub"/>
+            </intent-filter>
+            <!-- Lets Flutter hand the incoming URI to go_router instead of
+                 just cold-starting the app on its default screen. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
         </activity>
         <!-- image_cropper: UCrop activity -->
         <activity
