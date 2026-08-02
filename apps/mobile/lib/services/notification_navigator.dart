@@ -215,8 +215,9 @@ class NotificationNavigator {
     }
 
 
-    // E. IMPACT (REVIEW, POINTS, CERT) -> NON-CLICKABLE
-    if (type == 'REVIEW_RECEIVED' || type == 'POINTS_AWARDED' || type.contains('CERT_')) {
+    // E. IMPACT (REVIEW, POINTS, CERT, VOUCH) -> NON-CLICKABLE
+    if (type == 'REVIEW_RECEIVED' || type == 'POINTS_AWARDED' || type.contains('CERT_') ||
+        type == 'VOUCH_RECEIVED') {
       // User explicitly requested to make impact notifications non-clickable.
       return;
     }

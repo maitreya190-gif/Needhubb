@@ -512,6 +512,7 @@ enum NotificationType {
   REDEMPTION_READY
   REPORT_ACTIONED
   SKILL_MATCH_NEED
+  VOUCH_RECEIVED
 }
 
 enum RedemptionStatus {

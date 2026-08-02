@@ -42,9 +42,16 @@ class NhSkillVouchSection extends StatelessWidget {
         style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted2),
       );
     }
+    // Vouched-for skills first — a stable partition (not .sort, which isn't
+    // guaranteed stable) so skills within each group keep their original order.
+    bool hasVouches(SkillEntry s) => (skillVouches[s.id]?.vouchCount ?? 0) > 0;
+    final ordered = [
+      ...skills.where(hasVouches),
+      ...skills.where((s) => !hasVouches(s)),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: skills
+      children: ordered
           .map((skill) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _SkillVouchRow(
@@ -165,16 +172,6 @@ class _SkillVouchRowState extends State<_SkillVouchRow> {
                       ),
                     ),
                   ),
-                ),
-              ],
-              if (hasTestimonials) ...[
-                const SizedBox(width: 4),
-                Icon(
-                  _expanded
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                  size: 18,
-                  color: t.muted,
                 ),
               ],
             ],

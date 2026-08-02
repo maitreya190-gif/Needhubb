@@ -5,6 +5,7 @@ import { badRequest, notFound, forbidden, conflict } from '../../lib/http-error'
 import {
   evaluateNewVouch, stripInternalVouchFields, suggestSkillsForCompletedNeed,
 } from '../../lib/vouching'
+import { pushNotification } from '../../lib/notifications'
 import { createVouchBody, editVouchBody } from './vouches.schemas'
 
 export const vouchesRouter: IRouter = Router()
@@ -45,6 +46,19 @@ vouchesRouter.post('/', authenticate, async (req, res, next) => {
         credibilityWeight: evaluation.credibilityWeight,
         suspicious: evaluation.suspicious,
       },
+    })
+
+    const [voucher, skill] = await Promise.all([
+      prisma.user.findUnique({ where: { id: voucherId }, select: { displayName: true } }),
+      prisma.skill.findUnique({ where: { id: skillId }, select: { label: true } }),
+    ])
+    await pushNotification(prisma, {
+      userId: voucheeId,
+      type: 'VOUCH_RECEIVED',
+      title: 'New skill vouch',
+      body: `${voucher?.displayName ?? 'Someone'} vouched for your ${skill?.label ?? 'skill'} skill`,
+      refType: 'VOUCH',
+      refId: vouch.id,
     })
 
     // Suspicious vouches are silently down-weighted, never rejected or

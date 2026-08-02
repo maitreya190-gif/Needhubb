@@ -557,6 +557,7 @@ class _AlertsTabState extends ConsumerState<AlertsTab> {
       case 'CERT_REJECTED':
       case 'REDEMPTION_READY':
       case 'REPORT_ACTIONED':
+      case 'VOUCH_RECEIVED':
         return 'Impact';
       default:
         return 'Other';
@@ -778,6 +779,8 @@ class _NotifRow extends StatelessWidget {
         return Icons.card_giftcard_rounded;
       case 'REPORT_ACTIONED':
         return Icons.warning_amber_rounded;
+      case 'VOUCH_RECEIVED':
+        return Icons.thumb_up_alt_rounded;
       default:
         return Icons.notifications_none_rounded;
     }
@@ -789,6 +792,7 @@ class _NotifRow extends StatelessWidget {
       case 'FRIEND_REQUEST_ACCEPTED':
       case 'CERT_APPROVED':
       case 'SKILL_MATCH_NEED':
+      case 'VOUCH_RECEIVED':
         return NeedHubTokens.forest;
       case 'NEED_RESPONSE_RECEIVED':
       case 'REVIEW_RECEIVED':

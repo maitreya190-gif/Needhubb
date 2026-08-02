@@ -2208,6 +2208,8 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
         return Icons.card_giftcard_rounded;
       case 'REPORT_ACTIONED':
         return Icons.warning_amber_rounded;
+      case 'VOUCH_RECEIVED':
+        return Icons.thumb_up_alt_rounded;
       default:
         return Icons.notifications_none_rounded;
     }
@@ -2218,6 +2220,7 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
       case 'FRIEND_REQUEST_RECEIVED':
       case 'FRIEND_REQUEST_ACCEPTED':
       case 'CERT_APPROVED':
+      case 'VOUCH_RECEIVED':
         return NeedHubTokens.forest;
       case 'NEED_RESPONSE_RECEIVED':
       case 'REVIEW_RECEIVED':

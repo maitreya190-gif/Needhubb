@@ -220,5 +220,71 @@ void main() {
       expect(find.text('Aarav'), findsOneWidget);
       expect(find.textContaining('Great to work with.'), findsOneWidget);
     });
+
+    testWidgets('has no expand/collapse chevron icon, even when expandable',
+        (tester) async {
+      await tester.pumpWidget(wrap(NhSkillVouchSection(
+        skills: const [SkillEntry(id: 's1', label: 'Flutter')],
+        skillVouches: {
+          's1': SkillVouchSummary(
+            skillId: 's1',
+            label: 'Flutter',
+            vouchCount: 1,
+            verifiedVouchCount: 0,
+            recentVouchers: [
+              RecentVoucher(
+                voucherId: 'v1',
+                voucherName: 'Aarav',
+                verified: false,
+                testimonial: 'Great to work with.',
+                createdAt: DateTime.now(),
+              ),
+            ],
+          ),
+        },
+        t: t,
+      )));
+
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
+      expect(find.byIcon(Icons.keyboard_arrow_up_rounded), findsNothing);
+    });
+  });
+
+  group('skill ordering', () {
+    testWidgets('vouched-for skills render before ones with no vouches, order otherwise preserved',
+        (tester) async {
+      await tester.pumpWidget(wrap(NhSkillVouchSection(
+        skills: const [
+          SkillEntry(id: 's1', label: 'Alpha'),
+          SkillEntry(id: 's2', label: 'Beta'),
+          SkillEntry(id: 's3', label: 'Gamma'),
+          SkillEntry(id: 's4', label: 'Delta'),
+        ],
+        skillVouches: {
+          's3': const SkillVouchSummary(
+            skillId: 's3', label: 'Gamma', vouchCount: 2, verifiedVouchCount: 0, recentVouchers: [],
+          ),
+          's4': const SkillVouchSummary(
+            skillId: 's4', label: 'Delta', vouchCount: 0, verifiedVouchCount: 0, recentVouchers: [],
+          ),
+        },
+        t: t,
+      )));
+
+      final labels = tester
+          .widgetList<Text>(find.descendant(
+            of: find.byType(NhSkillVouchSection),
+            matching: find.byType(Text),
+          ))
+          .map((w) => w.data)
+          .whereType<String>()
+          .where((s) => ['Alpha', 'Beta', 'Gamma', 'Delta'].contains(s))
+          .toList();
+
+      // Gamma has vouches (moves to front); Delta has an explicit zero-vouch
+      // entry (stays put); Alpha/Beta have no entry at all (stay put, in
+      // their original relative order).
+      expect(labels, ['Gamma', 'Alpha', 'Beta', 'Delta']);
+    });
   });
 }

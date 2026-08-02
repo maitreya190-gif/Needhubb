@@ -383,10 +383,19 @@ class YouScreen extends ConsumerWidget {
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
 
-                  // ── Face Verification ─────────────────────────────────────
-                  _FaceVerifySection(t: t),
-                  const SizedBox(height: 16),
-                  _PhoneVerifySection(t: t),
+                  // ── Verifications ─────────────────────────────────────────
+                  _CollapsibleSection(
+                    title: 'VERIFICATIONS',
+                    t: t,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _FaceVerifySection(t: t),
+                        const SizedBox(height: 16),
+                        _PhoneVerifySection(t: t),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
@@ -626,23 +635,13 @@ class YouScreen extends ConsumerWidget {
                   const SizedBox(height: 22),
 
                   // ── Skills & Vouches (earned, server-computed) ────────────
-                  Text(
-                    'SKILLS & VOUCHES',
-                    style: GoogleFonts.hankenGrotesk(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: t.muted2,
-                      letterSpacing: 0.7,
-                    ),
+                  _CollapsibleSection(
+                    title: 'SKILLS & VOUCHES',
+                    subtitle:
+                        'Skill vouches from people you\'ve worked with. A "Verified" badge means you actually completed a Need together.',
+                    t: t,
+                    child: _SkillVouchesSection(t: t),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Skill vouches from people you\'ve worked with. A "Verified" badge means you actually completed a Need together.',
-                    style: GoogleFonts.hankenGrotesk(
-                        fontSize: 12.5, color: t.muted),
-                  ),
-                  const SizedBox(height: 14),
-                  _SkillVouchesSection(t: t),
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
@@ -847,12 +846,6 @@ class YouScreen extends ConsumerWidget {
                       t: t,
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  Divider(color: t.rail, height: 1),
-                  const SizedBox(height: 22),
-
-                  // ── Personality ──────────────────────────────────────────
-                  _PersonalitySection(t: t),
                   const SizedBox(height: 24),
                   Divider(color: t.rail, height: 1),
                   const SizedBox(height: 22),
@@ -1893,6 +1886,87 @@ class _AchievementsRow extends StatelessWidget {
   }
 }
 
+// ── Collapsible section (dropdown) ────────────────────────────────────────────
+
+/// A titled section whose content is hidden behind a tap, so a long profile
+/// page doesn't dump everything on screen at once. Collapsed by default —
+/// the header (and subtitle, if given) always stay visible so it's still
+/// obvious what's inside before expanding it.
+class _CollapsibleSection extends StatefulWidget {
+  final String title;
+  final String? subtitle;
+  final Widget child;
+  final NeedHubTokens t;
+
+  const _CollapsibleSection({
+    required this.title,
+    this.subtitle,
+    required this.child,
+    required this.t,
+  });
+
+  @override
+  State<_CollapsibleSection> createState() => _CollapsibleSectionState();
+}
+
+class _CollapsibleSectionState extends State<_CollapsibleSection> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.t;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.title,
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: t.muted2,
+                        letterSpacing: 0.7,
+                      ),
+                    ),
+                    if (widget.subtitle != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.subtitle!,
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 12.5, color: t.muted),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                _expanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                color: t.muted,
+              ),
+            ],
+          ),
+        ),
+        if (_expanded) ...[
+          const SizedBox(height: 14),
+          widget.child,
+        ],
+      ],
+    );
+  }
+}
+
 // ── Quick link card ───────────────────────────────────────────────────────────
 
 class _QuickLink extends StatelessWidget {
@@ -2733,6 +2807,8 @@ class _MyPostedNeedsSection extends ConsumerStatefulWidget {
 class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
   String _filter = 'all'; // 'all' | 'connect' | 'earn'
   List<Need> _apiPostedNeeds = [];
+  static const int _collapsedCount = 3;
+  bool _showAllNeeds = false;
 
   @override
   void initState() {
@@ -2852,14 +2928,14 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
             _HistoryChip(
               label: 'All (${allMine.length})',
               selected: _filter == 'all',
-              onTap: () => setState(() => _filter = 'all'),
+              onTap: () => setState(() { _filter = 'all'; _showAllNeeds = false; }),
               t: t,
             ),
             const SizedBox(width: 8),
             _HistoryChip(
               label: 'Connect ($connectCount)',
               selected: _filter == 'connect',
-              onTap: () => setState(() => _filter = 'connect'),
+              onTap: () => setState(() { _filter = 'connect'; _showAllNeeds = false; }),
               t: t,
               color: NeedHubTokens.forest,
             ),
@@ -2867,7 +2943,7 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
             _HistoryChip(
               label: 'Earn ($earnCount)',
               selected: _filter == 'earn',
-              onTap: () => setState(() => _filter = 'earn'),
+              onTap: () => setState(() { _filter = 'earn'; _showAllNeeds = false; }),
               t: t,
               color: NeedHubTokens.ochre,
             ),
@@ -2913,10 +2989,43 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
               ],
             ),
           )
-        else
+        else ...[
           Column(
-            children: filtered.map((n) => _PostedNeedCard(need: n, t: t)).toList(),
+            children: (_showAllNeeds ? filtered : filtered.take(_collapsedCount).toList())
+                .map((n) => _PostedNeedCard(need: n, t: t))
+                .toList(),
           ),
+          if (filtered.length > _collapsedCount)
+            GestureDetector(
+              onTap: () => setState(() => _showAllNeeds = !_showAllNeeds),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _showAllNeeds
+                          ? 'Show less'
+                          : 'Show ${filtered.length - _collapsedCount} more',
+                      style: GoogleFonts.hankenGrotesk(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: NeedHubTokens.clay,
+                      ),
+                    ),
+                    Icon(
+                      _showAllNeeds
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: NeedHubTokens.clay,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }
