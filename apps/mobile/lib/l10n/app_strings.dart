@@ -760,6 +760,65 @@ class S {
     'plusBenefit4': 'Advanced analytics & AI posting insights',
     'plusBenefit5': 'Early access to new features',
     'plusBenefit6': 'Priority support',
+    'plusCancelBody': "You'll keep every Plus benefit until {date} — it just won't renew after that.",
+    'plusYourPeriodEnds': 'your period ends',
+    // NeedHub Plus — payment flow
+    'plusSubscribeTitle': 'Subscribe to Plus',
+    'plusAmount': 'Amount',
+    'plusPayWithUpi': 'Pay with PhonePe / Paytm / GPay',
+    'plusConfirmOnReturn': "You'll be asked to confirm when you return to NeedHub.",
+    'plusCheckoutFailed': 'Could not start checkout. Please try again.',
+    'plusNoUpiApp': 'No UPI app found. Install PhonePe, Paytm or GPay to pay.',
+    'plusCouldNotOpenUpi': 'Could not open a UPI app.',
+    'plusDidPaymentGoThrough': 'Did the payment go through?',
+    'plusTellUsWhatHappened': 'Let us know what happened in your UPI app.',
+    'plusNoTryAgain': 'No, try again',
+    'plusNotSureYet': 'Not sure yet',
+    'plusYesPaid': 'Yes, paid',
+    'plusConfirmFailed': 'Could not confirm right now. Please try again.',
+    'plusSomethingWentWrong': 'Something went wrong',
+    'plusRetry': 'Retry',
+    'plusWaitingConfirmation': 'Waiting for confirmation…',
+    'plusWaitingBody': "We'll activate Plus the moment it's confirmed. You can close this — you'll get a notification.",
+    'plusClose': 'Close',
+    'plusNowMember': "You're now on NeedHub Plus!",
+    'plusNowMemberBody': 'Your visibility boost and premium badge are active right now.',
+    'plusDone': 'Done',
+    // NeedHub Plus — analytics
+    'plusAnalyticsTitle': 'Analytics & Insights',
+    'plusWindow7Days': '7 days',
+    'plusWindow30Days': '30 days',
+    'plusProfileViews': 'Profile Views',
+    'plusNeedViews': 'Need Views',
+    'plusReach': 'Reach',
+    'plusReachSub': 'distinct people',
+    'plusShares': 'Shares',
+    'plusSharesSub': 'share actions',
+    'plusOffersReceived': 'Offers Received',
+    'plusResponseRate': 'Response Rate',
+    'plusTrendInsufficient': 'Visibility trend needs 14 days of history — check back soon.',
+    'plusTrendUp': 'Visibility trending up {pct}% vs. the previous week',
+    'plusTrendDown': 'Visibility trending down {pct}% vs. the previous week',
+    'plusAiInsightsHeader': 'AI POSTING INSIGHTS',
+    'plusAnalyticsLoadFailed': 'Could not load your analytics right now.',
+    // NeedHub Plus — reward claim
+    'plusClaimRewardTitle': 'Claim Reward',
+    'plusRewardValue': 'Reward value',
+    'plusCosts': 'Costs',
+    'plusPointsShort': '{count} pts',
+    'plusWhereSendIt': 'WHERE SHOULD WE SEND IT?',
+    'plusSubmitClaim': 'Submit claim — {count} pts',
+    'plusClaimSubmitted': 'Claim submitted',
+    'plusClaimSubmittedBody': "We've received your claim for {title}. An admin will review it and you'll get a notification once it's approved.",
+    'plusGotIt': 'Got it',
+    'plusClaimFailed': 'Could not submit your claim. Please try again.',
+    'plusAlreadyClaimed': "You've already claimed this reward.",
+    'plusRewardExhausted': 'This reward has been fully claimed by everyone.',
+    'plusBelowVerifiedPoints': "You don't have enough verified Impact Points yet.",
+    'plusInsufficientBalance': "You don't have enough points to cover this reward's cost.",
+    'plusFieldRequired': '{label} is required',
+    'plusInvalidUpiId': "Doesn't look like a valid UPI ID",
+    'plusInvalidEmail': "Doesn't look like a valid email",
     // Theme names
     'themeNamePaper': 'Paper',
     'themeNameMidnight': 'Midnight',
@@ -1508,6 +1567,65 @@ class S {
   String get plusBenefit4 => _get('plusBenefit4');
   String get plusBenefit5 => _get('plusBenefit5');
   String get plusBenefit6 => _get('plusBenefit6');
+  String plusCancelBody(String date) => _get('plusCancelBody').replaceAll('{date}', date);
+  String get plusYourPeriodEnds => _get('plusYourPeriodEnds');
+  // NeedHub Plus — payment flow
+  String get plusSubscribeTitle => _get('plusSubscribeTitle');
+  String get plusAmount => _get('plusAmount');
+  String get plusPayWithUpi => _get('plusPayWithUpi');
+  String get plusConfirmOnReturn => _get('plusConfirmOnReturn');
+  String get plusCheckoutFailed => _get('plusCheckoutFailed');
+  String get plusNoUpiApp => _get('plusNoUpiApp');
+  String get plusCouldNotOpenUpi => _get('plusCouldNotOpenUpi');
+  String get plusDidPaymentGoThrough => _get('plusDidPaymentGoThrough');
+  String get plusTellUsWhatHappened => _get('plusTellUsWhatHappened');
+  String get plusNoTryAgain => _get('plusNoTryAgain');
+  String get plusNotSureYet => _get('plusNotSureYet');
+  String get plusYesPaid => _get('plusYesPaid');
+  String get plusConfirmFailed => _get('plusConfirmFailed');
+  String get plusSomethingWentWrong => _get('plusSomethingWentWrong');
+  String get plusRetry => _get('plusRetry');
+  String get plusWaitingConfirmation => _get('plusWaitingConfirmation');
+  String get plusWaitingBody => _get('plusWaitingBody');
+  String get plusClose => _get('plusClose');
+  String get plusNowMember => _get('plusNowMember');
+  String get plusNowMemberBody => _get('plusNowMemberBody');
+  String get plusDone => _get('plusDone');
+  // NeedHub Plus — analytics
+  String get plusAnalyticsTitle => _get('plusAnalyticsTitle');
+  String get plusWindow7Days => _get('plusWindow7Days');
+  String get plusWindow30Days => _get('plusWindow30Days');
+  String get plusProfileViews => _get('plusProfileViews');
+  String get plusNeedViews => _get('plusNeedViews');
+  String get plusReach => _get('plusReach');
+  String get plusReachSub => _get('plusReachSub');
+  String get plusShares => _get('plusShares');
+  String get plusSharesSub => _get('plusSharesSub');
+  String get plusOffersReceived => _get('plusOffersReceived');
+  String get plusResponseRate => _get('plusResponseRate');
+  String get plusTrendInsufficient => _get('plusTrendInsufficient');
+  String plusTrendUp(String pct) => _get('plusTrendUp').replaceAll('{pct}', pct);
+  String plusTrendDown(String pct) => _get('plusTrendDown').replaceAll('{pct}', pct);
+  String get plusAiInsightsHeader => _get('plusAiInsightsHeader');
+  String get plusAnalyticsLoadFailed => _get('plusAnalyticsLoadFailed');
+  // NeedHub Plus — reward claim
+  String get plusClaimRewardTitle => _get('plusClaimRewardTitle');
+  String get plusRewardValue => _get('plusRewardValue');
+  String get plusCosts => _get('plusCosts');
+  String plusPointsShort(String count) => _get('plusPointsShort').replaceAll('{count}', count);
+  String get plusWhereSendIt => _get('plusWhereSendIt');
+  String plusSubmitClaim(String count) => _get('plusSubmitClaim').replaceAll('{count}', count);
+  String get plusClaimSubmitted => _get('plusClaimSubmitted');
+  String plusClaimSubmittedBody(String title) => _get('plusClaimSubmittedBody').replaceAll('{title}', title);
+  String get plusGotIt => _get('plusGotIt');
+  String get plusClaimFailed => _get('plusClaimFailed');
+  String get plusAlreadyClaimed => _get('plusAlreadyClaimed');
+  String get plusRewardExhausted => _get('plusRewardExhausted');
+  String get plusBelowVerifiedPoints => _get('plusBelowVerifiedPoints');
+  String get plusInsufficientBalance => _get('plusInsufficientBalance');
+  String plusFieldRequired(String label) => _get('plusFieldRequired').replaceAll('{label}', label);
+  String get plusInvalidUpiId => _get('plusInvalidUpiId');
+  String get plusInvalidEmail => _get('plusInvalidEmail');
   // Theme names
   String get themeNamePaper => _get('themeNamePaper');
   String get themeNameMidnight => _get('themeNameMidnight');

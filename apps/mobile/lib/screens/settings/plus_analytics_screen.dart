@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/app_strings.dart';
 import '../../services/plus_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
@@ -53,7 +54,7 @@ class _PlusAnalyticsScreenState extends ConsumerState<PlusAnalyticsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Could not load analytics.';
+        _error = S.current.plusAnalyticsLoadFailed;
         _loading = false;
       });
     }
@@ -72,7 +73,7 @@ class _PlusAnalyticsScreenState extends ConsumerState<PlusAnalyticsScreen> {
           icon: Icon(Icons.arrow_back_rounded, color: t.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Analytics & Insights',
+        title: Text(S.current.plusAnalyticsTitle,
             style: GoogleFonts.bricolageGrotesque(fontSize: 18, fontWeight: FontWeight.w700, color: t.ink)),
       ),
       body: _loading
@@ -93,8 +94,8 @@ class _PlusAnalyticsScreenState extends ConsumerState<PlusAnalyticsScreen> {
                         padding: const EdgeInsets.all(3),
                         child: Row(
                           children: [
-                            Expanded(child: _WindowChip(label: '7 days', selected: _window == '7d', onTap: () => _setWindow('7d'), t: t)),
-                            Expanded(child: _WindowChip(label: '30 days', selected: _window == '30d', onTap: () => _setWindow('30d'), t: t)),
+                            Expanded(child: _WindowChip(label: S.current.plusWindow7Days, selected: _window == '7d', onTap: () => _setWindow('7d'), t: t)),
+                            Expanded(child: _WindowChip(label: S.current.plusWindow30Days, selected: _window == '30d', onTap: () => _setWindow('30d'), t: t)),
                           ],
                         ),
                       ),
@@ -109,13 +110,13 @@ class _PlusAnalyticsScreenState extends ConsumerState<PlusAnalyticsScreen> {
                         crossAxisSpacing: 10,
                         childAspectRatio: 1.5,
                         children: [
-                          _MetricTile(label: 'Profile Views', value: '${_analytics?.profileViews ?? 0}', icon: Icons.visibility_rounded, t: t),
-                          _MetricTile(label: 'Need Views', value: '${_analytics?.needViews ?? 0}', icon: Icons.remove_red_eye_rounded, t: t),
-                          _MetricTile(label: 'Reach', value: '${_analytics?.reach ?? 0}', icon: Icons.groups_rounded, t: t, sublabel: 'distinct people'),
-                          _MetricTile(label: 'Shares', value: '${_analytics?.shares ?? 0}', icon: Icons.share_rounded, t: t, sublabel: 'share actions'),
-                          _MetricTile(label: 'Offers Received', value: '${_analytics?.offersReceived ?? 0}', icon: Icons.handshake_rounded, t: t),
+                          _MetricTile(label: S.current.plusProfileViews, value: '${_analytics?.profileViews ?? 0}', icon: Icons.visibility_rounded, t: t),
+                          _MetricTile(label: S.current.plusNeedViews, value: '${_analytics?.needViews ?? 0}', icon: Icons.remove_red_eye_rounded, t: t),
+                          _MetricTile(label: S.current.plusReach, value: '${_analytics?.reach ?? 0}', icon: Icons.groups_rounded, t: t, sublabel: S.current.plusReachSub),
+                          _MetricTile(label: S.current.plusShares, value: '${_analytics?.shares ?? 0}', icon: Icons.share_rounded, t: t, sublabel: S.current.plusSharesSub),
+                          _MetricTile(label: S.current.plusOffersReceived, value: '${_analytics?.offersReceived ?? 0}', icon: Icons.handshake_rounded, t: t),
                           _MetricTile(
-                            label: 'Response Rate',
+                            label: S.current.plusResponseRate,
                             value: _analytics?.responseRate != null ? '${(_analytics!.responseRate! * 100).toStringAsFixed(0)}%' : '—',
                             icon: Icons.forum_rounded,
                             t: t,
@@ -135,10 +136,10 @@ class _PlusAnalyticsScreenState extends ConsumerState<PlusAnalyticsScreen> {
                             Expanded(
                               child: Text(
                                 (_analytics?.insufficientTrendData ?? true)
-                                    ? "Visibility trend needs 14 days of history — check back soon."
+                                    ? S.current.plusTrendInsufficient
                                     : (_analytics!.trendDirection! >= 0
-                                        ? 'Visibility trending up ${(_analytics!.trendDirection! * 100).toStringAsFixed(0)}% vs. the previous week'
-                                        : 'Visibility trending down ${(_analytics!.trendDirection!.abs() * 100).toStringAsFixed(0)}% vs. the previous week'),
+                                        ? S.current.plusTrendUp((_analytics!.trendDirection! * 100).toStringAsFixed(0))
+                                        : S.current.plusTrendDown((_analytics!.trendDirection!.abs() * 100).toStringAsFixed(0))),
                                 style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.ink, fontWeight: FontWeight.w600),
                               ),
                             ),
@@ -148,7 +149,7 @@ class _PlusAnalyticsScreenState extends ConsumerState<PlusAnalyticsScreen> {
                       const SizedBox(height: 24),
 
                       // AI insights
-                      Text('AI POSTING INSIGHTS',
+                      Text(S.current.plusAiInsightsHeader,
                           style: GoogleFonts.hankenGrotesk(fontSize: 11, fontWeight: FontWeight.w700, color: t.muted2, letterSpacing: 0.7)),
                       const SizedBox(height: 10),
                       if (_insights != null)

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/app_strings.dart';
 import '../../services/plus_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
@@ -44,12 +45,12 @@ class _PlusRewardClaimScreenState extends ConsumerState<PlusRewardClaimScreen> {
 
   String? _validate(PlusPayoutField field, String? value) {
     final v = value?.trim() ?? '';
-    if (field.required && v.isEmpty) return '${field.label} is required';
+    if (field.required && v.isEmpty) return S.current.plusFieldRequired(field.label);
     if (v.isNotEmpty && field.type == 'upi' && !RegExp(r'^[\w.-]{2,256}@[a-zA-Z]{2,64}$').hasMatch(v)) {
-      return "Doesn't look like a valid UPI ID";
+      return S.current.plusInvalidUpiId;
     }
     if (v.isNotEmpty && field.type == 'email' && !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(v)) {
-      return "Doesn't look like a valid email";
+      return S.current.plusInvalidEmail;
     }
     return null;
   }
@@ -69,16 +70,16 @@ class _PlusRewardClaimScreenState extends ConsumerState<PlusRewardClaimScreen> {
         builder: (_) => AlertDialog(
           backgroundColor: context.tokens.card,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Claim submitted', style: GoogleFonts.bricolageGrotesque(fontSize: 17, fontWeight: FontWeight.w800)),
+          title: Text(S.current.plusClaimSubmitted, style: GoogleFonts.bricolageGrotesque(fontSize: 17, fontWeight: FontWeight.w800)),
           content: Text(
-            "We've received your claim for ${widget.offer.title}. An admin will review it and you'll get a notification once it's approved.",
+            S.current.plusClaimSubmittedBody(widget.offer.title),
             style: GoogleFonts.hankenGrotesk(fontSize: 13.5, color: context.tokens.muted, height: 1.4),
           ),
           actions: [
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(backgroundColor: NeedHubTokens.forest, foregroundColor: Colors.white),
-              child: const Text('Got it'),
+              child: Text(S.current.plusGotIt),
             ),
           ],
         ),
@@ -86,21 +87,21 @@ class _PlusRewardClaimScreenState extends ConsumerState<PlusRewardClaimScreen> {
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      String message = 'Could not submit your claim. Please try again.';
+      String message = S.current.plusClaimFailed;
       if (e is DioException) {
         final code = (e.response?.data as Map?)?['code'] as String?;
         switch (code) {
           case 'ALREADY_CLAIMED':
-            message = "You've already claimed this reward.";
+            message = S.current.plusAlreadyClaimed;
             break;
           case 'REWARD_EXHAUSTED':
-            message = 'This reward has been fully claimed by everyone.';
+            message = S.current.plusRewardExhausted;
             break;
           case 'BELOW_VERIFIED_POINTS':
-            message = "You don't have enough verified Impact Points yet.";
+            message = S.current.plusBelowVerifiedPoints;
             break;
           case 'INSUFFICIENT_BALANCE':
-            message = "You don't have enough points to cover this reward's cost.";
+            message = S.current.plusInsufficientBalance;
             break;
           default:
             final msg = (e.response?.data as Map?)?['error'] as String?;
@@ -129,7 +130,7 @@ class _PlusRewardClaimScreenState extends ConsumerState<PlusRewardClaimScreen> {
           icon: Icon(Icons.arrow_back_rounded, color: t.ink),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Claim Reward', style: GoogleFonts.bricolageGrotesque(fontSize: 18, fontWeight: FontWeight.w700, color: t.ink)),
+        title: Text(S.current.plusClaimRewardTitle, style: GoogleFonts.bricolageGrotesque(fontSize: 18, fontWeight: FontWeight.w700, color: t.ink)),
       ),
       body: SafeArea(
         child: Form(
@@ -154,7 +155,7 @@ class _PlusRewardClaimScreenState extends ConsumerState<PlusRewardClaimScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Reward value', style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
+                        Text(S.current.plusRewardValue, style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
                         Text('₹${offer.rewardValueRupees.toStringAsFixed(0)}',
                             style: GoogleFonts.bricolageGrotesque(fontSize: 15, fontWeight: FontWeight.w700, color: NeedHubTokens.forest)),
                       ],
@@ -163,12 +164,12 @@ class _PlusRewardClaimScreenState extends ConsumerState<PlusRewardClaimScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Costs', style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
+                        Text(S.current.plusCosts, style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
                         Row(
                           children: [
                             const Icon(Icons.stars_rounded, size: 14, color: NeedHubTokens.ochre),
                             const SizedBox(width: 3),
-                            Text('${offer.pointsCost} pts',
+                            Text(S.current.plusPointsShort('${offer.pointsCost}'),
                                 style: GoogleFonts.bricolageGrotesque(fontSize: 15, fontWeight: FontWeight.w700, color: NeedHubTokens.ochre)),
                           ],
                         ),
@@ -179,7 +180,7 @@ class _PlusRewardClaimScreenState extends ConsumerState<PlusRewardClaimScreen> {
               ),
               const SizedBox(height: 24),
               if (offer.payoutFields.isNotEmpty) ...[
-                Text('WHERE SHOULD WE SEND IT?',
+                Text(S.current.plusWhereSendIt,
                     style: GoogleFonts.hankenGrotesk(fontSize: 11, fontWeight: FontWeight.w700, color: t.muted2, letterSpacing: 0.7)),
                 const SizedBox(height: 12),
                 ...offer.payoutFields.map((field) => Padding(
@@ -220,7 +221,7 @@ class _PlusRewardClaimScreenState extends ConsumerState<PlusRewardClaimScreen> {
                   ),
                   child: _submitting
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text('Submit claim — ${offer.pointsCost} pts', style: GoogleFonts.hankenGrotesk(fontSize: 14, fontWeight: FontWeight.w700)),
+                      : Text(S.current.plusSubmitClaim('${offer.pointsCost}'), style: GoogleFonts.hankenGrotesk(fontSize: 14, fontWeight: FontWeight.w700)),
                 ),
               ),
             ],

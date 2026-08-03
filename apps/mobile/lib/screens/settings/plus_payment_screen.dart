@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../l10n/app_strings.dart';
 import '../../services/plus_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
@@ -75,7 +76,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Could not start checkout. Please try again.';
+        _error = S.current.plusCheckoutFailed;
         _stage = _Stage.error;
       });
     }
@@ -92,7 +93,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
         if (mounted) {
           setState(() => _stage = _Stage.ready);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No UPI app found. Install PhonePe, Paytm or GPay to pay.')),
+            SnackBar(content: Text(S.current.plusNoUpiApp)),
           );
         }
         return;
@@ -102,7 +103,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
       if (mounted) {
         setState(() => _stage = _Stage.ready);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open a UPI app.')),
+          SnackBar(content: Text(S.current.plusCouldNotOpenUpi)),
         );
       }
     }
@@ -117,21 +118,21 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
       builder: (_) => AlertDialog(
         backgroundColor: t.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Did the payment go through?',
+        title: Text(S.current.plusDidPaymentGoThrough,
             style: GoogleFonts.bricolageGrotesque(fontSize: 17, fontWeight: FontWeight.w800, color: t.ink)),
         content: Text(
-          'Let us know what happened in your UPI app.',
+          S.current.plusTellUsWhatHappened,
           style: GoogleFonts.hankenGrotesk(fontSize: 13.5, color: t.muted),
         ),
         actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'no'),
-            child: Text('No, try again', style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600, color: t.muted)),
+            child: Text(S.current.plusNoTryAgain, style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600, color: t.muted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, 'unsure'),
-            child: Text('Not sure yet', style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600, color: NeedHubTokens.ochre)),
+            child: Text(S.current.plusNotSureYet, style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600, color: NeedHubTokens.ochre)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, 'yes'),
@@ -141,7 +142,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: Text('Yes, paid', style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w700)),
+            child: Text(S.current.plusYesPaid, style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -174,7 +175,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
       if (!mounted) return;
       setState(() => _stage = _Stage.ready);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not confirm right now. Please try again.')),
+        SnackBar(content: Text(S.current.plusConfirmFailed)),
       );
     }
   }
@@ -216,7 +217,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
           icon: Icon(Icons.arrow_back_rounded, color: t.ink),
           onPressed: () => Navigator.of(context).pop(_stage == _Stage.success),
         ),
-        title: Text('Subscribe to Plus',
+        title: Text(S.current.plusSubscribeTitle,
             style: GoogleFonts.bricolageGrotesque(fontSize: 18, fontWeight: FontWeight.w700, color: t.ink)),
       ),
       body: SafeArea(
@@ -241,9 +242,9 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
             children: [
               const Icon(Icons.error_outline_rounded, size: 40, color: NeedHubTokens.clay),
               const SizedBox(height: 12),
-              Text(_error ?? 'Something went wrong', style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted), textAlign: TextAlign.center),
+              Text(_error ?? S.current.plusSomethingWentWrong, style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted), textAlign: TextAlign.center),
               const SizedBox(height: 16),
-              ElevatedButton(onPressed: _createIntent, child: const Text('Retry')),
+              ElevatedButton(onPressed: _createIntent, child: Text(S.current.plusRetry)),
             ],
           ),
         );
@@ -255,18 +256,18 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
             children: [
               const CircularProgressIndicator(color: NeedHubTokens.ochre),
               const SizedBox(height: 20),
-              Text('Waiting for confirmation…',
+              Text(S.current.plusWaitingConfirmation,
                   style: GoogleFonts.bricolageGrotesque(fontSize: 17, fontWeight: FontWeight.w800, color: t.ink)),
               const SizedBox(height: 8),
               Text(
-                "We'll activate Plus the moment it's confirmed. You can close this — you'll get a notification.",
+                S.current.plusWaitingBody,
                 style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted, height: 1.5),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Close'),
+                child: Text(S.current.plusClose),
               ),
             ],
           ),
@@ -284,10 +285,10 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
                 child: const Icon(Icons.check_rounded, color: Colors.white, size: 40),
               ),
               const SizedBox(height: 20),
-              Text("You're now on NeedHub Plus!",
+              Text(S.current.plusNowMember,
                   style: GoogleFonts.bricolageGrotesque(fontSize: 19, fontWeight: FontWeight.w800, color: t.ink)),
               const SizedBox(height: 8),
-              Text('Your visibility boost and premium badge are active right now.',
+              Text(S.current.plusNowMemberBody,
                   style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted, height: 1.4), textAlign: TextAlign.center),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -298,7 +299,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
-                child: const Text('Done'),
+                child: Text(S.current.plusDone),
               ),
             ],
           ),
@@ -319,7 +320,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Amount', style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
+                  Text(S.current.plusAmount, style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
                   const SizedBox(height: 4),
                   Text('₹${(intent.amountPaise / 100).toStringAsFixed(2)}',
                       style: GoogleFonts.bricolageGrotesque(fontSize: 28, fontWeight: FontWeight.w800, color: t.ink)),
@@ -333,7 +334,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
             ElevatedButton.icon(
               onPressed: intent.upiDeepLink != null ? _launchUpi : null,
               icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-              label: Text('Pay with PhonePe / Paytm / GPay',
+              label: Text(S.current.plusPayWithUpi,
                   style: GoogleFonts.hankenGrotesk(fontSize: 14, fontWeight: FontWeight.w700)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: NeedHubTokens.ochre,
@@ -345,7 +346,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
             ),
             const SizedBox(height: 12),
             Text(
-              "You'll be asked to confirm when you return to NeedHub.",
+              S.current.plusConfirmOnReturn,
               style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted3),
               textAlign: TextAlign.center,
             ),

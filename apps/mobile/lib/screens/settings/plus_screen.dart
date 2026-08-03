@@ -71,7 +71,9 @@ class _PlusScreenState extends ConsumerState<PlusScreen> {
         title: Text(S.current.cancelNeedHubPlus,
             style: GoogleFonts.bricolageGrotesque(fontSize: 17, fontWeight: FontWeight.w800, color: t.ink)),
         content: Text(
-          "You'll keep every Plus benefit until ${_status?.currentPeriodEnd != null ? _formatDate(_status!.currentPeriodEnd!) : 'your period ends'} — it just won't renew after that.",
+          S.current.plusCancelBody(_status?.currentPeriodEnd != null
+              ? _formatDate(_status!.currentPeriodEnd!)
+              : S.current.plusYourPeriodEnds),
           style: GoogleFonts.hankenGrotesk(fontSize: 13.5, color: t.muted, height: 1.4),
         ),
         actions: [
