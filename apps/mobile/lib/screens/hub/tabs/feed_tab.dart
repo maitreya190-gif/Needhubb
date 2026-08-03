@@ -1409,6 +1409,9 @@ class _TranslatedEarnCard extends StatefulWidget {
 }
 
 class _TranslatedEarnCardState extends State<_TranslatedEarnCard> {
+  bool _showingOriginal = false;
+  bool _translating = false;
+
   @override
   void initState() {
     super.initState();
@@ -1424,33 +1427,62 @@ class _TranslatedEarnCardState extends State<_TranslatedEarnCard> {
 
   void _onLangChange() {
     if (mounted) {
-      setState(() {});
+      setState(() { _showingOriginal = false; });
       _translate();
     }
   }
 
-  Future<void> _translate({int attempt = 0}) async {
+  Future<void> _translate({int attempt = 0, bool manual = false}) async {
     final lang = feedLanguageNotifier.value;
     if (lang == 'en') return;
     if (translationCache[widget.need.id]?[lang] != null) return;
+    if (manual) setState(() { _translating = true; _showingOriginal = false; });
     final translated = await translateText(widget.need.title, lang);
     if (!mounted) return;
     if (translated != widget.need.title) {
       translationCache[widget.need.id] ??= {};
       translationCache[widget.need.id]![lang] = translated;
-      setState(() {});
-    } else if (attempt == 0) {
-      await Future.delayed(const Duration(seconds: 4));
-      if (mounted) _translate(attempt: 1);
+      setState(() { _translating = false; });
+    } else {
+      if (mounted) setState(() { _translating = false; });
+      if (attempt == 0) {
+        await Future.delayed(const Duration(seconds: 4));
+        if (mounted) _translate(attempt: 1);
+      }
+    }
+  }
+
+  void _onToggle() {
+    final lang = feedLanguageNotifier.value;
+    final cached = translationCache[widget.need.id]?[lang];
+    if (_showingOriginal) {
+      setState(() => _showingOriginal = false);
+    } else if (cached != null) {
+      setState(() => _showingOriginal = true);
+    } else {
+      _translate(manual: true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final lang = feedLanguageNotifier.value;
-    final cached = lang == 'en' ? null : translationCache[widget.need.id]?[lang];
-    final displayNeed = cached != null ? widget.need.copyWith(title: cached) : widget.need;
-    return _EarnCard(need: displayNeed, t: widget.t, onTap: widget.onTap);
+    if (lang == 'en') {
+      return _EarnCard(need: widget.need, t: widget.t, onTap: widget.onTap);
+    }
+    final cached = translationCache[widget.need.id]?[lang];
+    final displayNeed = (!_showingOriginal && cached != null)
+        ? widget.need.copyWith(title: cached)
+        : widget.need;
+    return _EarnCard(
+      need: displayNeed,
+      t: widget.t,
+      onTap: widget.onTap,
+      onTranslateTap: _onToggle,
+      translating: _translating,
+      showingOriginal: _showingOriginal,
+      translated: cached != null,
+    );
   }
 }
 
@@ -1458,11 +1490,20 @@ class _EarnCard extends StatelessWidget {
   final Need need;
   final NeedHubTokens t;
   final VoidCallback onTap;
+  // null = no translate UI; non-null = show the toggle
+  final VoidCallback? onTranslateTap;
+  final bool translating;
+  final bool showingOriginal;
+  final bool translated;
 
   const _EarnCard({
     required this.need,
     required this.t,
     required this.onTap,
+    this.onTranslateTap,
+    this.translating = false,
+    this.showingOriginal = false,
+    this.translated = false,
   });
 
   Color get _catTint {
@@ -1594,6 +1635,30 @@ class _EarnCard extends StatelessWidget {
                                 height: 1.2,
                               ),
                             ),
+                            if (onTranslateTap != null) ...[
+                              const SizedBox(height: 5),
+                              GestureDetector(
+                                onTap: translating ? null : onTranslateTap,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (translating)
+                                      SizedBox(width: 11, height: 11,
+                                          child: CircularProgressIndicator(strokeWidth: 1.4, color: t.muted))
+                                    else
+                                      Icon(Icons.translate_rounded, size: 12, color: t.muted),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      translating
+                                          ? S.current.translating
+                                          : (showingOriginal ? S.current.translate : S.current.showOriginal),
+                                      style: GoogleFonts.hankenGrotesk(
+                                          fontSize: 11, color: t.muted, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
