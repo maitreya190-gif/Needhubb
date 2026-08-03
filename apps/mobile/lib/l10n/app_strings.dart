@@ -741,7 +741,7 @@ class S {
     'noUpiAppFound': 'No UPI app found. Install PhonePe, Paytm or GPay to pay.',
     'couldNotOpenUpi': 'Could not open a UPI app.',
     'didPaymentGoThrough': 'Did the payment go through?',
-    'letUsKnowUpi': 'Let us know what happened in your UPI app.',
+    'letUsKnowUpi': "We'll check the payment against our records before switching on Plus — this helps either way.",
     'noTryAgain': 'No, try again',
     'notSureYet': 'Not sure yet',
     'yesPaid': 'Yes, paid',

@@ -714,7 +714,7 @@ const Map<String, String> stringsHi = {
   'noUpiAppFound': 'कोई UPI ऐप नहीं मिला। भुगतान के लिए PhonePe, Paytm या GPay इंस्टॉल करें।',
   'couldNotOpenUpi': 'UPI ऐप नहीं खुल सका।',
   'didPaymentGoThrough': 'क्या भुगतान हो गया?',
-  'letUsKnowUpi': 'बताएं आपके UPI ऐप में क्या हुआ।',
+  'letUsKnowUpi': 'Plus चालू करने से पहले हम भुगतान की जांच करेंगे — आपका जवाब जो भी हो, इससे मदद मिलती है।',
   'noTryAgain': 'नहीं, फिर से प्रयास करें',
   'notSureYet': 'अभी निश्चित नहीं',
   'yesPaid': 'हाँ, भुगतान हो गया',

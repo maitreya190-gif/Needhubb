@@ -5,9 +5,7 @@ import { prisma } from '../../lib/prisma'
 import { config } from '../../config'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { badRequest, forbidden, notFound } from '../../lib/http-error'
-import {
-  PLUS_PERIOD_DAYS, isPlusActive, expirePlusIfNeeded, activatePlus, canSelfReportInstantly,
-} from '../../lib/plus'
+import { isPlusActive, expirePlusIfNeeded } from '../../lib/plus'
 import { getPaymentProvider } from '../../lib/payments'
 import {
   fetchVerifiedPoints, evaluateRewardEligibility, fingerprintPayoutDetails, validatePayoutDetails,
@@ -97,12 +95,16 @@ plusRouter.post('/subscribe', async (req, res, next) => {
 })
 
 // ── POST /plus/payments/:id/confirm ───────────────────────────────────────
-// selfReportedSuccess: true  -> user reports the UPI app said it succeeded.
-//   Trusted immediately (per product decision) and activated right away,
-//   but flagged `selfReported` so an admin can audit/revoke it afterward.
-// selfReportedSuccess: false/omitted -> ambiguous ("not sure yet"). Sets
-//   AWAITING_CONFIRMATION; the mobile app then polls GET /plus/status for
-//   up to 5 minutes in case an admin confirms manually in the meantime.
+// A upi://pay deep link has no callback of any kind — the app genuinely
+// cannot tell whether the user paid or canceled. So regardless of what the
+// user claims here, this ONLY ever queues the payment for a human admin to
+// check against the real UPI/bank account and approve in the portal
+// (PATCH /admin/plus-payments/:id). Nothing in this handler can activate
+// Plus. `selfReported` still records whether the user claimed success, so
+// an admin sees that signal, but it is never trusted on its own — see the
+// incident that removed the old instant-activate path: a self-reported
+// "yes" after an actually-canceled payment activated Plus with zero money
+// having moved.
 
 plusRouter.post('/payments/:id/confirm', async (req, res, next) => {
   try {
@@ -113,37 +115,13 @@ plusRouter.post('/payments/:id/confirm', async (req, res, next) => {
     if (!payment) return next(notFound('Payment not found', 'PAYMENT_NOT_FOUND'))
     if (payment.userId !== uid) return next(forbidden('Not your payment', 'FORBIDDEN'))
 
-    if (selfReportedSuccess === true) {
-      const existingSub = await prisma.plusSubscription.findUnique({ where: { userId: uid } })
-      if (!canSelfReportInstantly(existingSub)) {
-        await prisma.plusPayment.update({
-          where: { id: payment.id },
-          data: { status: 'AWAITING_CONFIRMATION', userReference: reference?.trim() || null },
-        })
-        return res.json({
-          status: 'awaiting_confirmation',
-          reason: 'ALREADY_ACTIVE_TOO_EARLY_TO_SELF_RENEW',
-        })
-      }
-
-      const result = await prisma.$transaction(async (tx) => {
-        await tx.plusPayment.update({
-          where: { id: payment.id },
-          data: { selfReported: true, userReference: reference?.trim() || null },
-        })
-        return activatePlus(tx, { userId: uid, paymentId: payment.id, periodDays: PLUS_PERIOD_DAYS })
-      })
-      const sub = await prisma.plusSubscription.findUnique({ where: { userId: uid } })
-      return res.json({
-        status: result.activated ? 'activated' : 'already_processed',
-        selfReported: true,
-        currentPeriodEnd: sub?.currentPeriodEnd?.toISOString() ?? null,
-      })
-    }
-
     await prisma.plusPayment.update({
       where: { id: payment.id },
-      data: { status: 'AWAITING_CONFIRMATION', userReference: reference?.trim() || null },
+      data: {
+        status: 'AWAITING_CONFIRMATION',
+        selfReported: selfReportedSuccess === true,
+        userReference: reference?.trim() || null,
+      },
     })
     res.json({ status: 'awaiting_confirmation' })
   } catch (err) { next(err) }

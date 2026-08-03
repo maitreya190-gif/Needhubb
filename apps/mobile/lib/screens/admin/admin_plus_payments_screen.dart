@@ -63,6 +63,12 @@ class _AdminPlusPaymentsScreenState extends State<AdminPlusPaymentsScreen> with 
 
   Future<void> _confirmPaid(AdminPlusPayment payment) async {
     final t = context.tokens;
+    String whenText = payment.createdAt;
+    try {
+      final date = DateTime.parse(payment.createdAt).toLocal();
+      whenText = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
+          '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    } catch (_) {}
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -70,8 +76,10 @@ class _AdminPlusPaymentsScreenState extends State<AdminPlusPaymentsScreen> with 
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text('Confirm payment received?', style: GoogleFonts.bricolageGrotesque(fontSize: 17, fontWeight: FontWeight.w800, color: t.ink)),
         content: Text(
-          'This activates NeedHub Plus for ${payment.userName} for 30 days.'
-          '${payment.userReference != null ? '\n\nUser-provided reference: ${payment.userReference}' : ''}',
+          'Check your own UPI/bank app for a ₹${(payment.amountPaise / 100).toStringAsFixed(2)} credit around $whenText '
+          "before confirming — the user's claim alone (${payment.selfReported ? "including a self-reported 'paid'" : "even without one"}) is not proof money moved."
+          '${payment.userReference != null ? '\n\nUser-provided reference: ${payment.userReference}' : ''}'
+          '\n\nThis activates NeedHub Plus for ${payment.userName} for 30 days.',
           style: GoogleFonts.hankenGrotesk(fontSize: 13.5, color: t.muted, height: 1.4),
         ),
         actions: [

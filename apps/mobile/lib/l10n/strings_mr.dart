@@ -716,7 +716,7 @@ const Map<String, String> stringsMr = {
   'noUpiAppFound': 'कोणताही UPI अ‍ॅप सापडला नाही. पैसे भरण्यासाठी PhonePe, Paytm किंवा GPay इंस्टॉल करा.',
   'couldNotOpenUpi': 'UPI अ‍ॅप उघडता आला नाही.',
   'didPaymentGoThrough': 'पैसे भरले का?',
-  'letUsKnowUpi': 'तुमच्या UPI अ‍ॅपमध्ये काय झाले ते सांगा.',
+  'letUsKnowUpi': 'Plus सुरू करण्याआधी आम्ही पेमेंटची पडताळणी करू — तुमचे उत्तर काहीही असो, याने मदत होते.',
   'noTryAgain': 'नाही, पुन्हा प्रयत्न करा',
   'notSureYet': 'अजून खात्री नाही',
   'yesPaid': 'होय, भरले',
