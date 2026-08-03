@@ -35,4 +35,9 @@ export const config = {
   systemUserId: process.env.SYSTEM_USER_ID || '',
   apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:3000',
   corsOrigin: process.env.CORS_ORIGIN || '*',
+  // NeedHub Plus payments — see lib/payments/provider.ts. 'manual' (the
+  // default) needs no gateway credentials at all; switching to a real
+  // gateway later is one new adapter file plus this one env var.
+  paymentProvider: process.env.PAYMENT_PROVIDER || 'manual',
+  plusUpiId: process.env.PLUS_UPI_ID || 'needhub@upi',
 }

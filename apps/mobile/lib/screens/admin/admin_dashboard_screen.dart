@@ -7,6 +7,8 @@ import 'admin_needs_screen.dart';
 import 'admin_certs_screen.dart';
 import 'admin_reports_screen.dart';
 import 'admin_ads_screen.dart';
+import 'admin_reward_claims_screen.dart';
+import 'admin_plus_payments_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -148,6 +150,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               value: _stats!.openReports),
                           const SizedBox(width: 8),
                           _StatChip(label: 'Ads', value: _stats!.pendingAdInquiries),
+                          const SizedBox(width: 8),
+                          _StatChip(label: 'Rewards', value: _stats!.pendingRewardClaims),
+                          const SizedBox(width: 8),
+                          _StatChip(label: 'Plus', value: _stats!.pendingPlusPayments),
                         ],
                       ),
                   ],
@@ -223,6 +229,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   t: t,
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => const AdminAdsScreen())),
+                ),
+                const SizedBox(height: 10),
+                _NavCard(
+                  icon: Icons.card_giftcard_rounded,
+                  title: 'Reward Claims',
+                  desc: _stats != null
+                      ? '${_stats!.pendingRewardClaims} pending claims'
+                      : 'Review cashback & reward claims',
+                  t: t,
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const AdminRewardClaimsScreen())),
+                ),
+                const SizedBox(height: 10),
+                _NavCard(
+                  icon: Icons.star_rounded,
+                  title: 'Plus Payments',
+                  desc: _stats != null
+                      ? '${_stats!.pendingPlusPayments} awaiting confirmation'
+                      : 'Confirm NeedHub Plus subscriptions',
+                  t: t,
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => const AdminPlusPaymentsScreen())),
                 ),
               ]),
             ),

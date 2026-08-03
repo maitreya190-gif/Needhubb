@@ -107,24 +107,62 @@ class AdminApi {
 
   Future<void> deleteAdInquiry(String id) =>
       _dio.delete('/admin/ad-inquiries/$id', options: _opts);
+
+  // ── NeedHub Plus: reward claims ────────────────────────────────────────
+
+  Future<List<AdminRewardClaim>> rewardClaims({String? status}) async {
+    final qs = {if (status != null) 'status': status};
+    final r = await _dio.get<List>('/admin/reward-claims', queryParameters: qs, options: _opts);
+    return (r.data ?? []).map((e) => AdminRewardClaim.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> updateRewardClaim(String id, {String? status, String? adminNotes, String? payoutRef}) =>
+      _dio.patch('/admin/reward-claims/$id',
+          data: {
+            if (status != null) 'status': status,
+            if (adminNotes != null) 'adminNotes': adminNotes,
+            if (payoutRef != null) 'payoutRef': payoutRef,
+          },
+          options: _opts);
+
+  // ── NeedHub Plus: subscription payments ────────────────────────────────
+
+  Future<List<AdminPlusPayment>> plusPayments({String? status}) async {
+    final qs = {if (status != null) 'status': status};
+    final r = await _dio.get<List>('/admin/plus-payments', queryParameters: qs, options: _opts);
+    return (r.data ?? []).map((e) => AdminPlusPayment.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<void> updatePlusPayment(String id, {String? status, String? adminNotes}) =>
+      _dio.patch('/admin/plus-payments/$id',
+          data: {
+            if (status != null) 'status': status,
+            if (adminNotes != null) 'adminNotes': adminNotes,
+          },
+          options: _opts);
 }
 
 // ── Models ────────────────────────────────────────────────────────────────────
 
 class AdminStats {
   final int users, needs, pendingCerts, openReports, pendingAdInquiries;
+  final int pendingRewardClaims, pendingPlusPayments;
   AdminStats(
       {required this.users,
       required this.needs,
       required this.pendingCerts,
       required this.openReports,
-      required this.pendingAdInquiries});
+      required this.pendingAdInquiries,
+      this.pendingRewardClaims = 0,
+      this.pendingPlusPayments = 0});
   factory AdminStats.fromJson(Map<String, dynamic> j) => AdminStats(
         users: j['users'] ?? 0,
         needs: j['needs'] ?? 0,
         pendingCerts: j['pendingCerts'] ?? 0,
         openReports: j['openReports'] ?? 0,
         pendingAdInquiries: j['pendingAdInquiries'] ?? 0,
+        pendingRewardClaims: j['pendingRewardClaims'] ?? 0,
+        pendingPlusPayments: j['pendingPlusPayments'] ?? 0,
       );
 }
 
@@ -332,4 +370,94 @@ class AdminAdInquiry {
     message: j['message'] as String?,
     adminNotes: j['adminNotes'] as String?,
   );
+}
+
+class AdminRewardClaim {
+  final String id, status, payoutMethod, createdAt, offerTitle, offerKind;
+  final int pointsSpent, rewardValuePaise, verifiedPointsAtClaim, duplicatePayoutCount;
+  final Map<String, dynamic> payoutDetails;
+  final String? adminNotes, payoutRef;
+  final String userName, userEmail;
+  final String? userPhone;
+
+  AdminRewardClaim({
+    required this.id,
+    required this.status,
+    required this.payoutMethod,
+    required this.createdAt,
+    required this.offerTitle,
+    required this.offerKind,
+    required this.pointsSpent,
+    required this.rewardValuePaise,
+    required this.verifiedPointsAtClaim,
+    required this.duplicatePayoutCount,
+    required this.payoutDetails,
+    this.adminNotes,
+    this.payoutRef,
+    required this.userName,
+    required this.userEmail,
+    this.userPhone,
+  });
+
+  factory AdminRewardClaim.fromJson(Map<String, dynamic> j) {
+    final user = j['user'] as Map<String, dynamic>? ?? const {};
+    final offer = j['offer'] as Map<String, dynamic>? ?? const {};
+    return AdminRewardClaim(
+      id: j['id'] ?? '',
+      status: j['status'] ?? 'PENDING',
+      payoutMethod: j['payoutMethod'] ?? '',
+      createdAt: j['createdAt'] ?? '',
+      offerTitle: offer['title'] as String? ?? '',
+      offerKind: offer['kind'] as String? ?? 'CASHBACK',
+      pointsSpent: (j['pointsSpent'] as num?)?.toInt() ?? 0,
+      rewardValuePaise: (j['rewardValuePaise'] as num?)?.toInt() ?? 0,
+      verifiedPointsAtClaim: (j['verifiedPointsAtClaim'] as num?)?.toInt() ?? 0,
+      duplicatePayoutCount: (j['duplicatePayoutCount'] as num?)?.toInt() ?? 0,
+      payoutDetails: (j['payoutDetails'] as Map?)?.cast<String, dynamic>() ?? const {},
+      adminNotes: j['adminNotes'] as String?,
+      payoutRef: j['payoutRef'] as String?,
+      userName: user['displayName'] as String? ?? '',
+      userEmail: user['email'] as String? ?? '',
+      userPhone: user['phone'] as String?,
+    );
+  }
+}
+
+class AdminPlusPayment {
+  final String id, status, provider, currency, createdAt;
+  final int amountPaise;
+  final bool selfReported;
+  final String? userReference, adminNotes;
+  final String userName, userEmail;
+
+  AdminPlusPayment({
+    required this.id,
+    required this.status,
+    required this.provider,
+    required this.currency,
+    required this.createdAt,
+    required this.amountPaise,
+    required this.selfReported,
+    this.userReference,
+    this.adminNotes,
+    required this.userName,
+    required this.userEmail,
+  });
+
+  factory AdminPlusPayment.fromJson(Map<String, dynamic> j) {
+    final user = j['user'] as Map<String, dynamic>? ?? const {};
+    return AdminPlusPayment(
+      id: j['id'] ?? '',
+      status: j['status'] ?? 'CREATED',
+      provider: j['provider'] ?? 'manual',
+      currency: j['currency'] ?? 'INR',
+      createdAt: j['createdAt'] ?? '',
+      amountPaise: (j['amountPaise'] as num?)?.toInt() ?? 0,
+      selfReported: j['selfReported'] as bool? ?? false,
+      userReference: j['userReference'] as String?,
+      adminNotes: j['adminNotes'] as String?,
+      userName: user['displayName'] as String? ?? '',
+      userEmail: user['email'] as String? ?? '',
+    );
+  }
 }

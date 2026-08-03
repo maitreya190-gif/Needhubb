@@ -11,6 +11,7 @@ import '../../services/friends_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
 import '../history/history_screen.dart';
+import 'plus_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -305,6 +306,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+
+            // ── NeedHub Plus ───────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _SectionLabel(label: 'NEEDHUB PLUS'),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: t.card,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: NeedHubThemes.cardShadow,
+                  ),
+                  child: _ActionRow(
+                    icon: Icons.star_rounded,
+                    title: 'NeedHub Plus',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const PlusScreen()),
+                    ),
                   ),
                 ),
               ),

@@ -92,6 +92,11 @@ class Need {
   final String? posterAvatarUrl;
   final bool posterFaceVerified;
   final int posterTrustScore;
+  /// Whether the poster holds an active NeedHub Plus subscription — derived
+  /// server-side, see lib/plus.ts's isPlusActive. Cosmetic only; the actual
+  /// (capped, moderate) ranking effect already happened before this need
+  /// reached the client.
+  final bool posterPlus;
   final int offerCount;
   final String? posterBio;
   final List<String> posterInterests;
@@ -127,6 +132,7 @@ class Need {
     this.posterAvatarUrl,
     this.posterFaceVerified = false,
     this.posterTrustScore = 0,
+    this.posterPlus = false,
     this.offerCount = 0,
     this.posterBio,
     this.posterInterests = const [],

@@ -5,6 +5,7 @@ import '../screens/hub/conversation_screen.dart';
 import '../screens/needs/need_detail_screen.dart';
 import '../screens/person/person_screen.dart';
 import '../screens/redeem/redeem_screen.dart';
+import '../screens/settings/plus_screen.dart';
 import '../theme/tokens.dart';
 import 'notifications_api.dart';
 import 'social_providers.dart';
@@ -206,6 +207,14 @@ class NotificationNavigator {
         ));
         return;
       }
+    }
+
+    // D0. NeedHub Plus reward claim — additive, checked before the generic
+    // REDEMPTION_READY branch below so real catalog redemptions (refType
+    // 'REDEMPTION') are completely unaffected.
+    if (refType == 'REWARD_CLAIM') {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlusScreen()));
+      return;
     }
 
     // D. REDEMPTION

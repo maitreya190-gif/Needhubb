@@ -14,6 +14,7 @@ import '../../../services/profiles_api.dart';
 import '../../../services/social_providers.dart';
 import '../../../theme/tokens.dart';
 import '../../../widgets/nh_avatar.dart';
+import '../../../widgets/nh_plus_badge.dart';
 import '../../../widgets/nh_skeleton.dart';
 import '../../../widgets/nh_empty_state.dart';
 import '../../../widgets/nh_report_sheet.dart';
@@ -1695,6 +1696,10 @@ class _EarnCard extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                if (need.posterPlus) ...[
+                                  const SizedBox(width: 4),
+                                  const NhPlusBadge(compact: true),
+                                ],
                                 if (need.posterTrustScore > 0 && need.category == 'connect') ...[
                                   const SizedBox(width: 4),
                                   _TrustBadge(score: need.posterTrustScore),

@@ -5,6 +5,7 @@ import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { badRequest, notFound } from '../../lib/http-error'
 import { isBlockedBetween } from '../friends/friends.service'
 import { CHITCHAT_BOOST_TIERS, fetchActiveChitchatBoosts } from '../../lib/visibility-boost'
+import { chitchatTier, fetchPlusChitchatTier } from '../../lib/plus-visibility'
 
 export const chitchatRouter: IRouter = Router()
 
@@ -180,23 +181,32 @@ chitchatRouter.get('/available-people', async (req, res, next) => {
       ranked.push({ row: r, distanceKm: d })
     }
 
-    // Nearest first. Rows with no coords fall to the bottom (Infinity).
+    // Nearest first. Rows with no coords fall to the bottom (Infinity). This
+    // baseline ordering is also what fetchPlusChitchatTier uses to pick the
+    // NEAREST premium users for the moderate tier below.
     ranked.sort((a, b) =>
       (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
 
-    // Paid visibility boost: reorders the list (boosted users first, each
-    // group still nearest-first among itself) without touching the
-    // distanceKm shown — it changes *placement*, never what's reported to
-    // the viewer, so this can't be used to misrepresent someone's location.
-    const activeBoosts = await fetchActiveChitchatBoosts(ranked.map((r) => r.row.userId))
-    if (activeBoosts.size > 0) {
-      ranked.sort((a, b) => {
-        const aBoosted = activeBoosts.has(a.row.userId) ? 1 : 0
-        const bBoosted = activeBoosts.has(b.row.userId) ? 1 : 0
-        if (aBoosted !== bBoosted) return bBoosted - aBoosted
-        return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)
-      })
-    }
+    const [activeBoosts, plusNearest] = await Promise.all([
+      fetchActiveChitchatBoosts(ranked.map((r) => r.row.userId)),
+      fetchPlusChitchatTier(ranked.map((r) => r.row.userId)),
+    ])
+
+    // A single, UNCONDITIONAL comparator for both paid boosts and NeedHub
+    // Plus — replaces what used to be two separate sorts (nearest-first,
+    // then a re-sort only `if (activeBoosts.size > 0)`). That conditional
+    // was a trap for a 3rd tier: premium ordering would silently vanish
+    // whenever nobody on the roster held a paid boost, which is the common
+    // case. This degenerates to exactly the two prior behaviors: with both
+    // sets empty it's byte-identical to the plain nearest-first sort above;
+    // with only activeBoosts non-empty it's byte-identical to the old
+    // boosted-first re-sort — see lib/__tests__/plus-chitchat.test.ts.
+    ranked.sort((a, b) => {
+      const tierDiff = chitchatTier(b.row.userId, activeBoosts, plusNearest)
+        - chitchatTier(a.row.userId, activeBoosts, plusNearest)
+      if (tierDiff !== 0) return tierDiff
+      return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)
+    })
 
     res.json(ranked.map(({ row, distanceKm }) => ({
       userId: row.userId,
@@ -206,8 +216,11 @@ chitchatRouter.get('/available-people', async (req, res, next) => {
       availableUntil: row.chitchatAvailableUntil?.toISOString(),
       lat: row.lat,
       lng: row.lng,
+      // distanceKm is always the true distance — tiering changes placement,
+      // never what's reported to the viewer.
       distanceKm: distanceKm != null ? Math.round(distanceKm * 10) / 10 : null,
       boosted: activeBoosts.has(row.userId),
+      plus: plusNearest.has(row.userId),
     })))
   } catch (err) { next(err) }
 })

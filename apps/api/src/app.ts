@@ -20,6 +20,7 @@ import { vouchesRouter } from './modules/vouches/vouches.router'
 import { leagueRouter } from './modules/league/league.router'
 import { shareRouter, shareLandingRouter } from './modules/share/share.router'
 import { adsRouter } from './modules/ads/ads.router'
+import { plusRouter } from './modules/plus/plus.router'
 import { adminAuth } from './middleware/adminAuth'
 import { authenticate } from './middleware/authenticate'
 import { errorHandler } from './middleware/errorHandler'
@@ -306,6 +307,9 @@ app.use('/referrals', referralsRouter)
 
 // Translation — LLM-powered text translation (rate-limited, auth required).
 app.use('/translate', writeLimiter, translateRouter)
+
+// NeedHub Plus — membership, analytics, insights, launch reward redemption.
+app.use('/plus', writeLimiter, plusRouter)
 
 // Protected sub-app. Feature routers that need blanket authenticate mount into this.
 export const protectedRouter: ExpressRouter = Router()

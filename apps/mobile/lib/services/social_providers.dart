@@ -7,6 +7,7 @@ import 'messaging_api.dart';
 import 'needs_api.dart';
 import 'notifications_api.dart';
 import 'personality_api.dart';
+import 'plus_api.dart';
 import 'profiles_api.dart';
 import 'redemptions_api.dart';
 import 'reviews_api.dart';
@@ -59,4 +60,8 @@ final messagingApiProvider = Provider<MessagingApi>((ref) {
 
 final uploadsApiProvider = Provider<UploadsApi>((ref) {
   return UploadsApi(ref.watch(apiClientProvider));
+});
+
+final plusApiProvider = Provider<PlusApi>((ref) {
+  return PlusApi(ref.watch(apiClientProvider));
 });

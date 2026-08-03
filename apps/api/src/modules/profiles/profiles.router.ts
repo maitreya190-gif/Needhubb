@@ -18,6 +18,8 @@ import {
 import { otpLimiter } from '../../middleware/rateLimiter'
 import { isUserConnected } from '../../lib/socket'
 import { computeIsOnline } from '../../lib/presence'
+import { fetchPlusUserIds } from '../../lib/plus'
+import { recordEngagement } from '../../lib/plus-analytics'
 
 export const profilesRouter: IRouter = Router()
 
@@ -95,8 +97,10 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
       seasonHistory,
       milestoneReachedAt,
     })
+    const isPlus = (await fetchPlusUserIds([userId])).has(userId)
     res.json({
       ...user,
+      profile: user.profile ? { ...user.profile, plus: isPlus } : user.profile,
       avgRating: record.avgRating,
       ratingCount: record.ratingCount,
       trustScore,
@@ -521,6 +525,15 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       },
     })
     if (!user) return next(notFound('User not found', 'USER_NOT_FOUND'))
+
+    // NeedHub Plus analytics — fire-and-forget, actorKey is IP+UA derived,
+    // never the unverified-decode viewer id (see needs.router.ts's :id view
+    // recording for the same reasoning).
+    recordEngagement({
+      kind: 'VIEW', targetType: 'PROFILE', targetId: user.id, ownerId: user.id,
+      ip: req.ip ?? '', userAgent: req.get('user-agent') ?? '', actorUserId: tryGetUserId(req),
+    }).catch((err) => console.error('[plus-analytics] profile view record failed', err))
+
     const record = await fetchTrackRecord(req.params.userId)
     const eligibleVouchCount = await countTrustEligibleVouches(req.params.userId)
     const badgeInputs = toBadgeInputs({
@@ -560,8 +573,10 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       seasonHistory,
       milestoneReachedAt,
     })
+    const isPlus = (await fetchPlusUserIds([user.id])).has(user.id)
     res.json({
       ...user,
+      profile: user.profile ? { ...user.profile, plus: isPlus } : user.profile,
       avgRating: record.avgRating,
       ratingCount: record.ratingCount,
       trustScore,

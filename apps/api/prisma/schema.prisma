@@ -109,30 +109,38 @@ model User {
   createdAt         DateTime          @default(now())
 
   profile                Profile?
-  needs                  Need[]             @relation("PosterNeeds")
+  needs                  Need[]               @relation("PosterNeeds")
   responses              InterestResponse[]
   sentMessages           Message[]
-  reviewsGiven           Review[]           @relation("ReviewsGiven")
-  reviewsReceived        Review[]           @relation("ReviewsReceived")
+  reviewsGiven           Review[]             @relation("ReviewsGiven")
+  reviewsReceived        Review[]             @relation("ReviewsReceived")
   certificates           Certificate[]
   achievements           Achievement[]
   pointsLedger           PointsLedger[]
   visibilityBoosts       VisibilityBoost[]
-  reports                Report[]           @relation("ReporterReports")
+  reports                Report[]             @relation("ReporterReports")
   emailVerification      EmailVerification?
   phoneVerification      PhoneVerification?
   notifications          Notification[]
   redemptions            Redemption[]
-  dmMessagesSent         DmMessage[]        @relation("DmSender")
-  friendRequestsSent     FriendRequest[]    @relation("FriendReqFrom")
-  friendRequestsReceived FriendRequest[]    @relation("FriendReqTo")
-  blocksMade             Block[]            @relation("Blocker")
-  blocksReceived         Block[]            @relation("Blocked")
-  referralsMade          Referral[]         @relation("ReferralsMade")
+  dmMessagesSent         DmMessage[]          @relation("DmSender")
+  friendRequestsSent     FriendRequest[]      @relation("FriendReqFrom")
+  friendRequestsReceived FriendRequest[]      @relation("FriendReqTo")
+  blocksMade             Block[]              @relation("Blocker")
+  blocksReceived         Block[]              @relation("Blocked")
+  referralsMade          Referral[]           @relation("ReferralsMade")
   urgencyProfile         UrgencyProfile?
-  vouchesGiven           Vouch[]            @relation("VouchesGiven")
-  vouchesReceived        Vouch[]            @relation("VouchesReceived")
+  vouchesGiven           Vouch[]              @relation("VouchesGiven")
+  vouchesReceived        Vouch[]              @relation("VouchesReceived")
   seasonRankSnapshots    SeasonRankSnapshot[]
+
+  // NeedHub Plus (see lib/plus.ts, lib/plus-analytics.ts) — all additive,
+  // no existing relation above is touched.
+  plusSubscription  PlusSubscription?
+  plusPayments      PlusPayment[]
+  rewardClaims      RewardClaim[]
+  engagementAsOwner ContentEngagementDaily[] @relation("EngagementOwner")
+  engagementAsActor ContentEngagementDaily[] @relation("EngagementActor")
 }
 
 // Internal-only track record of how this user has used Urgency Mode.
@@ -140,13 +148,13 @@ model User {
 // distinct, private signal that only the urgency AI evaluation reads. Never
 // serialized in any API response; there is no route that returns this model.
 model UrgencyProfile {
-  userId         String @id
+  userId         String   @id
   // 0..1, starts neutral. Nudged by lib/urgency.ts after each urgent need's
   // outcome (fulfilled before deadline vs. expired with no engagement).
-  reliability    Float  @default(0.5)
-  urgentCount    Int    @default(0)
-  justifiedCount Int    @default(0)
-  misusedCount   Int    @default(0)
+  reliability    Float    @default(0.5)
+  urgentCount    Int      @default(0)
+  justifiedCount Int      @default(0)
+  misusedCount   Int      @default(0)
   updatedAt      DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -178,7 +186,7 @@ model Profile {
   // piece of state, so it alone needs a column. IDs only, never validated
   // against a fixed catalog here — computeLeagueAchievements() ignores any
   // id it doesn't recognize, so this can never render something bogus.
-  featuredAchievementIds String[] @default([])
+  featuredAchievementIds String[]  @default([])
   // Privacy: whether this user's real-time online presence (see lib/socket.ts)
   // is exposed to other users at all. When false, GET /profile/:userId/online
   // always reports offline regardless of actual connection state.
@@ -203,23 +211,23 @@ model Skill {
 // added to User and the one added to Skill above (none of which are physical
 // columns).
 model Vouch {
-  id          String   @id @default(cuid())
-  voucherId   String
-  voucheeId   String
-  skillId     String
-  testimonial String?
+  id                String   @id @default(cuid())
+  voucherId         String
+  voucheeId         String
+  skillId           String
+  testimonial       String?
   // Backed by a completed Need between voucher and vouchee — the one thing
   // about a vouch's provenance that is ever shown to users (as a badge).
-  verified    Boolean  @default(false)
+  verified          Boolean  @default(false)
   // Internal-only credibility weight in [0,1] — see computeVouchCredibility.
   // Feeds Trust Score and nothing else; never selected into any response.
-  credibilityWeight Float @default(0)
+  credibilityWeight Float    @default(0)
   // Internal-only abuse flag — see detectSuspiciousVouch. A suspicious vouch
   // is silently down-weighted (folded into credibilityWeight), never deleted,
   // never surfaced to either party, per requirement 8.
-  suspicious  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  suspicious        Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   voucher User  @relation("VouchesGiven", fields: [voucherId], references: [id], onDelete: Cascade)
   vouchee User  @relation("VouchesReceived", fields: [voucheeId], references: [id], onDelete: Cascade)
@@ -290,11 +298,11 @@ model Need {
   // forever — see renewalDampeningFactor in lib/urgency.ts.
   renewalGeneration Int     @default(0)
 
-  poster     User               @relation("PosterNeeds", fields: [posterId], references: [id], onDelete: Cascade)
-  parentNeed Need?              @relation("SubNeeds", fields: [parentNeedId], references: [id])
-  subNeeds   Need[]             @relation("SubNeeds")
-  responses  InterestResponse[]
-  reviews    Review[]
+  poster                User                   @relation("PosterNeeds", fields: [posterId], references: [id], onDelete: Cascade)
+  parentNeed            Need?                  @relation("SubNeeds", fields: [parentNeedId], references: [id])
+  subNeeds              Need[]                 @relation("SubNeeds")
+  responses             InterestResponse[]
+  reviews               Review[]
   urgencyEvaluationLogs UrgencyEvaluationLog[]
 }
 
@@ -322,17 +330,17 @@ model UrgencyEvaluationLog {
 }
 
 model InterestResponse {
-  id             String                 @id @default(cuid())
-  needId         String
-  responderId    String
-  message        String
-  quotedPrice    Float?
-  workSampleUrl  String?
-  status         InterestResponseStatus @default(PENDING)
-  createdAt      DateTime               @default(now())
+  id            String                 @id @default(cuid())
+  needId        String
+  responderId   String
+  message       String
+  quotedPrice   Float?
+  workSampleUrl String?
+  status        InterestResponseStatus @default(PENDING)
+  createdAt     DateTime               @default(now())
 
-  need      Need           @relation(fields: [needId], references: [id], onDelete: Cascade)
-  responder User           @relation(fields: [responderId], references: [id], onDelete: Cascade)
+  need      Need               @relation(fields: [needId], references: [id], onDelete: Cascade)
+  responder User               @relation(fields: [responderId], references: [id], onDelete: Cascade)
   thread    MessageThread?
   revisions ResponseRevision[]
 
@@ -340,12 +348,12 @@ model InterestResponse {
 }
 
 model ResponseRevision {
-  id             String   @id @default(cuid())
-  responseId     String
-  message        String
-  quotedPrice    Float?
-  workSampleUrl  String?
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  responseId    String
+  message       String
+  quotedPrice   Float?
+  workSampleUrl String?
+  createdAt     DateTime @default(now())
 
   response InterestResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
 }
@@ -700,16 +708,222 @@ enum AdInquiryStatus {
 }
 
 model AdInquiry {
-  id          String          @id @default(cuid())
-  name        String
-  email       String?
-  phone       String?
-  product     String
-  message     String?
-  status      AdInquiryStatus @default(PENDING)
-  adminNotes  String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id         String          @id @default(cuid())
+  name       String
+  email      String?
+  phone      String?
+  product    String
+  message    String?
+  status     AdInquiryStatus @default(PENDING)
+  adminNotes String?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
 
   @@index([status, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NeedHub Plus — monthly premium membership. Purely additive: nothing above
+// this line is modified. See lib/plus.ts, lib/plus-visibility.ts,
+// lib/plus-analytics.ts, lib/plus-rewards.ts, lib/payments/.
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum PlusSubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELED
+}
+
+enum PlusPaymentStatus {
+  CREATED
+  AWAITING_CONFIRMATION
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model PlusSubscription {
+  id                 String                 @id @default(cuid())
+  userId             String                 @unique
+  status             PlusSubscriptionStatus @default(PENDING)
+  currentPeriodStart DateTime?
+  // The renewal date shown in Settings, and the lazy-expiry read predicate —
+  // see isPlusActive() in lib/plus.ts. No cron flips this; the moment it's
+  // in the past, isPlusActive() (and fetchPlusUserIds()) simply stop
+  // counting this user as Plus, on every read, forever, with no write needed.
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean                @default(false)
+  provider           String                 @default("manual")
+  providerRef        String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, currentPeriodEnd])
+}
+
+model PlusPayment {
+  id                String            @id @default(cuid())
+  userId            String
+  subscriptionId    String?
+  provider          String
+  providerOrderId   String?
+  providerPaymentId String?
+  // Integer paise, never Float — ₹50.00 = 5000. No floating point on money.
+  amountPaise       Int
+  currency          String            @default("INR")
+  status            PlusPaymentStatus @default(CREATED)
+  periodStart       DateTime?
+  periodEnd         DateTime?
+  // The UPI transaction reference the user types in, manual-provider mode.
+  userReference     String?
+  // True when the user themself reported this payment as successful after
+  // returning from the UPI app (see POST /plus/payments/:id/confirm), rather
+  // than an admin confirming it in the portal. Plus activates immediately
+  // either way — this flag exists purely so admins can audit/revoke
+  // self-reported payments after the fact. See lib/plus.ts's activatePlus.
+  selfReported      Boolean           @default(false)
+  adminNotes        String?
+  // Prevents a retried POST /plus/subscribe (or a future replayed webhook)
+  // from ever creating two payment rows for the same intent.
+  idempotencyKey    String            @unique
+  providerPayload   Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // NULLs are distinct in a Postgres unique index, so the many nulls before
+  // a payment is confirmed are fine — and this becomes the webhook-replay
+  // guard for free the day a real provider lands.
+  @@unique([provider, providerPaymentId])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+enum RewardKind {
+  CASHBACK
+  VOUCHER
+  GIFT_CARD
+  PARTNER_PERK
+}
+
+enum RewardClaimStatus {
+  PENDING
+  APPROVED
+  PAID
+  REJECTED
+}
+
+// Admin-configurable reward catalog — the launch cashback is just the first
+// row. Swapping in a voucher or gift-card reward later needs a new row, not
+// new code: see `kind` + `payoutFieldsJson`.
+model RewardOffer {
+  id                   String             @id @default(cuid())
+  // Stable slug (e.g. 'plus_launch_cashback') so code references a name,
+  // never a cuid.
+  key                  String             @unique
+  kind                 RewardKind         @default(CASHBACK)
+  title                String
+  description          String
+  // Off by default — a migration can never accidentally open a cash faucet;
+  // an admin must deliberately enable it.
+  enabled              Boolean            @default(false)
+  minVerifiedPoints    Int                @default(1000)
+  pointsCost           Int                @default(1000)
+  rewardValuePaise     Int                @default(15000)
+  // -1 = unlimited, matching the existing RedemptionItem.stock convention.
+  maxRedemptions       Int                @default(-1)
+  redeemedCount        Int                @default(0)
+  // Declares which fields the claim form must collect, e.g.
+  // [{"key":"upiId","label":"UPI ID","type":"upi","required":true}] — this
+  // is what lets a future voucher/gift-card reward need zero new code.
+  payoutFieldsJson     Json?
+  minVerificationLevel VerificationLevel?
+  minAccountAgeDays    Int                @default(0)
+  startsAt             DateTime?
+  endsAt               DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  claims RewardClaim[]
+}
+
+model RewardClaim {
+  id                    String            @id @default(cuid())
+  userId                String
+  offerId               String
+  status                RewardClaimStatus @default(PENDING)
+  // Snapshots — config can change after the fact; the ledger must stay
+  // explainable a year later regardless.
+  pointsSpent           Int
+  rewardValuePaise      Int
+  payoutMethod          String
+  payoutDetails         Json
+  // sha256 of the normalized payout id (e.g. UPI id) — surfaced to admins as
+  // "N other claims use this payout id" for fraud review. Not auto-rejected
+  // on: families legitimately share a UPI id.
+  payoutFingerprint     String
+  verifiedPointsAtClaim Int
+  adminNotes            String?
+  // UTR for cashback, or the voucher/gift-card code for other reward kinds.
+  payoutRef             String?
+  processedAt           DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offer RewardOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  // The structural, database-level one-time-per-offer guarantee — same
+  // precedent as Vouch's compound unique constraint.
+  @@unique([userId, offerId])
+  @@index([status, createdAt])
+  @@index([payoutFingerprint])
+}
+
+enum ContentEventKind {
+  VIEW
+  SHARE
+}
+
+enum ContentTargetType {
+  PROFILE
+  NEED
+}
+
+// Deliberately a separate enum from BoostTargetType (same PROFILE/NEED
+// values) — reusing that enum would couple this feature's migrations to the
+// paid-boost feature's for no benefit.
+model ContentEngagementDaily {
+  id          String            @id @default(cuid())
+  kind        ContentEventKind
+  targetType  ContentTargetType
+  targetId    String
+  // Denormalized profile-owner / need-poster — every analytics query is a
+  // single-table filter, no joins.
+  ownerId     String
+  // sha256(ip|userAgent|dailySalt) — always IP+UA derived, NEVER the
+  // unverified JWT subject (tryGetUserId can be spoofed by forging a Bearer
+  // header; fine for the existing block-filter use, wrong to key a metric
+  // dedupe on).
+  actorKey    String
+  // Soft label only, from the same best-effort decode used elsewhere.
+  actorUserId String?
+  // 'YYYY-MM-DD' UTC — a string, not a Date, so the unique index and the
+  // trend groupBy use the same column.
+  day         String
+  createdAt   DateTime          @default(now())
+
+  owner User  @relation("EngagementOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  actor User? @relation("EngagementActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  // Defines "views" as unique daily viewers (honest, spam-resistant), bounds
+  // table growth, and lets the write be a plain createMany+skipDuplicates
+  // with no error handling needed.
+  @@unique([kind, targetType, targetId, actorKey, day])
+  @@index([ownerId, day])
+  @@index([targetType, targetId, day])
 }

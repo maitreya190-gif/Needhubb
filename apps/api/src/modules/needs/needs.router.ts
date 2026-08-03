@@ -24,6 +24,8 @@ import {
 import { countTrustEligibleVouches, fetchTrustEligibleVouchCounts } from '../../lib/vouching'
 import { tagNeedsByEmbedding } from '../../lib/need-tagging'
 import { fetchActiveNeedBoosts, NEED_BOOST_RANK_BONUS, boostVisibilityCap } from '../../lib/visibility-boost'
+import { fetchPlusPosterIds, PLUS_NEED_RANK_BONUS, plusVisibilityCap, selectPlusWithinCap } from '../../lib/plus-visibility'
+import { recordEngagement } from '../../lib/plus-analytics'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { isBlockedBetween } from '../friends/friends.service'
 import {
@@ -410,7 +412,7 @@ needsRouter.get('/', async (req, res, next) => {
     // heuristic if Cohere is unavailable.
     let usedEmbeddings = false
     const needSimilarityById = new Map<string, number>()
-    const [, activeNeedBoosts] = await Promise.all([
+    const [, activeNeedBoosts, plusPosterIds] = await Promise.all([
       (async () => {
         if (embeddingsAvailable() && filtered.length > 0 && userSignal) {
           const [userVec, needVecs] = await Promise.all([
@@ -426,19 +428,26 @@ needsRouter.get('/', async (req, res, next) => {
         }
       })(),
       fetchActiveNeedBoosts(filtered.map((f) => f.need.id)),
+      fetchPlusPosterIds(Array.from(new Set(filtered.map((f) => f.need.posterId)))),
     ])
 
-    type Ranked = Filtered & { score: number; semantic: number | null; urgencyBoost: number; boostBonus: number }
+    type Ranked = Filtered & {
+      score: number; semantic: number | null; urgencyBoost: number; boostBonus: number; plusBonus: number
+    }
     const ranked: Ranked[] = filtered.map((f) => {
       const semantic = needSimilarityById.get(f.need.id) ?? null
       const trustScore = trustScoreByPoster.get(f.need.posterId) ?? 0
       const boostBonus = activeNeedBoosts.has(f.need.id) ? NEED_BOOST_RANK_BONUS : 0
+      // Premium is only ever an additional signal on an otherwise-open need
+      // — same guard shape as urgency's own status check.
+      const plusBonus = f.need.status === 'OPEN' && plusPosterIds.has(f.need.posterId) ? PLUS_NEED_RANK_BONUS : 0
       return {
         ...f,
         semantic,
         urgencyBoost: urgencyRankContribution(f.need, f.need._count.responses),
         boostBonus,
-        score: scoreNeed(f.need, f.distanceKm, userInterests, semantic, trustScore, f.need._count.responses, boostBonus),
+        plusBonus,
+        score: scoreNeed(f.need, f.distanceKm, userInterests, semantic, trustScore, f.need._count.responses, boostBonus, plusBonus),
       }
     })
 
@@ -474,6 +483,25 @@ needsRouter.get('/', async (req, res, next) => {
       }
     }
 
+    // Third, independent budget for NeedHub Plus — moderate, and never
+    // competing with the paid-boost cap's slots. Tighter ceiling than paid
+    // boosts (max 4 vs max 6) since a subscription is recurring/widespread,
+    // not a one-off purchase. Selection is by organic score (score with the
+    // flat plusBonus subtracted back out), not by boost value — every
+    // premium need ties on a flat bonus, so the scarce slots go to whichever
+    // premium needs are already most relevant on the page, reinforcing
+    // relevance-primacy rather than competing with it.
+    const plusCap = plusVisibilityCap(ranked.length)
+    const allowedToKeepPlusBonus = selectPlusWithinCap(
+      ranked.map((r) => ({ id: r.need.id, plusBonus: r.plusBonus, organicScore: r.score - r.plusBonus })),
+      plusCap,
+    )
+    for (const r of ranked) {
+      if (r.plusBonus > 0 && !allowedToKeepPlusBonus.has(r.need.id)) {
+        r.score -= r.plusBonus
+      }
+    }
+
     // Sort. "smart" = personalized ranking, "newest" = createdAt DESC, "distance" = nearest first.
     if (sortMode === 'newest') {
       ranked.sort((a, b) => b.need.createdAt.getTime() - a.need.createdAt.getTime())
@@ -502,7 +530,9 @@ needsRouter.get('/', async (req, res, next) => {
         lng: needLng,
         poster: {
           ...r.need.poster,
-          profile: r.need.poster.profile ? { ...r.need.poster.profile, trustScore } : r.need.poster.profile,
+          profile: r.need.poster.profile
+            ? { ...r.need.poster.profile, trustScore, plus: plusPosterIds.has(r.need.posterId) }
+            : r.need.poster.profile,
         },
         offerCount: r.need._count.responses,
         acceptedCount: (r.need as any).responses ? (r.need as any).responses.length : 0,
@@ -561,8 +591,9 @@ export function scoreNeed(
   trustScore: number, // 0-100, ignored for EARN needs
   responseCount: number,
   boostBonus: number = 0, // active paid VisibilityBoost — see lib/visibility-boost.ts
+  plusBonus: number = 0, // poster holds an active NeedHub Plus subscription — see lib/plus-visibility.ts
 ): number {
-  const rankBonus = urgencyRankContribution(need, responseCount) + boostBonus
+  const rankBonus = urgencyRankContribution(need, responseCount) + boostBonus + plusBonus
   // Proximity — 1 at 0km, 0 at 30km+, linear decay.
   const proximityScore = distanceKm == null
     ? 0.5
@@ -627,6 +658,14 @@ needsRouter.get('/:id', async (req, res, next) => {
       return next(notFound('Need not found', 'NEED_NOT_FOUND'))
     }
 
+    // NeedHub Plus analytics — fire-and-forget, never awaited on this
+    // response path. actorKey is IP+UA derived, not viewerId (tryGetUserId
+    // is an unverified decode and must never be the metric dedupe key).
+    recordEngagement({
+      kind: 'VIEW', targetType: 'NEED', targetId: need.id, ownerId: need.posterId,
+      ip: req.ip ?? '', userAgent: req.get('user-agent') ?? '', actorUserId: viewerId,
+    }).catch((err) => console.error('[plus-analytics] need view record failed', err))
+
     // Same lazy expiry as the feed (see lib/urgency.ts) — best-effort, and the
     // in-memory status is corrected immediately so this response doesn't show
     // a stale OPEN for the one request before the write lands.
@@ -654,10 +693,14 @@ needsRouter.get('/:id', async (req, res, next) => {
       earnedBadgeCount: earnedBadgeCount(toBadgeInputs(posterVerification, record)),
       validatedSkillEndorsementCount: eligibleVouchCount,
     })
+    const posterIsPlus = (await fetchPlusPosterIds([need.posterId])).has(need.posterId)
 
     res.json({
       ...stripInternalUrgencyFields(need),
-      poster: { ...need.poster, profile: need.poster.profile ? { ...need.poster.profile, trustScore } : need.poster.profile },
+      poster: {
+        ...need.poster,
+        profile: need.poster.profile ? { ...need.poster.profile, trustScore, plus: posterIsPlus } : need.poster.profile,
+      },
       offerCount: need._count.responses,
       acceptedCount: need.responses ? need.responses.length : 0,
     })

@@ -66,8 +66,10 @@ async function callGroq(
   return null
 }
 
-// Try multiple keys on failure (up to 3 attempts).
-async function callGroqWithFallback(
+// Try multiple keys on failure (up to 3 attempts). Exported for reuse by
+// NeedHub Plus's AI posting insights (plus.router.ts) — same key pool, no
+// duplicated key list, no behavior change to translation itself.
+export async function callGroqWithFallback(
   messages: { role: string; content: string }[],
 ): Promise<string | null> {
   const attempts = Math.min(3, groqKeys.length)

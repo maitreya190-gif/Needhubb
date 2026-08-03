@@ -1,20 +1,24 @@
 import { Router, type Router as ExpressRouter } from 'express'
 import { prisma } from '../../lib/prisma'
 import { pushNotification } from '../../lib/notifications'
+import { activatePlus } from '../../lib/plus'
+import { badRequest, notFound } from '../../lib/http-error'
 
 export const adminRouter: ExpressRouter = Router()
 
 // ── Stats overview ────────────────────────────────────────────────────────────
 
 adminRouter.get('/stats', async (_req, res) => {
-  const [users, needs, pendingCerts, openReports, pendingAdInquiries] = await Promise.all([
+  const [users, needs, pendingCerts, openReports, pendingAdInquiries, pendingRewardClaims, pendingPlusPayments] = await Promise.all([
     prisma.user.count(),
     prisma.need.count(),
     prisma.certificate.count({ where: { status: 'PENDING_REVIEW' } }),
     prisma.report.count({ where: { status: 'OPEN' } }),
     prisma.adInquiry.count({ where: { status: 'PENDING' } }),
+    prisma.rewardClaim.count({ where: { status: 'PENDING' } }),
+    prisma.plusPayment.count({ where: { status: 'AWAITING_CONFIRMATION' } }),
   ])
-  res.json({ users, needs, pendingCerts, openReports, pendingAdInquiries })
+  res.json({ users, needs, pendingCerts, openReports, pendingAdInquiries, pendingRewardClaims, pendingPlusPayments })
 })
 
 // ── Certificates ──────────────────────────────────────────────────────────────
@@ -411,5 +415,180 @@ adminRouter.delete('/ad-inquiries/:id', async (req, res, next) => {
   try {
     await prisma.adInquiry.delete({ where: { id: req.params.id } })
     res.json({ success: true })
+  } catch (err) { next(err) }
+})
+
+// ── NeedHub Plus: reward claims ─────────────────────────────────────────────
+// Where a launch-cashback (or later, voucher/gift-card) claim surfaces for
+// review — same "queue + pending count" pattern as ad inquiries, since
+// adminAuth has no per-admin identity to push a notification to.
+
+adminRouter.get('/reward-claims', async (req, res) => {
+  const status = req.query.status as string | undefined
+  const claims = await prisma.rewardClaim.findMany({
+    where: status ? { status: status as any } : undefined,
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+    include: {
+      user: { select: { id: true, displayName: true, email: true, phone: true, username: true } },
+      offer: { select: { title: true, kind: true } },
+    },
+  })
+  // "N other claims use this payout id" — surfaced for human judgment, never
+  // auto-rejected on (families legitimately share a UPI id).
+  const fingerprints = Array.from(new Set(claims.map((c) => c.payoutFingerprint)))
+  const counts = fingerprints.length > 0
+    ? await prisma.rewardClaim.groupBy({
+        by: ['payoutFingerprint'],
+        where: { payoutFingerprint: { in: fingerprints } },
+        _count: { _all: true },
+      })
+    : []
+  const countByFingerprint = new Map(counts.map((c) => [c.payoutFingerprint, c._count._all]))
+  res.json(claims.map((c) => ({
+    ...c,
+    duplicatePayoutCount: Math.max(0, (countByFingerprint.get(c.payoutFingerprint) ?? 1) - 1),
+  })))
+})
+
+adminRouter.patch('/reward-claims/:id', async (req, res, next) => {
+  const { id } = req.params
+  const { status, adminNotes, payoutRef } = req.body as { status?: string; adminNotes?: string; payoutRef?: string }
+  try {
+    const claim = await prisma.rewardClaim.findUnique({ where: { id } })
+    if (!claim) return next(notFound('Claim not found', 'CLAIM_NOT_FOUND'))
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.rewardClaim.update({
+        where: { id },
+        data: {
+          ...(status ? { status: status as any } : {}),
+          ...(adminNotes !== undefined ? { adminNotes } : {}),
+          ...(payoutRef !== undefined ? { payoutRef } : {}),
+          ...(status === 'PAID' || status === 'REJECTED' ? { processedAt: new Date() } : {}),
+        },
+      })
+      // Reuses the existing REDEMPTION_READY type (no enum change) — the
+      // mobile navigator's REDEMPTION_READY branch is additively extended
+      // with a refType === 'REWARD_CLAIM' check ahead of it, so real
+      // catalog redemptions are unaffected.
+      if (status === 'PAID') {
+        await pushNotification(tx, {
+          userId: claim.userId,
+          type: 'REDEMPTION_READY',
+          title: 'Your NeedHub reward is ready',
+          body: payoutRef ? `Reference: ${payoutRef}` : 'Your reward claim has been approved.',
+          refType: 'REWARD_CLAIM',
+          refId: id,
+        })
+      }
+      return result
+    })
+    res.json(updated)
+  } catch (err) { next(err) }
+})
+
+// ── NeedHub Plus: reward offer catalog (admin-configurable) ────────────────
+
+adminRouter.get('/reward-offers', async (_req, res) => {
+  const offers = await prisma.rewardOffer.findMany({ orderBy: { createdAt: 'asc' } })
+  res.json(offers)
+})
+
+adminRouter.post('/reward-offers', async (req, res, next) => {
+  const body = req.body as {
+    key?: string; kind?: string; title?: string; description?: string
+    minVerifiedPoints?: number; pointsCost?: number; rewardValuePaise?: number
+    maxRedemptions?: number; payoutFieldsJson?: unknown
+  }
+  if (!body.key || !body.title || !body.description) {
+    return next(badRequest('key, title and description are required', 'INVALID_BODY'))
+  }
+  try {
+    const offer = await prisma.rewardOffer.create({
+      data: {
+        key: body.key,
+        kind: (body.kind as any) ?? 'CASHBACK',
+        title: body.title,
+        description: body.description,
+        minVerifiedPoints: body.minVerifiedPoints ?? 1000,
+        pointsCost: body.pointsCost ?? 1000,
+        rewardValuePaise: body.rewardValuePaise ?? 15000,
+        maxRedemptions: body.maxRedemptions ?? -1,
+        payoutFieldsJson: (body.payoutFieldsJson as any) ?? null,
+      },
+    })
+    res.status(201).json(offer)
+  } catch (err) { next(err) }
+})
+
+adminRouter.patch('/reward-offers/:id', async (req, res, next) => {
+  const { id } = req.params
+  const body = req.body as {
+    enabled?: boolean; title?: string; description?: string
+    minVerifiedPoints?: number; pointsCost?: number; rewardValuePaise?: number
+    maxRedemptions?: number; startsAt?: string; endsAt?: string
+  }
+  try {
+    const offer = await prisma.rewardOffer.update({
+      where: { id },
+      data: {
+        ...(body.enabled !== undefined && { enabled: body.enabled }),
+        ...(body.title !== undefined && { title: body.title }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.minVerifiedPoints !== undefined && { minVerifiedPoints: body.minVerifiedPoints }),
+        ...(body.pointsCost !== undefined && { pointsCost: body.pointsCost }),
+        ...(body.rewardValuePaise !== undefined && { rewardValuePaise: body.rewardValuePaise }),
+        ...(body.maxRedemptions !== undefined && { maxRedemptions: body.maxRedemptions }),
+        ...(body.startsAt !== undefined && { startsAt: body.startsAt ? new Date(body.startsAt) : null }),
+        ...(body.endsAt !== undefined && { endsAt: body.endsAt ? new Date(body.endsAt) : null }),
+      },
+    })
+    res.json(offer)
+  } catch (err) { next(err) }
+})
+
+// ── NeedHub Plus: subscription payments ─────────────────────────────────────
+
+adminRouter.get('/plus-payments', async (req, res) => {
+  const status = req.query.status as string | undefined
+  const payments = await prisma.plusPayment.findMany({
+    where: status ? { status: status as any } : undefined,
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+    include: { user: { select: { id: true, displayName: true, email: true } } },
+  })
+  res.json(payments)
+})
+
+adminRouter.patch('/plus-payments/:id', async (req, res, next) => {
+  const { id } = req.params
+  const { status, adminNotes } = req.body as { status?: string; adminNotes?: string }
+  try {
+    const payment = await prisma.plusPayment.findUnique({ where: { id } })
+    if (!payment) return next(notFound('Payment not found', 'PAYMENT_NOT_FOUND'))
+
+    // Marking PAID activates the subscription via the same compare-and-swap
+    // used by the user's own self-report confirm — an admin re-confirming
+    // an already-active payment is a safe no-op, never a double credit.
+    if (status === 'PAID') {
+      await prisma.$transaction(async (tx) => {
+        if (adminNotes !== undefined) {
+          await tx.plusPayment.update({ where: { id }, data: { adminNotes } })
+        }
+        await activatePlus(tx, { userId: payment.userId, paymentId: id })
+      })
+      const fresh = await prisma.plusPayment.findUnique({ where: { id } })
+      return res.json(fresh)
+    }
+
+    const updated = await prisma.plusPayment.update({
+      where: { id },
+      data: {
+        ...(status ? { status: status as any } : {}),
+        ...(adminNotes !== undefined ? { adminNotes } : {}),
+      },
+    })
+    res.json(updated)
   } catch (err) { next(err) }
 })

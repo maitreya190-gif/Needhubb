@@ -24,6 +24,7 @@ import '../../services/uploads_api.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
 import '../../widgets/nh_badge_row.dart';
+import '../../widgets/nh_plus_badge.dart';
 import '../../widgets/nh_seasonal_badge.dart';
 import '../../widgets/nh_skill_vouch_section.dart';
 import '../history/history_screen.dart';
@@ -208,12 +209,26 @@ class YouScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                auth.displayName ?? 'Welcome!',
-                                style: GoogleFonts.bricolageGrotesque(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: t.onDark,
+                              ValueListenableBuilder<ProfileMe?>(
+                                valueListenable: myProfileNotifier,
+                                builder: (_, me, __) => Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        auth.displayName ?? 'Welcome!',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.bricolageGrotesque(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w800,
+                                          color: t.onDark,
+                                        ),
+                                      ),
+                                    ),
+                                    if (me?.plus ?? false) ...[
+                                      const SizedBox(width: 8),
+                                      const NhPlusBadge(),
+                                    ],
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 2),

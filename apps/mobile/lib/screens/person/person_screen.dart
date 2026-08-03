@@ -11,6 +11,7 @@ import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
 import '../../widgets/nh_avatar.dart';
+import '../../widgets/nh_plus_badge.dart';
 import '../../widgets/nh_report_sheet.dart';
 import '../../widgets/nh_seasonal_badge.dart';
 import '../../widgets/nh_skill_vouch_section.dart';
@@ -281,13 +282,24 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                name,
-                                style: GoogleFonts.bricolageGrotesque(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w800,
-                                  color: t.onDark,
-                                ),
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      name,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.bricolageGrotesque(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                        color: t.onDark,
+                                      ),
+                                    ),
+                                  ),
+                                  if (_profile?.plus ?? false) ...[
+                                    const SizedBox(width: 8),
+                                    const NhPlusBadge(),
+                                  ],
+                                ],
                               ),
                               if (subtitle != null) ...[
                                 const SizedBox(height: 2),

@@ -112,6 +112,10 @@ class ProfileMe {
   /// other users at all — see GET /profile/:userId/online on the server.
   final bool showOnlineStatus;
 
+  /// Whether this user holds an active NeedHub Plus subscription — derived
+  /// server-side (never a stored column), see lib/plus.ts's isPlusActive.
+  final bool plus;
+
   const ProfileMe({
     required this.id,
     required this.displayName,
@@ -147,6 +151,7 @@ class ProfileMe {
     this.leagueAchievements = const [],
     this.featuredAchievementIds = const [],
     this.showOnlineStatus = true,
+    this.plus = false,
   });
 
   /// Vouch summary for a skill, or an empty placeholder if it has none yet.
@@ -301,6 +306,7 @@ class ProfileMe {
           .whereType<String>()
           .toList(),
       showOnlineStatus: profile['showOnlineStatus'] as bool? ?? true,
+      plus: profile['plus'] as bool? ?? false,
     );
   }
 }
