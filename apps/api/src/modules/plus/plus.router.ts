@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import { Router, type IRouter } from 'express'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
+import { config } from '../../config'
 import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { badRequest, forbidden, notFound } from '../../lib/http-error'
 import {
@@ -63,6 +64,14 @@ plusRouter.post('/subscribe', async (req, res, next) => {
   try {
     const uid = userId(req)
     const provider = getPaymentProvider()
+
+    // Refuse rather than hand the user a payment link to nowhere. The manual
+    // provider pays a fixed collection VPA, so an unset PLUS_UPI_ID means
+    // money would leave their account with no configured destination.
+    if (provider.id === 'manual' && !config.plusUpiId.trim()) {
+      return next(badRequest('Payments are not configured yet. Please try again later.', 'PAYMENTS_UNCONFIGURED'))
+    }
+
     const idempotencyKey = crypto.randomUUID()
 
     const intent = await provider.createIntent({

@@ -1,4 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+// config reads PLUS_UPI_ID once at module load and has no fallback VPA on
+// purpose, so this has to be set before the import graph evaluates.
+vi.hoisted(() => {
+  process.env.PLUS_UPI_ID = 'test-vpa@bank'
+})
+
 import { manualProvider, buildUpiDeepLink } from '../manual'
 import { getPaymentProvider } from '../index'
 
@@ -34,7 +41,7 @@ describe('buildUpiDeepLink', () => {
     expect(url.searchParams.get('am')).toBe('50.00')
     expect(url.searchParams.get('cu')).toBe('INR')
     expect(url.searchParams.get('tr')).toBe('ref-123')
-    expect(url.searchParams.get('pa')).toBeTruthy()
+    expect(url.searchParams.get('pa')).toBe('test-vpa@bank')
   })
 
   it('never produces a fractional-paise amount', () => {

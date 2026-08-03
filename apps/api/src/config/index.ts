@@ -39,5 +39,9 @@ export const config = {
   // default) needs no gateway credentials at all; switching to a real
   // gateway later is one new adapter file plus this one env var.
   paymentProvider: process.env.PAYMENT_PROVIDER || 'manual',
-  plusUpiId: process.env.PLUS_UPI_ID || 'needhub@upi',
+  // Empty until PLUS_UPI_ID is set in the deploy environment. Deliberately
+  // has no placeholder fallback: a made-up VPA is a handle someone else can
+  // register, so a misconfigured deploy would silently route real payments
+  // to a stranger. POST /plus/subscribe refuses to build a link without it.
+  plusUpiId: process.env.PLUS_UPI_ID || '',
 }

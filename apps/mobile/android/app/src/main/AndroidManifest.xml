@@ -104,5 +104,13 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="https"/>
         </intent>
+        <!-- NeedHub Plus pays via a `upi://pay` deep link. Android 11+ package
+             visibility hides every UPI app (PhonePe / Paytm / GPay / BHIM)
+             from us unless the scheme is declared here, so without this the
+             chooser never opens and the redirect dead-ends. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="upi"/>
+        </intent>
     </queries>
 </manifest>
