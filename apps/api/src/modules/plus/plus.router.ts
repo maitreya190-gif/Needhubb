@@ -115,6 +115,16 @@ plusRouter.post('/payments/:id/confirm', async (req, res, next) => {
     if (!payment) return next(notFound('Payment not found', 'PAYMENT_NOT_FOUND'))
     if (payment.userId !== uid) return next(forbidden('Not your payment', 'FORBIDDEN'))
 
+    // A payment that already reached a final state can't be reopened by
+    // calling confirm again. Without this, replaying confirm on an
+    // already-PAID payment resets it to AWAITING_CONFIRMATION, and an admin
+    // re-approving it (unaware it's a replay) re-runs activatePlus and
+    // stacks a second free period for the same payment — the exact stacking
+    // exploit this flow was built to prevent, through a different door.
+    if (payment.status === 'PAID' || payment.status === 'FAILED' || payment.status === 'REFUNDED') {
+      return next(badRequest('This payment has already been processed', 'ALREADY_PROCESSED'))
+    }
+
     await prisma.plusPayment.update({
       where: { id: payment.id },
       data: {
@@ -386,6 +396,18 @@ plusRouter.post('/rewards/:offerKey/claim', async (req, res, next) => {
       })
       if (bumped.count === 0) throw badRequest('This reward has been fully claimed', 'REWARD_EXHAUSTED')
 
+      // Re-check the balance atomically here, not against the snapshot read
+      // before this transaction started. Without this, two claims for two
+      // different offers fired within milliseconds of each other can both
+      // pass the earlier check against the same stale balance and both
+      // decrement — driving pointsTotal negative and paying out both.
+      // Mirrors the offer-cap guard above: conditional update, count checked.
+      const spent = await tx.profile.updateMany({
+        where: { userId: uid, pointsTotal: { gte: offer.pointsCost } },
+        data: { pointsTotal: { decrement: offer.pointsCost } },
+      })
+      if (spent.count === 0) throw badRequest('Not enough points', 'INSUFFICIENT_BALANCE')
+
       const created = await tx.rewardClaim.create({
         data: {
           userId: uid,
@@ -403,7 +425,6 @@ plusRouter.post('/rewards/:offerKey/claim', async (req, res, next) => {
       // delta never affects verified points or Impact League standing
       // (impact-league.ts sums delta>0 only), so this can never touch the
       // user's contribution record.
-      await tx.profile.update({ where: { userId: uid }, data: { pointsTotal: { decrement: offer.pointsCost } } })
       await tx.pointsLedger.create({
         data: { userId: uid, delta: -offer.pointsCost, reason: `Reward claim: ${offer.title}`, refId: created.id },
       })

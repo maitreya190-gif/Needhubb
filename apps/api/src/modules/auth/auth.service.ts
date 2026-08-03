@@ -123,8 +123,12 @@ export async function verifyEmail({ userId, code }: VerifyEmailBody) {
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (!user) throw notFound('User not found', 'USER_NOT_FOUND')
   if (user.emailVerifiedAt) {
-    // Already verified — just return a fresh token.
-    return { token: signToken(user.id, user.email), user: publicUser(user) }
+    // Never issue a token just because the account happens to already be
+    // verified — userId is not secret (it's returned by public profile
+    // endpoints), so this would let anyone mint a token for any verified
+    // account with no proof of code/password. Match resendOtp's convention:
+    // error out, the client should sign in via /auth/login instead.
+    throw badRequest('Already verified', 'ALREADY_VERIFIED')
   }
 
   // Dev bypass — accepts the fixed code 000000 in demo mode.

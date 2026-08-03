@@ -491,6 +491,28 @@ adminRouter.patch('/reward-claims/:id', async (req, res, next) => {
 
 // ── NeedHub Plus: reward offer catalog (admin-configurable) ────────────────
 
+// A negative pointsCost (or the other numeric fields below) flips the
+// reward's own math backwards: claiming it would ADD points/payouts instead
+// of spending them, with no limit — a single typo turning a reward into an
+// unlimited faucet. maxRedemptions alone legitimately allows -1 (unlimited).
+function validateRewardOfferNumbers(body: {
+  minVerifiedPoints?: number; pointsCost?: number; rewardValuePaise?: number; maxRedemptions?: number
+}): string | null {
+  if (body.minVerifiedPoints !== undefined && (!Number.isFinite(body.minVerifiedPoints) || body.minVerifiedPoints < 0)) {
+    return 'minVerifiedPoints must be a non-negative number'
+  }
+  if (body.pointsCost !== undefined && (!Number.isFinite(body.pointsCost) || body.pointsCost < 0)) {
+    return 'pointsCost must be a non-negative number'
+  }
+  if (body.rewardValuePaise !== undefined && (!Number.isFinite(body.rewardValuePaise) || body.rewardValuePaise < 0)) {
+    return 'rewardValuePaise must be a non-negative number'
+  }
+  if (body.maxRedemptions !== undefined && (!Number.isFinite(body.maxRedemptions) || body.maxRedemptions < -1)) {
+    return 'maxRedemptions must be -1 (unlimited) or a non-negative number'
+  }
+  return null
+}
+
 adminRouter.get('/reward-offers', async (_req, res) => {
   const offers = await prisma.rewardOffer.findMany({ orderBy: { createdAt: 'asc' } })
   res.json(offers)
@@ -505,6 +527,8 @@ adminRouter.post('/reward-offers', async (req, res, next) => {
   if (!body.key || !body.title || !body.description) {
     return next(badRequest('key, title and description are required', 'INVALID_BODY'))
   }
+  const numError = validateRewardOfferNumbers(body)
+  if (numError) return next(badRequest(numError, 'INVALID_BODY'))
   try {
     const offer = await prisma.rewardOffer.create({
       data: {
@@ -530,6 +554,8 @@ adminRouter.patch('/reward-offers/:id', async (req, res, next) => {
     minVerifiedPoints?: number; pointsCost?: number; rewardValuePaise?: number
     maxRedemptions?: number; startsAt?: string; endsAt?: string
   }
+  const numError = validateRewardOfferNumbers(body)
+  if (numError) return next(badRequest(numError, 'INVALID_BODY'))
   try {
     const offer = await prisma.rewardOffer.update({
       where: { id },

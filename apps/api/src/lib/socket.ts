@@ -2,6 +2,7 @@ import { Server } from 'socket.io'
 import type { Server as HttpServer } from 'http'
 import jwt from 'jsonwebtoken'
 import { config } from '../config'
+import { prisma } from './prisma'
 
 let _io: Server | null = null
 
@@ -67,9 +68,24 @@ export function initSocket(httpServer: HttpServer): Server {
     socket.join(`user:${userId}`)
     markSocketOnline(userId, socket.id)
 
-    // Client joins a thread room when opening a conversation
-    socket.on('join_thread', (threadId: string) => {
-      if (typeof threadId === 'string') socket.join(`thread:${threadId}`)
+    // Client joins a thread room when opening a conversation. Must verify
+    // the connecting user is actually a participant in this DM thread first —
+    // without this check, anyone who learns or guesses a threadId could
+    // silently join and receive every message, edit, and read-receipt from a
+    // private conversation that isn't theirs.
+    socket.on('join_thread', async (threadId: string) => {
+      if (typeof threadId !== 'string') return
+      try {
+        const thread = await prisma.dmThread.findUnique({
+          where: { id: threadId },
+          select: { userAId: true, userBId: true },
+        })
+        if (!thread) return
+        if (thread.userAId !== userId && thread.userBId !== userId) return
+        socket.join(`thread:${threadId}`)
+      } catch (err) {
+        console.error('[socket] join_thread authorization check failed', err)
+      }
     })
     socket.on('leave_thread', (threadId: string) => {
       if (typeof threadId === 'string') socket.leave(`thread:${threadId}`)

@@ -470,11 +470,28 @@ export async function runSeed() {
 
   // Delete notifications, messages, threads, responses, boosts, reviews, needs
   await prisma.notification.deleteMany({ where: { userId: { in: demoUserIds } } })
-  await prisma.dmMessage.deleteMany({})
-  await prisma.dmThread.deleteMany({})
-  await prisma.friendship.deleteMany({})
-  await prisma.friendRequest.deleteMany({})
-  await prisma.block.deleteMany({})
+  // These five had no scoping at all — re-running the seed against a database
+  // that also has real users would have wiped every real user's DMs,
+  // friendships, friend requests, and blocks platform-wide. Scoped the same
+  // way as every other cleanup in this function: only rows touching a demo
+  // user, following the fetch-ids-then-delete pattern already used below for
+  // needs/responses/threads.
+  const demoDmThreads = await prisma.dmThread.findMany({
+    where: { OR: [{ userAId: { in: demoUserIds } }, { userBId: { in: demoUserIds } }] },
+    select: { id: true },
+  })
+  const demoDmThreadIds = demoDmThreads.map((t) => t.id)
+  await prisma.dmMessage.deleteMany({ where: { threadId: { in: demoDmThreadIds } } })
+  await prisma.dmThread.deleteMany({ where: { id: { in: demoDmThreadIds } } })
+  await prisma.friendship.deleteMany({
+    where: { OR: [{ userAId: { in: demoUserIds } }, { userBId: { in: demoUserIds } }] },
+  })
+  await prisma.friendRequest.deleteMany({
+    where: { OR: [{ fromUserId: { in: demoUserIds } }, { toUserId: { in: demoUserIds } }] },
+  })
+  await prisma.block.deleteMany({
+    where: { OR: [{ blockerId: { in: demoUserIds } }, { blockedId: { in: demoUserIds } }] },
+  })
 
   const oldNeeds = await prisma.need.findMany({ where: { posterId: { in: demoUserIds } }, select: { id: true } })
   const oldNeedIds = oldNeeds.map((n) => n.id)
