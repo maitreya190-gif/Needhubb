@@ -36,15 +36,19 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     });
     try {
       final u = await AdminApi.instance.users(search: query);
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _users = u;
         _loading = false;
       });
+      }
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _error = e.toString();
         _loading = false;
       });
+      }
     }
   }
 
@@ -149,76 +153,157 @@ class _UserTile extends StatelessWidget {
   const _UserTile(
       {required this.user, required this.t, required this.onDelete});
 
+  String get _joinedLabel {
+    try {
+      final d = DateTime.parse(user.createdAt).toLocal();
+      return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return user.createdAt;
+    }
+  }
+
+  String get _verificationLabel {
+    switch (user.verificationLevel) {
+      case 'ID':
+        return 'ID verified';
+      case 'PHONE':
+        return 'Phone verified';
+      case 'EMAIL':
+        return 'Email only';
+      default:
+        return user.verificationLevel;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final initials =
         user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : '?';
+    final hasPhone = user.phone != null && user.phone!.isNotEmpty;
+    final hasUsername = user.username != null && user.username!.isNotEmpty;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: t.card,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: t.rail, width: 1),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: NeedHubTokens.forest.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                initials,
-                style: GoogleFonts.bricolageGrotesque(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: NeedHubTokens.forest,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: NeedHubTokens.forest.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    initials,
+                    style: GoogleFonts.bricolageGrotesque(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: NeedHubTokens.forest,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.displayName,
+                        style: GoogleFonts.hankenGrotesk(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: t.ink),
+                      ),
+                      if (hasUsername) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '@${user.username}',
+                          style: GoogleFonts.hankenGrotesk(
+                              fontSize: 12.5, color: t.muted2),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(Icons.delete_outline_rounded,
+                      color: NeedHubTokens.clay, size: 20),
+                  tooltip: 'Remove user',
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: t.paper,
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    user.displayName,
-                    style: GoogleFonts.hankenGrotesk(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: t.ink),
-                  ),
-                  Text(
-                    user.email,
-                    style: GoogleFonts.hankenGrotesk(
-                        fontSize: 12, color: t.muted),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      AdminMiniChip(label: '${user.needsCount} needs'),
-                      const SizedBox(width: 6),
-                      AdminMiniChip(label: '${user.reportsCount} reports'),
-                    ],
-                  ),
+                  _ContactRow(icon: Icons.mail_outline_rounded, text: user.email, t: t),
+                  if (hasPhone) ...[
+                    const SizedBox(height: 6),
+                    _ContactRow(icon: Icons.phone_outlined, text: user.phone!, t: t),
+                  ],
                 ],
               ),
             ),
-            IconButton(
-              onPressed: onDelete,
-              icon: Icon(Icons.delete_outline_rounded,
-                  color: NeedHubTokens.clay, size: 20),
-              tooltip: 'Remove user',
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                AdminMiniChip(label: _verificationLabel),
+                AdminMiniChip(label: 'Joined $_joinedLabel'),
+                AdminMiniChip(label: '${user.needsCount} needs'),
+                AdminMiniChip(label: '${user.reportsCount} reports'),
+              ],
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ContactRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  final NeedHubTokens t;
+
+  const _ContactRow({required this.icon, required this.text, required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: t.muted2),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.hankenGrotesk(fontSize: 12.5, color: t.ink2),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
     );
   }
 }

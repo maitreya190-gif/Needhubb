@@ -168,6 +168,7 @@ class AdminStats {
 
 class AdminUser {
   final String id, displayName, email, verificationLevel, createdAt;
+  final String? username, phone;
   final int needsCount, reportsCount;
   AdminUser({
     required this.id,
@@ -175,11 +176,15 @@ class AdminUser {
     required this.email,
     required this.verificationLevel,
     required this.createdAt,
+    this.username,
+    this.phone,
     required this.needsCount,
     required this.reportsCount,
   });
   factory AdminUser.fromJson(Map<String, dynamic> j) => AdminUser(
         id: j['id'] ?? '',
+        username: j['username'] as String?,
+        phone: j['phone'] as String?,
         displayName: j['displayName'] ?? '',
         email: j['email'] ?? '',
         verificationLevel: j['verificationLevel'] ?? '',

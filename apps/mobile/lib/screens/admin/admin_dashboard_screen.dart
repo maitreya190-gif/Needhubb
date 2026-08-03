@@ -183,8 +183,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ? '${_stats!.users} total users'
                       : 'Search, view & remove users',
                   t: t,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const AdminUsersScreen())),
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(
+                          builder: (_) => const AdminUsersScreen()))
+                      .then((_) => _load()),
                 ),
                 const SizedBox(height: 10),
                 _NavCard(
@@ -194,8 +196,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ? '${_stats!.needs} total needs'
                       : 'Review and moderate posted needs',
                   t: t,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const AdminNeedsScreen())),
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(
+                          builder: (_) => const AdminNeedsScreen()))
+                      .then((_) => _load()),
                 ),
                 const SizedBox(height: 10),
                 _NavCard(
@@ -205,8 +209,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ? '${_stats!.pendingCerts} awaiting review'
                       : 'Approve or reject certificates',
                   t: t,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const AdminCertsScreen())),
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(
+                          builder: (_) => const AdminCertsScreen()))
+                      .then((_) => _load()),
                 ),
                 const SizedBox(height: 10),
                 _NavCard(
@@ -216,8 +222,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ? '${_stats!.openReports} open reports'
                       : 'Resolve flagged content',
                   t: t,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const AdminReportsScreen())),
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(
+                          builder: (_) => const AdminReportsScreen()))
+                      .then((_) => _load()),
                 ),
                 const SizedBox(height: 10),
                 _NavCard(
@@ -227,8 +235,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ? '${_stats!.pendingAdInquiries} pending inquiries'
                       : 'Review advertising requests',
                   t: t,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const AdminAdsScreen())),
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(
+                          builder: (_) => const AdminAdsScreen()))
+                      .then((_) => _load()),
                 ),
                 const SizedBox(height: 10),
                 _NavCard(
@@ -238,8 +248,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ? '${_stats!.pendingRewardClaims} pending claims'
                       : 'Review cashback & reward claims',
                   t: t,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const AdminRewardClaimsScreen())),
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(
+                          builder: (_) => const AdminRewardClaimsScreen()))
+                      .then((_) => _load()),
                 ),
                 const SizedBox(height: 10),
                 _NavCard(
@@ -249,8 +261,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ? '${_stats!.pendingPlusPayments} awaiting confirmation'
                       : 'Confirm NeedHub Plus subscriptions',
                   t: t,
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => const AdminPlusPaymentsScreen())),
+                  onTap: () => Navigator.of(context)
+                      .push(MaterialPageRoute(
+                          builder: (_) => const AdminPlusPaymentsScreen()))
+                      .then((_) => _load()),
                 ),
               ]),
             ),

@@ -344,6 +344,7 @@ adminRouter.get('/users', async (req, res) => {
       username: true,
       displayName: true,
       email: true,
+      phone: true,
       verificationLevel: true,
       createdAt: true,
       _count: { select: { needs: true, reports: true } },
