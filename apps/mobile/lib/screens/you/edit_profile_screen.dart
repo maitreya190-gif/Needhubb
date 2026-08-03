@@ -30,6 +30,38 @@ const _skillOptions = [
   'Tutoring', 'Web Dev', 'Design',
 ];
 
+// Static translations for predefined options — no API call needed for these.
+const _staticOptionTranslations = <String, Map<String, String>>{
+  'Lifting':        {'hi': 'वेटलिफ्टिंग',    'mr': 'वेटलिफ्टिंग'},
+  'Football':       {'hi': 'फुटबॉल',         'mr': 'फुटबॉल'},
+  'Cricket':        {'hi': 'क्रिकेट',         'mr': 'क्रिकेट'},
+  'DSA':            {'hi': 'DSA',             'mr': 'DSA'},
+  'Coffee':         {'hi': 'कॉफी',            'mr': 'कॉफी'},
+  'Trekking':       {'hi': 'ट्रेकिंग',         'mr': 'ट्रेकिंग'},
+  'Photography':    {'hi': 'फोटोग्राफी',       'mr': 'फोटोग्राफी'},
+  'Guitar':         {'hi': 'गिटार',            'mr': 'गिटार'},
+  'Flutter':        {'hi': 'Flutter',          'mr': 'Flutter'},
+  'Movies':         {'hi': 'फिल्में',           'mr': 'चित्रपट'},
+  'Anime':          {'hi': 'एनीमे',            'mr': 'अ‍ॅनिमे'},
+  'Chess':          {'hi': 'शतरंज',            'mr': 'बुद्धिबळ'},
+  'Sketching':      {'hi': 'स्केचिंग',          'mr': 'स्केचिंग'},
+  'Startups':       {'hi': 'स्टार्टअप',         'mr': 'स्टार्टअप'},
+  'Running':        {'hi': 'दौड़',              'mr': 'धावणे'},
+  'Cooking':        {'hi': 'खाना बनाना',       'mr': 'स्वयंपाक'},
+  'Java':           {'hi': 'Java',             'mr': 'Java'},
+  'Python':         {'hi': 'Python',           'mr': 'Python'},
+  'UI Design':      {'hi': 'UI डिज़ाइन',       'mr': 'UI डिझाइन'},
+  'Writing':        {'hi': 'लेखन',             'mr': 'लेखन'},
+  'Math tutoring':  {'hi': 'गणित ट्यूटरिंग',  'mr': 'गणित शिकवणी'},
+  'Video editing':  {'hi': 'वीडियो एडिटिंग',  'mr': 'व्हिडिओ संपादन'},
+  'Note-taking':    {'hi': 'नोट्स लेना',       'mr': 'नोट्स घेणे'},
+  'Guitar lessons': {'hi': 'गिटार सिखाना',    'mr': 'गिटार शिकवणे'},
+  'Proofreading':   {'hi': 'प्रूफरीडिंग',      'mr': 'प्रूफरीडिंग'},
+  'Tutoring':       {'hi': 'ट्यूटरिंग',         'mr': 'शिकवणी'},
+  'Web Dev':        {'hi': 'वेब डेव',          'mr': 'वेब डेव'},
+  'Design':         {'hi': 'डिज़ाइन',           'mr': 'डिझाइन'},
+};
+
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -271,9 +303,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   Future<void> _translateOptions({int attempt = 0}) async {
     final lang = uiLanguageNotifier.value;
     if (lang == 'en') return;
-    final all = [..._interestOptions, ..._skillOptions];
+    // Seed static translations first — no API call needed for predefined options.
+    for (final entry in _staticOptionTranslations.entries) {
+      _translatedLabels[entry.key] ??= entry.value[lang] ?? entry.key;
+    }
+    // Only hit the API for user-added custom options not in the static map.
+    final all = [..._interestOptions, ..._skillOptions, ..._selectedInterests, ..._selectedSkills];
     final untranslated = all.where((s) => _translatedLabels[s] == null).toList();
-    if (untranslated.isEmpty) return;
+    if (untranslated.isEmpty) {
+      if (mounted) setState(() {});
+      return;
+    }
     final translated = await translateBatch(untranslated, lang);
     if (!mounted) return;
     bool anyChanged = false;
@@ -284,7 +324,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       }
     }
     if (anyChanged) setState(() {});
-    final stillUntranslated = all.where((s) => _translatedLabels[s] == null).toList();
+    final stillUntranslated = untranslated.where((s) => _translatedLabels[s] == null).toList();
     if (stillUntranslated.isNotEmpty && attempt == 0) {
       await Future.delayed(const Duration(seconds: 4));
       if (mounted) _translateOptions(attempt: 1);
