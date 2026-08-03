@@ -712,6 +712,7 @@ const Map<String, String> stringsMr = {
   'plusBenefit6': 'प्राधान्य समर्थन',
   // Plus payment screen
   'couldNotStartCheckout': 'चेकआउट सुरू करता आले नाही. कृपया पुन्हा प्रयत्न करा.',
+  'paymentsNotConfiguredYet': 'पेमेंट अजून सेट झालेले नाही — कृपया नंतर पुन्हा प्रयत्न करा.',
   'noUpiAppFound': 'कोणताही UPI अ‍ॅप सापडला नाही. पैसे भरण्यासाठी PhonePe, Paytm किंवा GPay इंस्टॉल करा.',
   'couldNotOpenUpi': 'UPI अ‍ॅप उघडता आला नाही.',
   'didPaymentGoThrough': 'पैसे भरले का?',

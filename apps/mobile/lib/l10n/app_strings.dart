@@ -737,6 +737,7 @@ class S {
     'wellContactYouSoon': "We'll contact you soon!",
     // Plus payment screen
     'couldNotStartCheckout': 'Could not start checkout. Please try again.',
+    'paymentsNotConfiguredYet': 'Payments are not set up yet — please try again later.',
     'noUpiAppFound': 'No UPI app found. Install PhonePe, Paytm or GPay to pay.',
     'couldNotOpenUpi': 'Could not open a UPI app.',
     'didPaymentGoThrough': 'Did the payment go through?',
@@ -1661,6 +1662,7 @@ class S {
   String get plusInvalidEmail => _get('plusInvalidEmail');
   // Plus payment screen (non-prefixed, kept for backward compat)
   String get couldNotStartCheckout => _get('couldNotStartCheckout');
+  String get paymentsNotConfiguredYet => _get('paymentsNotConfiguredYet');
   String get noUpiAppFound => _get('noUpiAppFound');
   String get couldNotOpenUpi => _get('couldNotOpenUpi');
   String get didPaymentGoThrough => _get('didPaymentGoThrough');

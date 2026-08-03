@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -75,8 +76,15 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
       });
     } catch (e) {
       if (!mounted) return;
+      String message = S.current.couldNotStartCheckout;
+      if (e is DioException) {
+        final code = (e.response?.data as Map?)?['code'] as String?;
+        if (code == 'PAYMENTS_UNCONFIGURED') {
+          message = S.current.paymentsNotConfiguredYet;
+        }
+      }
       setState(() {
-        _error = S.current.couldNotStartCheckout;
+        _error = message;
         _stage = _Stage.error;
       });
     }
