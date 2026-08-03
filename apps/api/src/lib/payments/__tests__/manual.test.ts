@@ -32,6 +32,17 @@ describe('manualProvider.createIntent', () => {
     expect(intent.upiDeepLink).toMatch(/^upi:\/\/pay\?/)
     expect(intent.amountPaise).toBe(5000)
   })
+
+  // Every subscriber sees `instructions` on the payment screen — it must
+  // never leak the personal collection VPA in plain text, even though the
+  // deep link necessarily embeds it (a UPI app has to show the payee during
+  // the actual payment step; that's not the same as this app broadcasting it).
+  it('never includes the collection VPA in the human-readable instructions', async () => {
+    const intent = await manualProvider.createIntent({
+      userId: 'u1', amountPaise: 5000, currency: 'INR', idempotencyKey: 'idem-1',
+    })
+    expect(intent.instructions).not.toContain('test-vpa@bank')
+  })
 })
 
 describe('buildUpiDeepLink', () => {

@@ -55,7 +55,12 @@ export const manualProvider: PaymentProvider = {
       amountPaise: args.amountPaise,
       currency: args.currency,
       action: 'manual_instructions',
-      instructions: `Pay ₹${(args.amountPaise / 100).toFixed(2)} via UPI to ${config.plusUpiId}, then confirm in the app.`,
+      // Never echoes config.plusUpiId here — every subscriber would see the
+      // raw personal VPA in plain text on this screen otherwise. The deep
+      // link itself still routes to it (a UPI app necessarily shows the
+      // payee during the actual payment step, same as any UPI transaction),
+      // but there's no reason to additionally broadcast it in our own UI.
+      instructions: `Pay ₹${(args.amountPaise / 100).toFixed(2)} via UPI, then confirm in the app.`,
       upiDeepLink,
       checkoutPayload: null,
     }
