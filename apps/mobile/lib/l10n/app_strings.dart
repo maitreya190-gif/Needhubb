@@ -852,6 +852,23 @@ class S {
     'plusFieldRequired': '{label} is required',
     'plusInvalidUpiId': "Doesn't look like a valid UPI ID",
     'plusInvalidEmail': "Doesn't look like a valid email",
+    // Explore on Map screen
+    'fulfilled': 'Fulfilled',
+    'exploreOnMap': 'Explore on Map',
+    'searchCityOrArea': 'Search for a city or area...',
+    'activeNeedsTab': 'Active Needs ({count})',
+    'fulfilledTab': 'Fulfilled ({count})',
+    'searchThisArea': 'Search this area',
+    'searchRadius': 'Search Radius',
+    'noFulfilledNeedsArea': 'No fulfilled needs in this area',
+    'noActiveNeedsArea': 'No active needs in this area',
+    'dragMapToPick': 'Drag the map to pick a different area, or expand the search radius',
+    'findingFulfilledNeeds': 'Finding fulfilled needs...',
+    'searchingNeeds': 'Searching needs...',
+    'tapToReadMore': 'Tap to read more',
+    'viewFullDetails': 'View Full Details',
+    'noFulfilledNeeds': 'No fulfilled needs',
+    'noActiveNeeds': 'No active needs',
     // Theme names
     'themeNamePaper': 'Paper',
     'themeNameMidnight': 'Midnight',
@@ -1692,6 +1709,23 @@ class S {
   String get rewardExhausted => _get('rewardExhausted');
   String get belowVerifiedPoints => _get('belowVerifiedPoints');
   String get insufficientBalance => _get('insufficientBalance');
+  // Explore on Map screen
+  String get fulfilled => _get('fulfilled');
+  String get exploreOnMap => _get('exploreOnMap');
+  String get searchCityOrArea => _get('searchCityOrArea');
+  String activeNeedsTab(int count) => _get('activeNeedsTab').replaceAll('{count}', '$count');
+  String fulfilledTab(int count) => _get('fulfilledTab').replaceAll('{count}', '$count');
+  String get searchThisArea => _get('searchThisArea');
+  String get searchRadius => _get('searchRadius');
+  String get noFulfilledNeedsArea => _get('noFulfilledNeedsArea');
+  String get noActiveNeedsArea => _get('noActiveNeedsArea');
+  String get dragMapToPick => _get('dragMapToPick');
+  String get findingFulfilledNeeds => _get('findingFulfilledNeeds');
+  String get searchingNeeds => _get('searchingNeeds');
+  String get tapToReadMore => _get('tapToReadMore');
+  String get viewFullDetails => _get('viewFullDetails');
+  String get noFulfilledNeeds => _get('noFulfilledNeeds');
+  String get noActiveNeeds => _get('noActiveNeeds');
   // Theme names
   String get themeNamePaper => _get('themeNamePaper');
   String get themeNameMidnight => _get('themeNameMidnight');
