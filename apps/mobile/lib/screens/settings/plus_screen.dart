@@ -68,7 +68,7 @@ class _PlusScreenState extends ConsumerState<PlusScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: t.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Cancel NeedHub Plus?',
+        title: Text(S.current.cancelNeedHubPlus,
             style: GoogleFonts.bricolageGrotesque(fontSize: 17, fontWeight: FontWeight.w800, color: t.ink)),
         content: Text(
           "You'll keep every Plus benefit until ${_status?.currentPeriodEnd != null ? _formatDate(_status!.currentPeriodEnd!) : 'your period ends'} — it just won't renew after that.",
@@ -77,11 +77,11 @@ class _PlusScreenState extends ConsumerState<PlusScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Keep Plus', style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w700, color: t.muted)),
+            child: Text(S.current.keepPlus, style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w700, color: t.muted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('Cancel renewal',
+            child: Text(S.current.cancelRenewal,
                 style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w700, color: NeedHubTokens.clay)),
           ),
         ],
@@ -182,7 +182,7 @@ class _PlusScreenState extends ConsumerState<PlusScreen> {
                           children: [
                             const Icon(Icons.star_rounded, color: Colors.white, size: 22),
                             const SizedBox(width: 8),
-                            Text(active ? "You're a Plus member" : 'Go NeedHub Plus',
+                            Text(active ? S.current.youreAPlusMember : S.current.goNeedHubPlus,
                                 style: GoogleFonts.bricolageGrotesque(
                                     fontSize: 19, fontWeight: FontWeight.w800, color: Colors.white)),
                           ],
@@ -191,9 +191,9 @@ class _PlusScreenState extends ConsumerState<PlusScreen> {
                         Text(
                           active
                               ? (_status?.cancelAtPeriodEnd ?? false)
-                                  ? 'Active until ${_status?.currentPeriodEnd != null ? _formatDate(_status!.currentPeriodEnd!) : '—'} (won\'t renew)'
-                                  : 'Renews ${_status?.currentPeriodEnd != null ? _formatDate(_status!.currentPeriodEnd!) : '—'}'
-                              : 'Boosted visibility, a premium badge, analytics and more — ₹${(_status?.priceMonthlyPaise ?? 5000) / 100}/month',
+                                  ? S.current.activeUntilDate(_status?.currentPeriodEnd != null ? _formatDate(_status!.currentPeriodEnd!) : '—')
+                                  : S.current.renewsOnDate(_status?.currentPeriodEnd != null ? _formatDate(_status!.currentPeriodEnd!) : '—')
+                              : S.current.plusSubtitleInactive(((_status?.priceMonthlyPaise ?? 5000) / 100).toStringAsFixed(0)),
                           style: GoogleFonts.hankenGrotesk(fontSize: 13, color: Colors.white.withValues(alpha: 0.92), height: 1.4),
                         ),
                         const SizedBox(height: 16),
@@ -209,7 +209,7 @@ class _PlusScreenState extends ConsumerState<PlusScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                             ),
                             child: Text(
-                              active ? (_status?.cancelAtPeriodEnd == true ? 'Renewal cancelled' : 'Manage subscription') : 'Subscribe — ₹${((_status?.priceMonthlyPaise ?? 5000) / 100).toStringAsFixed(0)}/mo',
+                              active ? (_status?.cancelAtPeriodEnd == true ? S.current.renewalCancelled : S.current.manageSubscription) : S.current.subscribePer(((_status?.priceMonthlyPaise ?? 5000) / 100).toStringAsFixed(0)),
                               style: GoogleFonts.hankenGrotesk(fontSize: 14, fontWeight: FontWeight.w700),
                             ),
                           ),
@@ -220,7 +220,7 @@ class _PlusScreenState extends ConsumerState<PlusScreen> {
                   const SizedBox(height: 24),
 
                   // ── Benefits ─────────────────────────────────────────────
-                  Text('BENEFITS',
+                  Text(S.current.plusBenefitsHeader,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 11, fontWeight: FontWeight.w700, color: t.muted2, letterSpacing: 0.7)),
                   const SizedBox(height: 10),
@@ -232,22 +232,22 @@ class _PlusScreenState extends ConsumerState<PlusScreen> {
                     ),
                     child: Column(
                       children: [
-                        _BenefitRow(icon: Icons.trending_up_rounded, label: 'Boosted visibility for your Needs', t: t),
+                        _BenefitRow(icon: Icons.trending_up_rounded, label: S.current.plusBenefit1, t: t),
                         Divider(color: t.rail, height: 1, indent: 50),
-                        _BenefitRow(icon: Icons.forum_rounded, label: 'Boosted ChitChat discovery', t: t),
+                        _BenefitRow(icon: Icons.forum_rounded, label: S.current.plusBenefit2, t: t),
                         Divider(color: t.rail, height: 1, indent: 50),
-                        _BenefitRow(icon: Icons.workspace_premium_rounded, label: 'Premium profile badge', t: t),
+                        _BenefitRow(icon: Icons.workspace_premium_rounded, label: S.current.plusBenefit3, t: t),
                         Divider(color: t.rail, height: 1, indent: 50),
                         _BenefitRow(
                           icon: Icons.bar_chart_rounded,
-                          label: 'Advanced analytics & AI posting insights',
+                          label: S.current.plusBenefit4,
                           t: t,
                           onTap: active ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PlusAnalyticsScreen())) : null,
                         ),
                         Divider(color: t.rail, height: 1, indent: 50),
-                        _BenefitRow(icon: Icons.rocket_launch_rounded, label: 'Early access to new features', t: t),
+                        _BenefitRow(icon: Icons.rocket_launch_rounded, label: S.current.plusBenefit5, t: t),
                         Divider(color: t.rail, height: 1, indent: 50),
-                        _BenefitRow(icon: Icons.support_agent_rounded, label: 'Priority support', t: t),
+                        _BenefitRow(icon: Icons.support_agent_rounded, label: S.current.plusBenefit6, t: t),
                       ],
                     ),
                   ),
@@ -255,7 +255,7 @@ class _PlusScreenState extends ConsumerState<PlusScreen> {
 
                   // ── Launch reward ────────────────────────────────────────
                   if (_rewards != null && _rewards!.offers.isNotEmpty) ...[
-                    Text('REWARDS',
+                    Text(S.current.plusRewardsHeader,
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 11, fontWeight: FontWeight.w700, color: t.muted2, letterSpacing: 0.7)),
                     const SizedBox(height: 10),
@@ -277,7 +277,7 @@ class _PlusScreenState extends ConsumerState<PlusScreen> {
 
                   // ── History ──────────────────────────────────────────────
                   if (_history.isNotEmpty) ...[
-                    Text('REDEMPTION HISTORY',
+                    Text(S.current.plusRedemptionHeader,
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 11, fontWeight: FontWeight.w700, color: t.muted2, letterSpacing: 0.7)),
                     const SizedBox(height: 10),

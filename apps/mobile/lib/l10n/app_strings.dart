@@ -735,6 +735,40 @@ class S {
     'failedToSubmitInquiry': 'Failed to submit inquiry. Please try again later.',
     'inquirySent': 'Inquiry Sent',
     'wellContactYouSoon': "We'll contact you soon!",
+    // Explore bell notifications sheet
+    'allQuietForNow': 'All quiet for now',
+    'notifyWhenResponds': "You'll be notified when someone responds to your needs or sends you a request",
+    'timeAgoNow': 'now',
+    // NeedHub Plus screen
+    'cancelNeedHubPlus': 'Cancel NeedHub Plus?',
+    'keepPlus': 'Keep Plus',
+    'cancelRenewal': 'Cancel renewal',
+    'youreAPlusMember': "You're a Plus member",
+    'goNeedHubPlus': 'Go NeedHub Plus',
+    'plusSubtitleInactive': 'Boosted visibility, a premium badge, analytics and more — ₹{price}/month',
+    'activeUntilDate': 'Active until {date} (won\'t renew)',
+    'renewsOnDate': 'Renews {date}',
+    'renewalCancelled': 'Renewal cancelled',
+    'manageSubscription': 'Manage subscription',
+    'subscribePer': 'Subscribe — ₹{price}/mo',
+    'plusBenefitsHeader': 'BENEFITS',
+    'plusRewardsHeader': 'REWARDS',
+    'plusRedemptionHeader': 'REDEMPTION HISTORY',
+    'plusBenefit1': 'Boosted visibility for your Needs',
+    'plusBenefit2': 'Boosted ChitChat discovery',
+    'plusBenefit3': 'Premium profile badge',
+    'plusBenefit4': 'Advanced analytics & AI posting insights',
+    'plusBenefit5': 'Early access to new features',
+    'plusBenefit6': 'Priority support',
+    // Theme names
+    'themeNamePaper': 'Paper',
+    'themeNameMidnight': 'Midnight',
+    'themeNameSage': 'Sage',
+    'themeNameLinen': 'Linen',
+    'themeNameSlate': 'Slate',
+    'themeNameBlush': 'Blush',
+    'themeNameSky': 'Sky',
+    'themeNamePlum': 'Plum',
   };
 
   static String _get(String key) {
@@ -1449,4 +1483,38 @@ class S {
   String get failedToSubmitInquiry => _get('failedToSubmitInquiry');
   String get inquirySent => _get('inquirySent');
   String get wellContactYouSoon => _get('wellContactYouSoon');
+  // Explore bell notifications sheet
+  String get allQuietForNow => _get('allQuietForNow');
+  String get notifyWhenResponds => _get('notifyWhenResponds');
+  String get timeAgoNow => _get('timeAgoNow');
+  // NeedHub Plus screen
+  String get cancelNeedHubPlus => _get('cancelNeedHubPlus');
+  String get keepPlus => _get('keepPlus');
+  String get cancelRenewal => _get('cancelRenewal');
+  String get youreAPlusMember => _get('youreAPlusMember');
+  String get goNeedHubPlus => _get('goNeedHubPlus');
+  String plusSubtitleInactive(String price) => _get('plusSubtitleInactive').replaceAll('{price}', price);
+  String activeUntilDate(String date) => _get('activeUntilDate').replaceAll('{date}', date);
+  String renewsOnDate(String date) => _get('renewsOnDate').replaceAll('{date}', date);
+  String get renewalCancelled => _get('renewalCancelled');
+  String get manageSubscription => _get('manageSubscription');
+  String subscribePer(String price) => _get('subscribePer').replaceAll('{price}', price);
+  String get plusBenefitsHeader => _get('plusBenefitsHeader');
+  String get plusRewardsHeader => _get('plusRewardsHeader');
+  String get plusRedemptionHeader => _get('plusRedemptionHeader');
+  String get plusBenefit1 => _get('plusBenefit1');
+  String get plusBenefit2 => _get('plusBenefit2');
+  String get plusBenefit3 => _get('plusBenefit3');
+  String get plusBenefit4 => _get('plusBenefit4');
+  String get plusBenefit5 => _get('plusBenefit5');
+  String get plusBenefit6 => _get('plusBenefit6');
+  // Theme names
+  String get themeNamePaper => _get('themeNamePaper');
+  String get themeNameMidnight => _get('themeNameMidnight');
+  String get themeNameSage => _get('themeNameSage');
+  String get themeNameLinen => _get('themeNameLinen');
+  String get themeNameSlate => _get('themeNameSlate');
+  String get themeNameBlush => _get('themeNameBlush');
+  String get themeNameSky => _get('themeNameSky');
+  String get themeNamePlum => _get('themeNamePlum');
 }
