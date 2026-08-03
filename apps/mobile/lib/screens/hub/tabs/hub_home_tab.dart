@@ -28,6 +28,13 @@ class HubHomeTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    return ValueListenableBuilder<String>(
+      valueListenable: uiLanguageNotifier,
+      builder: (context, _, __) => _build(context, ref),
+    );
+  }
+
+  Widget _build(BuildContext context, WidgetRef ref) {
     final t = context.tokens;
     final s = S.current;
     final auth = ref.watch(authProvider);

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/need.dart';
 import '../../services/social_providers.dart';
 import '../../services/profiles_api.dart';
@@ -58,6 +59,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
     _mapController = MapController();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
+    uiLanguageNotifier.addListener(_onLangChange);
 
     final me = myProfileNotifier.value;
     if (me != null && me.lat != null && me.lng != null) {
@@ -68,12 +70,17 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
     _fetchFulfilledNeeds();
   }
 
+  void _onLangChange() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
     _fetchDebounce?.cancel();
     _searchDebounce?.cancel();
     _emptyDismissTimer?.cancel();
     _tabController.removeListener(_onTabChanged);
+    uiLanguageNotifier.removeListener(_onLangChange);
     _tabController.dispose();
     _mapController.dispose();
     _pageController.dispose();
@@ -276,6 +283,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     final isFulfilledTab = _tabController.index == 1;
     final needs = _currentNeeds;
     final isLoading = _currentLoading;
@@ -339,7 +347,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Explore on Map',
+          s.exploreOnMap,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -439,7 +447,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                       });
                     },
                     decoration: InputDecoration(
-                      hintText: 'Search for a city or area...',
+                      hintText: s.searchCityOrArea,
                       hintStyle: GoogleFonts.hankenGrotesk(color: t.muted),
                       prefixIcon: Icon(Icons.search_rounded, color: t.muted),
                       suffixIcon: _isSearching
@@ -560,7 +568,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                       children: [
                         Icon(Icons.campaign_rounded, size: 16),
                         const SizedBox(width: 6),
-                        Text('Active Needs (${_activeNeeds.length})'),
+                        Text(s.activeNeedsTab(_activeNeeds.length)),
                       ],
                     ),
                   ),
@@ -570,7 +578,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                       children: [
                         Icon(Icons.check_circle_outline_rounded, size: 16),
                         const SizedBox(width: 6),
-                        Text('Fulfilled (${_fulfilledNeeds.length})'),
+                        Text(s.fulfilledTab(_fulfilledNeeds.length)),
                       ],
                     ),
                   ),
@@ -617,7 +625,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                         const Icon(Icons.refresh_rounded, size: 14, color: Colors.white),
                         const SizedBox(width: 6),
                         Text(
-                          'Search this area',
+                          s.searchThisArea,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -690,7 +698,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                                   color: NeedHubTokens.clay, size: 18),
                               const SizedBox(width: 6),
                               Text(
-                                'Search Radius',
+                                s.searchRadius,
                                 style: GoogleFonts.hankenGrotesk(
                                   fontWeight: FontWeight.w700,
                                   color: t.ink,
@@ -846,8 +854,8 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                                     const SizedBox(width: 3),
                                     Text(
                                       isFulfilledTab
-                                          ? 'Fulfilled'
-                                          : (isEarn ? 'Earn' : 'Connect'),
+                                          ? s.fulfilled
+                                          : (isEarn ? s.earn : s.connect),
                                       style: GoogleFonts.hankenGrotesk(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w700,
@@ -872,7 +880,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                           ),
                           const Spacer(),
                           Text(
-                            'Tap to read more',
+                            s.tapToReadMore,
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
@@ -963,8 +971,8 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                       const SizedBox(height: 10),
                       Text(
                         isFulfilledTab
-                            ? 'No fulfilled needs in this area'
-                            : 'No active needs in this area',
+                            ? s.noFulfilledNeedsArea
+                            : s.noActiveNeedsArea,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.bricolageGrotesque(
                           fontSize: 14,
@@ -974,7 +982,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Drag the map to pick a different area, or expand the search radius',
+                        s.dragMapToPick,
                         textAlign: TextAlign.center,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 11,
@@ -1018,7 +1026,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            isFulfilledTab ? 'No fulfilled needs' : 'No active needs',
+                            isFulfilledTab ? s.noFulfilledNeeds : s.noActiveNeeds,
                             style: GoogleFonts.hankenGrotesk(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -1056,8 +1064,8 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                   ),
                   child: Text(
                     isFulfilledTab
-                        ? 'Finding fulfilled needs...'
-                        : 'Searching needs...',
+                        ? s.findingFulfilledNeeds
+                        : s.searchingNeeds,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -1199,6 +1207,7 @@ class _NeedDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     final isEarn = need.category == 'earn';
     final isFulfilled = need.status.toUpperCase() == 'FULFILLED';
     final color = isFulfilled
@@ -1286,7 +1295,7 @@ class _NeedDetailSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14)),
                     elevation: 0,
                   ),
-                  child: Text('View Full Details',
+                  child: Text(s.viewFullDetails,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 14, fontWeight: FontWeight.w700)),
                 ),
