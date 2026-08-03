@@ -2892,7 +2892,7 @@ class _MyPostedNeedsSectionState extends ConsumerState<_MyPostedNeedsSection> {
             category: category,
             authorName: 'You',
             authorInitials: 'ME',
-            location: j['locationText'] as String? ?? 'Nearby',
+            location: j['locationText'] as String? ?? S.current.nearby,
             createdAt: createdIso != null ? (DateTime.tryParse(createdIso) ?? DateTime.now()) : DateTime.now(),
             budgetMin: (j['budgetMin'] as num?)?.toInt(),
             budgetMax: (j['budgetMax'] as num?)?.toInt(),

@@ -283,17 +283,30 @@ class _FeedTabState extends ConsumerState<FeedTab> {
 
   /// One Groq call to translate ALL need titles at once — eliminates the
   /// 20+ concurrent individual calls that were getting rate-limited.
-  Future<void> _batchTranslateFeed() async {
+  /// Only caches results that actually differ from the original (i.e. were
+  /// translated); leaves the rest uncached so a retry can pick them up.
+  Future<void> _batchTranslateFeed({int attempt = 0}) async {
     final lang = feedLanguageNotifier.value;
     if (lang == 'en') return;
     final needs = feedNeedsNotifier.value;
     final uncached = needs.where((n) => translationCache[n.id]?[lang] == null).toList();
     if (uncached.isEmpty) return;
-    final translated = await translateBatch(uncached.map((n) => n.title).toList(), lang);
+    final titles = uncached.map((n) => n.title).toList();
+    final translated = await translateBatch(titles, lang);
+    bool anyTranslated = false;
     for (int i = 0; i < uncached.length; i++) {
-      translationCache.putIfAbsent(uncached[i].id, () => {})[lang] = translated[i];
+      if (translated[i] != titles[i]) {
+        translationCache.putIfAbsent(uncached[i].id, () => {})[lang] = translated[i];
+        anyTranslated = true;
+      }
     }
-    if (mounted) setState(() {});
+    if (mounted && anyTranslated) setState(() {});
+    // If some titles still untranslated and we haven't retried yet, retry once after 4s
+    final stillUntranslated = needs.where((n) => translationCache[n.id]?[lang] == null).length;
+    if (stillUntranslated > 0 && attempt == 0) {
+      await Future.delayed(const Duration(seconds: 4));
+      if (mounted) _batchTranslateFeed(attempt: 1);
+    }
   }
 
   void _bump() {
@@ -1416,15 +1429,20 @@ class _TranslatedEarnCardState extends State<_TranslatedEarnCard> {
     }
   }
 
-  Future<void> _translate() async {
+  Future<void> _translate({int attempt = 0}) async {
     final lang = feedLanguageNotifier.value;
     if (lang == 'en') return;
     if (translationCache[widget.need.id]?[lang] != null) return;
     final translated = await translateText(widget.need.title, lang);
     if (!mounted) return;
-    translationCache[widget.need.id] ??= {};
-    translationCache[widget.need.id]![lang] = translated;
-    setState(() {});
+    if (translated != widget.need.title) {
+      translationCache[widget.need.id] ??= {};
+      translationCache[widget.need.id]![lang] = translated;
+      setState(() {});
+    } else if (attempt == 0) {
+      await Future.delayed(const Duration(seconds: 4));
+      if (mounted) _translate(attempt: 1);
+    }
   }
 
   @override
@@ -2307,7 +2325,7 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
 
   String _timeAgo(DateTime t) {
     final diff = DateTime.now().difference(t);
-    if (diff.inMinutes < 1) return 'now';
+    if (diff.inMinutes < 1) return S.current.timeAgoNow;
     if (diff.inMinutes < 60) return '${diff.inMinutes}m';
     if (diff.inHours < 24) return '${diff.inHours}h';
     return '${diff.inDays}d';
@@ -2340,14 +2358,14 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Text('Notifications',
+              Text(S.current.notificationsLabel,
                   style: GoogleFonts.bricolageGrotesque(
                       fontSize: 20, fontWeight: FontWeight.w800, color: t.ink)),
               const Spacer(),
               if (unreadCountNotifier.value > 0)
                 TextButton(
                   onPressed: _markAllRead,
-                  child: Text('Mark all read',
+                  child: Text(S.current.markAllRead,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -2360,13 +2378,12 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
             valueListenable: notificationsListNotifier,
             builder: (context, list, _) {
               if (list.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
                   child: NhEmptyState(
                     icon: Icons.notifications_none_rounded,
-                    title: 'All quiet for now',
-                    subtitle:
-                        "You'll be notified when someone responds to your needs or sends you a request",
+                    title: S.current.allQuietForNow,
+                    subtitle: S.current.notifyWhenResponds,
                   ),
                 );
               }
@@ -2650,7 +2667,7 @@ class _ChitChatRealCuboidalTile extends ConsumerWidget {
                     Text(
                       person.distanceLabel.isNotEmpty
                           ? person.distanceLabel
-                          : 'Nearby',
+                          : S.current.nearby,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11,
                         color: t.muted,

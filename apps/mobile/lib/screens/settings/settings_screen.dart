@@ -402,6 +402,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
 // ── Theme card ────────────────────────────────────────────────────────────────
 
+String _localizedThemeName(String key) {
+  switch (key) {
+    case 'paper': return S.current.themeNamePaper;
+    case 'midnight': return S.current.themeNameMidnight;
+    case 'sage': return S.current.themeNameSage;
+    case 'linen': return S.current.themeNameLinen;
+    case 'slate': return S.current.themeNameSlate;
+    case 'blush': return S.current.themeNameBlush;
+    case 'sky': return S.current.themeNameSky;
+    case 'plum': return S.current.themeNamePlum;
+    default: return key;
+  }
+}
+
 class _ThemeCard extends StatelessWidget {
   final NeedHubTokens tokens;
   final bool selected;
@@ -459,7 +473,7 @@ class _ThemeCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      tokens.displayName,
+                      _localizedThemeName(tokens.key),
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,

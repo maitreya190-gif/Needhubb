@@ -1,5 +1,6 @@
 import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
+import '../l10n/app_strings.dart';
 
 // Increment whenever mockNeeds or mockOffers changes so widgets can react.
 final needsNotifier = ValueNotifier<int>(0);
@@ -213,7 +214,7 @@ class Need {
   }
 
   String get distanceLabel {
-    if (distanceKm == null) return 'Nearby';
+    if (distanceKm == null) return S.current.nearby;
     if (distanceKm! < 1) return '${(distanceKm! * 1000).round()}m away';
     return '${distanceKm!.toStringAsFixed(1)}km away';
   }

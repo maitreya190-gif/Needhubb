@@ -633,6 +633,142 @@ class S {
     // Post need errors
     'profanityDetected': 'Profanity detected. Please revise your post.',
     'resendCode': 'Resend code',
+    // Need detail screen
+    'share': 'Share',
+    'renew': 'Renew',
+    'expired': 'Expired',
+    'accepted': 'Accepted',
+    'declined': 'Declined',
+    'frozen': 'Frozen',
+    'perJob': 'per job',
+    'deleteNeed': 'Delete Need',
+    'deleteNeedConfirm': 'This will permanently remove your need. Are you sure?',
+    'needRemoved': 'Need removed.',
+    'needDeletedSuccess': 'Need deleted successfully.',
+    'offersSection': 'OFFERS',
+    'publicOffers': 'Public Offers',
+    'noOffersYet': 'No offers yet',
+    'offersMadeByPeople': 'Offers made by people will appear here',
+    'feedbackAndRatings': 'FEEDBACK & RATINGS',
+    'noFeedbackYet': 'No feedback submitted yet.',
+    'rateAndGiveFeedbackBtn': 'Rate & Give Feedback to',
+    'vouchForSkillsBtn': 'Vouch for Skills',
+    'needAcceptedFrozen': 'Need Accepted & Frozen',
+    'editOfferedHelp': 'Edit Offered Help',
+    'editApplication': 'Edit Application',
+    'offerLocked': 'Offer Locked',
+    'applicationLocked': 'Application Locked',
+    'withdrawApplication': 'Withdraw Application',
+    'withdrawApplicationConfirm': 'Are you sure you want to withdraw your application?',
+    'applicationWithdrawn': 'Application withdrawn.',
+    'applicationWithdrawnSuccess': 'Application withdrawn successfully.',
+    'yourRateLabel': 'YOUR RATE (₹/hr)',
+    'introNote': 'INTRO NOTE',
+    'workSampleOptional': 'WORK SAMPLE (OPTIONAL)',
+    'workSampleSection': 'WORK SAMPLE',
+    'explainWhyGoodFit': 'Explain why you are a good fit for this task…',
+    'aiSuggest': 'AI Suggest',
+    'currentWorkSample': 'Current work sample',
+    'remove': 'Remove',
+    'workSampleAdded': 'Work sample added',
+    'addWorkSampleOptional': 'Add work sample (optional)',
+    'portfolioScreenshotOrFile': 'Portfolio, screenshot, or file',
+    'browse': 'Browse',
+    'sendOffer': 'Send offer',
+    'updateOffer': 'Update offer',
+    'offerSentTitle': 'Offer sent!',
+    'offerUpdatedTitle': 'Offer updated!',
+    'chatUnlocksWhenAccepted': 'Chat unlocks when the need owner accepts your offer.',
+    'offerDetailsUpdated': 'Your offer details have been updated.',
+    'editYourOffer': 'Edit your offer',
+    'applyToHelpTitle': 'Apply to help',
+    'rateAndGiveFeedback': 'Rate & Give Feedback',
+    'writeFeedbackHint': 'Write feedback (visible only to both of you)…',
+    'submitFeedbackAndRating': 'Submit Feedback & Rating',
+    'feedbackSubmittedSuccess': 'Feedback submitted!',
+    'editNeed': 'Edit Need',
+    'titleLabel': 'TITLE',
+    'descriptionLabel': 'DESCRIPTION',
+    'minBudgetRs': 'MIN BUDGET (₹)',
+    'maxBudgetRs': 'MAX BUDGET (₹)',
+    'peopleNeededLabel': 'PEOPLE NEEDED',
+    'numberOfPositions': 'Number of positions to fill',
+    'needUpdatedSuccess': 'Need updated successfully!',
+    'offerEditHistory': 'Offer edit history',
+    'offerHistory': 'Offer history',
+    'messageSent': 'Message sent!',
+    'introduceYourself': 'Introduce yourself…',
+    'sendMessage': 'Send message',
+    'updateMessage': 'Update message',
+    'applicationsEditWindow': 'Applications can be edited or withdrawn within 10 minutes',
+    'acceptAndFreezeNeed': 'Accept & Fully Freeze Need?',
+    'yesAcceptAndFreeze': 'Yes, accept & freeze',
+    'renewedNeedLive': 'Renewed! Your need is live again with a fresh deadline.',
+    'couldNotRenew': 'Could not renew right now. Please try again.',
+    'messageBlocked': 'Message blocked',
+    'messageBlockedDesc': 'Your message contains content that violates our community guidelines.',
+    'cantApplyOwnNeed': "You can't apply to your own need.",
+    'offerEditWindowExpired': 'Offers can only be edited for 10 minutes.',
+    'applicationEditWindowExpired': 'Applications can only be edited for 10 minutes.',
+    'needNoLongerAvailable': 'This need is no longer available.',
+    'sessionExpiredLogin': 'Session expired. Please log in again.',
+    'couldNotGenerateSuggestion': 'Could not generate suggestion. Try again.',
+    // Sort chips
+    'sortNewest': '⏱ Newest',
+    'sortHighestPrice': '💰 Highest ₹',
+    'sortLowestPrice': '🏷 Lowest ₹',
+    'sortNearest': '📍 Nearest',
+    'sortOldest': '⏳ Oldest',
+    // Ad card / inquiry sheet
+    'advertiseHere': 'Advertise Here',
+    'advertiseDesc': 'Reach thousands of users looking for help & services',
+    'getInTouch': 'Get in Touch  →',
+    'advertiseOnNeedHub': 'Advertise on NeedHub',
+    'adFormSubtitle': 'Fill in your details and we\'ll get back to you',
+    'adNameField': 'Name *',
+    'adPhoneField': 'Phone Number',
+    'adProductField': 'Product/Service *',
+    'adDetailsField': 'Additional details',
+    'submitInquiry': 'Submit Inquiry',
+    'nameAndProductRequired': 'Name and Product are required',
+    'pleaseProvideContact': 'Please provide an email or phone number',
+    'failedToSubmitInquiry': 'Failed to submit inquiry. Please try again later.',
+    'inquirySent': 'Inquiry Sent',
+    'wellContactYouSoon': "We'll contact you soon!",
+    // Explore bell notifications sheet
+    'allQuietForNow': 'All quiet for now',
+    'notifyWhenResponds': "You'll be notified when someone responds to your needs or sends you a request",
+    'timeAgoNow': 'now',
+    // NeedHub Plus screen
+    'cancelNeedHubPlus': 'Cancel NeedHub Plus?',
+    'keepPlus': 'Keep Plus',
+    'cancelRenewal': 'Cancel renewal',
+    'youreAPlusMember': "You're a Plus member",
+    'goNeedHubPlus': 'Go NeedHub Plus',
+    'plusSubtitleInactive': 'Boosted visibility, a premium badge, analytics and more — ₹{price}/month',
+    'activeUntilDate': 'Active until {date} (won\'t renew)',
+    'renewsOnDate': 'Renews {date}',
+    'renewalCancelled': 'Renewal cancelled',
+    'manageSubscription': 'Manage subscription',
+    'subscribePer': 'Subscribe — ₹{price}/mo',
+    'plusBenefitsHeader': 'BENEFITS',
+    'plusRewardsHeader': 'REWARDS',
+    'plusRedemptionHeader': 'REDEMPTION HISTORY',
+    'plusBenefit1': 'Boosted visibility for your Needs',
+    'plusBenefit2': 'Boosted ChitChat discovery',
+    'plusBenefit3': 'Premium profile badge',
+    'plusBenefit4': 'Advanced analytics & AI posting insights',
+    'plusBenefit5': 'Early access to new features',
+    'plusBenefit6': 'Priority support',
+    // Theme names
+    'themeNamePaper': 'Paper',
+    'themeNameMidnight': 'Midnight',
+    'themeNameSage': 'Sage',
+    'themeNameLinen': 'Linen',
+    'themeNameSlate': 'Slate',
+    'themeNameBlush': 'Blush',
+    'themeNameSky': 'Sky',
+    'themeNamePlum': 'Plum',
   };
 
   static String _get(String key) {
@@ -1244,4 +1380,141 @@ class S {
   String get imageOptional => _get('imageOptional');
   String get chooseImageOptional => _get('chooseImageOptional');
   String get achievementSubmittedForReview => _get('achievementSubmittedForReview');
+
+  // Need detail screen
+  String get share => _get('share');
+  String get renew => _get('renew');
+  String get expired => _get('expired');
+  String get accepted => _get('accepted');
+  String get declined => _get('declined');
+  String get frozen => _get('frozen');
+  String get perJob => _get('perJob');
+  String get deleteNeed => _get('deleteNeed');
+  String get deleteNeedConfirm => _get('deleteNeedConfirm');
+  String get needRemoved => _get('needRemoved');
+  String get needDeletedSuccess => _get('needDeletedSuccess');
+  String get offersSection => _get('offersSection');
+  String get publicOffers => _get('publicOffers');
+  String get noOffersYet => _get('noOffersYet');
+  String get offersMadeByPeople => _get('offersMadeByPeople');
+  String get feedbackAndRatings => _get('feedbackAndRatings');
+  String get noFeedbackYet => _get('noFeedbackYet');
+  String get rateAndGiveFeedbackBtn => _get('rateAndGiveFeedbackBtn');
+  String get vouchForSkillsBtn => _get('vouchForSkillsBtn');
+  String get needAcceptedFrozen => _get('needAcceptedFrozen');
+  String get editOfferedHelp => _get('editOfferedHelp');
+  String get editApplication => _get('editApplication');
+  String get offerLocked => _get('offerLocked');
+  String get applicationLocked => _get('applicationLocked');
+  String get withdrawApplication => _get('withdrawApplication');
+  String get withdrawApplicationConfirm => _get('withdrawApplicationConfirm');
+  String get applicationWithdrawn => _get('applicationWithdrawn');
+  String get applicationWithdrawnSuccess => _get('applicationWithdrawnSuccess');
+  String get yourRateLabel => _get('yourRateLabel');
+  String get introNote => _get('introNote');
+  String get workSampleOptional => _get('workSampleOptional');
+  String get workSampleSection => _get('workSampleSection');
+  String get explainWhyGoodFit => _get('explainWhyGoodFit');
+  String get aiSuggest => _get('aiSuggest');
+  String get currentWorkSample => _get('currentWorkSample');
+  String get remove => _get('remove');
+  String get workSampleAdded => _get('workSampleAdded');
+  String get addWorkSampleOptional => _get('addWorkSampleOptional');
+  String get portfolioScreenshotOrFile => _get('portfolioScreenshotOrFile');
+  String get browse => _get('browse');
+  String get sendOffer => _get('sendOffer');
+  String get updateOffer => _get('updateOffer');
+  String get offerSentTitle => _get('offerSentTitle');
+  String get offerUpdatedTitle => _get('offerUpdatedTitle');
+  String get chatUnlocksWhenAccepted => _get('chatUnlocksWhenAccepted');
+  String get offerDetailsUpdated => _get('offerDetailsUpdated');
+  String get editYourOffer => _get('editYourOffer');
+  String get applyToHelpTitle => _get('applyToHelpTitle');
+  String get rateAndGiveFeedback => _get('rateAndGiveFeedback');
+  String get writeFeedbackHint => _get('writeFeedbackHint');
+  String get submitFeedbackAndRating => _get('submitFeedbackAndRating');
+  String get feedbackSubmittedSuccess => _get('feedbackSubmittedSuccess');
+  String get editNeed => _get('editNeed');
+  String get titleLabel => _get('titleLabel');
+  String get descriptionLabel => _get('descriptionLabel');
+  String get minBudgetRs => _get('minBudgetRs');
+  String get maxBudgetRs => _get('maxBudgetRs');
+  String get peopleNeededLabel => _get('peopleNeededLabel');
+  String get numberOfPositions => _get('numberOfPositions');
+  String get needUpdatedSuccess => _get('needUpdatedSuccess');
+  String get offerEditHistory => _get('offerEditHistory');
+  String get offerHistory => _get('offerHistory');
+  String get messageSent => _get('messageSent');
+  String get introduceYourself => _get('introduceYourself');
+  String get sendMessage => _get('sendMessage');
+  String get updateMessage => _get('updateMessage');
+  String get applicationsEditWindow => _get('applicationsEditWindow');
+  String get acceptAndFreezeNeed => _get('acceptAndFreezeNeed');
+  String get yesAcceptAndFreeze => _get('yesAcceptAndFreeze');
+  String get renewedNeedLive => _get('renewedNeedLive');
+  String get couldNotRenew => _get('couldNotRenew');
+  String get messageBlocked => _get('messageBlocked');
+  String get messageBlockedDesc => _get('messageBlockedDesc');
+  String get cantApplyOwnNeed => _get('cantApplyOwnNeed');
+  String get offerEditWindowExpired => _get('offerEditWindowExpired');
+  String get applicationEditWindowExpired => _get('applicationEditWindowExpired');
+  String get needNoLongerAvailable => _get('needNoLongerAvailable');
+  String get sessionExpiredLogin => _get('sessionExpiredLogin');
+  String get couldNotGenerateSuggestion => _get('couldNotGenerateSuggestion');
+  // Sort chips
+  String get sortNewest => _get('sortNewest');
+  String get sortHighestPrice => _get('sortHighestPrice');
+  String get sortLowestPrice => _get('sortLowestPrice');
+  String get sortNearest => _get('sortNearest');
+  String get sortOldest => _get('sortOldest');
+  // Ad card / inquiry sheet
+  String get advertiseHere => _get('advertiseHere');
+  String get advertiseDesc => _get('advertiseDesc');
+  String get getInTouch => _get('getInTouch');
+  String get advertiseOnNeedHub => _get('advertiseOnNeedHub');
+  String get adFormSubtitle => _get('adFormSubtitle');
+  String get adNameField => _get('adNameField');
+  String get adPhoneField => _get('adPhoneField');
+  String get adProductField => _get('adProductField');
+  String get adDetailsField => _get('adDetailsField');
+  String get submitInquiry => _get('submitInquiry');
+  String get nameAndProductRequired => _get('nameAndProductRequired');
+  String get pleaseProvideContact => _get('pleaseProvideContact');
+  String get failedToSubmitInquiry => _get('failedToSubmitInquiry');
+  String get inquirySent => _get('inquirySent');
+  String get wellContactYouSoon => _get('wellContactYouSoon');
+  // Explore bell notifications sheet
+  String get allQuietForNow => _get('allQuietForNow');
+  String get notifyWhenResponds => _get('notifyWhenResponds');
+  String get timeAgoNow => _get('timeAgoNow');
+  // NeedHub Plus screen
+  String get cancelNeedHubPlus => _get('cancelNeedHubPlus');
+  String get keepPlus => _get('keepPlus');
+  String get cancelRenewal => _get('cancelRenewal');
+  String get youreAPlusMember => _get('youreAPlusMember');
+  String get goNeedHubPlus => _get('goNeedHubPlus');
+  String plusSubtitleInactive(String price) => _get('plusSubtitleInactive').replaceAll('{price}', price);
+  String activeUntilDate(String date) => _get('activeUntilDate').replaceAll('{date}', date);
+  String renewsOnDate(String date) => _get('renewsOnDate').replaceAll('{date}', date);
+  String get renewalCancelled => _get('renewalCancelled');
+  String get manageSubscription => _get('manageSubscription');
+  String subscribePer(String price) => _get('subscribePer').replaceAll('{price}', price);
+  String get plusBenefitsHeader => _get('plusBenefitsHeader');
+  String get plusRewardsHeader => _get('plusRewardsHeader');
+  String get plusRedemptionHeader => _get('plusRedemptionHeader');
+  String get plusBenefit1 => _get('plusBenefit1');
+  String get plusBenefit2 => _get('plusBenefit2');
+  String get plusBenefit3 => _get('plusBenefit3');
+  String get plusBenefit4 => _get('plusBenefit4');
+  String get plusBenefit5 => _get('plusBenefit5');
+  String get plusBenefit6 => _get('plusBenefit6');
+  // Theme names
+  String get themeNamePaper => _get('themeNamePaper');
+  String get themeNameMidnight => _get('themeNameMidnight');
+  String get themeNameSage => _get('themeNameSage');
+  String get themeNameLinen => _get('themeNameLinen');
+  String get themeNameSlate => _get('themeNameSlate');
+  String get themeNameBlush => _get('themeNameBlush');
+  String get themeNameSky => _get('themeNameSky');
+  String get themeNamePlum => _get('themeNamePlum');
 }

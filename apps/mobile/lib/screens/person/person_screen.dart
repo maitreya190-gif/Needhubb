@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/app_strings.dart';
 import '../../models/person.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
@@ -150,7 +151,7 @@ class _PersonScreenState extends ConsumerState<PersonScreen> {
       initials: _initialsOf(m.displayName),
       avatarColor: color,
       avatarUrl: m.avatarUrl,
-      location: m.locationText ?? 'Nearby',
+      location: m.locationText ?? S.current.nearby,
       distanceKm: 0,
       interests: m.interestLabels,
       skills: m.skillLabels,
