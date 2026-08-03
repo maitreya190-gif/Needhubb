@@ -1,4 +1,5 @@
 import { Router, type IRouter } from 'express'
+import { config } from '../../config'
 import { z } from 'zod'
 import multer from 'multer'
 import { Prisma, type NeedType, type EarnCategory, type ConnectCategory, type ReportTargetType } from '@prisma/client'
@@ -39,6 +40,39 @@ import { uploadFile, storageKey } from '../../lib/storage'
 
 export const needsRouter: IRouter = Router()
 const RESPONSE_EDIT_WINDOW_MS = 10 * 60 * 1000
+
+const LANG_NAMES: Record<string, string> = {
+  hi: 'Hindi', mr: 'Marathi', bn: 'Bengali', te: 'Telugu',
+  ta: 'Tamil', gu: 'Gujarati', kn: 'Kannada',
+}
+
+async function translateSuggestion(text: string, lang: string): Promise<string> {
+  const langName = LANG_NAMES[lang]
+  if (!langName) return text
+  const baseUrl = process.env.LLM_BASE_URL
+  const key = config.llmApiKey2 || config.llmApiKey
+  const model = config.translateModel
+  if (!baseUrl || !key || !model) return text
+  try {
+    const r = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        temperature: 0.1,
+        messages: [
+          { role: 'system', content: `You are a translator. Translate the user's text to ${langName}. Return ONLY the translated text — no explanations, no quotes, no markdown.` },
+          { role: 'user', content: text.slice(0, 3000) },
+        ],
+      }),
+    })
+    if (r.ok) {
+      const data = (await r.json()) as { choices?: { message?: { content?: string } }[] }
+      return data.choices?.[0]?.message?.content?.trim() || text
+    }
+  } catch { /* fall through */ }
+  return text
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1206,7 +1240,12 @@ needsRouter.post('/:id/suggest-response', authenticate, async (req, res, next) =
       responderInterests: profile?.interests.map((i) => i.interest.label) ?? [],
     })
 
-    res.json({ suggestion: result.suggestion, poweredBy: result.poweredBy })
+    const lang = (req.body as { lang?: string }).lang
+    const suggestion = lang && lang !== 'en'
+      ? await translateSuggestion(result.suggestion, lang)
+      : result.suggestion
+
+    res.json({ suggestion, poweredBy: result.poweredBy })
   } catch (err) { next(err) }
 })
 

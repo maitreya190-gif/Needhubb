@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/app_strings.dart';
 import '../theme/tokens.dart';
 import 'nh_ad_inquiry_sheet.dart';
 
@@ -71,7 +72,7 @@ class NhAdCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Advertise Here',
+                              S.current.advertiseHere,
                               style: GoogleFonts.bricolageGrotesque(
                                 fontSize: 17, fontWeight: FontWeight.w800,
                                 color: t.ink,
@@ -79,7 +80,7 @@ class NhAdCard extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Reach thousands of users in your area. Promote your product or service on NeedHub.',
+                              S.current.advertiseDesc,
                               style: GoogleFonts.hankenGrotesk(
                                 fontSize: 13, color: t.muted2, height: 1.4,
                               ),
@@ -114,7 +115,7 @@ class NhAdCard extends StatelessWidget {
                     ),
                     child: Center(
                       child: Text(
-                        'Get in Touch  →',
+                        S.current.getInTouch,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 14, fontWeight: FontWeight.w700,
                           color: Colors.white,

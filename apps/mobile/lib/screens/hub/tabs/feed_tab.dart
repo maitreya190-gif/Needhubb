@@ -2340,14 +2340,14 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
           const SizedBox(height: 16),
           Row(
             children: [
-              Text('Notifications',
+              Text(S.current.notificationsLabel,
                   style: GoogleFonts.bricolageGrotesque(
                       fontSize: 20, fontWeight: FontWeight.w800, color: t.ink)),
               const Spacer(),
               if (unreadCountNotifier.value > 0)
                 TextButton(
                   onPressed: _markAllRead,
-                  child: Text('Mark all read',
+                  child: Text(S.current.markAllRead,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -2650,7 +2650,7 @@ class _ChitChatRealCuboidalTile extends ConsumerWidget {
                     Text(
                       person.distanceLabel.isNotEmpty
                           ? person.distanceLabel
-                          : 'Nearby',
+                          : S.current.nearby,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11,
                         color: t.muted,

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../l10n/app_strings.dart';
 import '../models/need.dart';
 import 'api_client.dart';
 
@@ -158,7 +159,7 @@ Need _needFromJson(Map<String, dynamic> j) {
     category: category,
     authorName: name,
     authorInitials: initials,
-    location: j['locationText'] as String? ?? 'Nearby',
+    location: j['locationText'] as String? ?? S.current.nearby,
     distanceKm: distance,
     createdAt: createdAt,
     budgetMin: (j['budgetMin'] as num?)?.toInt(),

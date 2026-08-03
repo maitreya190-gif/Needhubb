@@ -633,6 +633,108 @@ class S {
     // Post need errors
     'profanityDetected': 'Profanity detected. Please revise your post.',
     'resendCode': 'Resend code',
+    // Need detail screen
+    'share': 'Share',
+    'renew': 'Renew',
+    'expired': 'Expired',
+    'accepted': 'Accepted',
+    'declined': 'Declined',
+    'frozen': 'Frozen',
+    'perJob': 'per job',
+    'deleteNeed': 'Delete Need',
+    'deleteNeedConfirm': 'This will permanently remove your need. Are you sure?',
+    'needRemoved': 'Need removed.',
+    'needDeletedSuccess': 'Need deleted successfully.',
+    'offersSection': 'OFFERS',
+    'publicOffers': 'Public Offers',
+    'noOffersYet': 'No offers yet',
+    'offersMadeByPeople': 'Offers made by people will appear here',
+    'feedbackAndRatings': 'FEEDBACK & RATINGS',
+    'noFeedbackYet': 'No feedback submitted yet.',
+    'rateAndGiveFeedbackBtn': 'Rate & Give Feedback to',
+    'vouchForSkillsBtn': 'Vouch for Skills',
+    'needAcceptedFrozen': 'Need Accepted & Frozen',
+    'editOfferedHelp': 'Edit Offered Help',
+    'editApplication': 'Edit Application',
+    'offerLocked': 'Offer Locked',
+    'applicationLocked': 'Application Locked',
+    'withdrawApplication': 'Withdraw Application',
+    'withdrawApplicationConfirm': 'Are you sure you want to withdraw your application?',
+    'applicationWithdrawn': 'Application withdrawn.',
+    'applicationWithdrawnSuccess': 'Application withdrawn successfully.',
+    'yourRateLabel': 'YOUR RATE (₹/hr)',
+    'introNote': 'INTRO NOTE',
+    'workSampleOptional': 'WORK SAMPLE (OPTIONAL)',
+    'workSampleSection': 'WORK SAMPLE',
+    'explainWhyGoodFit': 'Explain why you are a good fit for this task…',
+    'aiSuggest': 'AI Suggest',
+    'currentWorkSample': 'Current work sample',
+    'remove': 'Remove',
+    'workSampleAdded': 'Work sample added',
+    'addWorkSampleOptional': 'Add work sample (optional)',
+    'portfolioScreenshotOrFile': 'Portfolio, screenshot, or file',
+    'browse': 'Browse',
+    'sendOffer': 'Send offer',
+    'updateOffer': 'Update offer',
+    'offerSentTitle': 'Offer sent!',
+    'offerUpdatedTitle': 'Offer updated!',
+    'chatUnlocksWhenAccepted': 'Chat unlocks when the need owner accepts your offer.',
+    'offerDetailsUpdated': 'Your offer details have been updated.',
+    'editYourOffer': 'Edit your offer',
+    'applyToHelpTitle': 'Apply to help',
+    'rateAndGiveFeedback': 'Rate & Give Feedback',
+    'writeFeedbackHint': 'Write feedback (visible only to both of you)…',
+    'submitFeedbackAndRating': 'Submit Feedback & Rating',
+    'feedbackSubmittedSuccess': 'Feedback submitted!',
+    'editNeed': 'Edit Need',
+    'titleLabel': 'TITLE',
+    'descriptionLabel': 'DESCRIPTION',
+    'minBudgetRs': 'MIN BUDGET (₹)',
+    'maxBudgetRs': 'MAX BUDGET (₹)',
+    'peopleNeededLabel': 'PEOPLE NEEDED',
+    'numberOfPositions': 'Number of positions to fill',
+    'needUpdatedSuccess': 'Need updated successfully!',
+    'offerEditHistory': 'Offer edit history',
+    'offerHistory': 'Offer history',
+    'messageSent': 'Message sent!',
+    'introduceYourself': 'Introduce yourself…',
+    'sendMessage': 'Send message',
+    'updateMessage': 'Update message',
+    'applicationsEditWindow': 'Applications can be edited or withdrawn within 10 minutes',
+    'acceptAndFreezeNeed': 'Accept & Fully Freeze Need?',
+    'yesAcceptAndFreeze': 'Yes, accept & freeze',
+    'renewedNeedLive': 'Renewed! Your need is live again with a fresh deadline.',
+    'couldNotRenew': 'Could not renew right now. Please try again.',
+    'messageBlocked': 'Message blocked',
+    'messageBlockedDesc': 'Your message contains content that violates our community guidelines.',
+    'cantApplyOwnNeed': "You can't apply to your own need.",
+    'offerEditWindowExpired': 'Offers can only be edited for 10 minutes.',
+    'applicationEditWindowExpired': 'Applications can only be edited for 10 minutes.',
+    'needNoLongerAvailable': 'This need is no longer available.',
+    'sessionExpiredLogin': 'Session expired. Please log in again.',
+    'couldNotGenerateSuggestion': 'Could not generate suggestion. Try again.',
+    // Sort chips
+    'sortNewest': '⏱ Newest',
+    'sortHighestPrice': '💰 Highest ₹',
+    'sortLowestPrice': '🏷 Lowest ₹',
+    'sortNearest': '📍 Nearest',
+    'sortOldest': '⏳ Oldest',
+    // Ad card / inquiry sheet
+    'advertiseHere': 'Advertise Here',
+    'advertiseDesc': 'Reach thousands of users looking for help & services',
+    'getInTouch': 'Get in Touch  →',
+    'advertiseOnNeedHub': 'Advertise on NeedHub',
+    'adFormSubtitle': 'Fill in your details and we\'ll get back to you',
+    'adNameField': 'Name *',
+    'adPhoneField': 'Phone Number',
+    'adProductField': 'Product/Service *',
+    'adDetailsField': 'Additional details',
+    'submitInquiry': 'Submit Inquiry',
+    'nameAndProductRequired': 'Name and Product are required',
+    'pleaseProvideContact': 'Please provide an email or phone number',
+    'failedToSubmitInquiry': 'Failed to submit inquiry. Please try again later.',
+    'inquirySent': 'Inquiry Sent',
+    'wellContactYouSoon': "We'll contact you soon!",
   };
 
   static String _get(String key) {
@@ -1244,4 +1346,107 @@ class S {
   String get imageOptional => _get('imageOptional');
   String get chooseImageOptional => _get('chooseImageOptional');
   String get achievementSubmittedForReview => _get('achievementSubmittedForReview');
+
+  // Need detail screen
+  String get share => _get('share');
+  String get renew => _get('renew');
+  String get expired => _get('expired');
+  String get accepted => _get('accepted');
+  String get declined => _get('declined');
+  String get frozen => _get('frozen');
+  String get perJob => _get('perJob');
+  String get deleteNeed => _get('deleteNeed');
+  String get deleteNeedConfirm => _get('deleteNeedConfirm');
+  String get needRemoved => _get('needRemoved');
+  String get needDeletedSuccess => _get('needDeletedSuccess');
+  String get offersSection => _get('offersSection');
+  String get publicOffers => _get('publicOffers');
+  String get noOffersYet => _get('noOffersYet');
+  String get offersMadeByPeople => _get('offersMadeByPeople');
+  String get feedbackAndRatings => _get('feedbackAndRatings');
+  String get noFeedbackYet => _get('noFeedbackYet');
+  String get rateAndGiveFeedbackBtn => _get('rateAndGiveFeedbackBtn');
+  String get vouchForSkillsBtn => _get('vouchForSkillsBtn');
+  String get needAcceptedFrozen => _get('needAcceptedFrozen');
+  String get editOfferedHelp => _get('editOfferedHelp');
+  String get editApplication => _get('editApplication');
+  String get offerLocked => _get('offerLocked');
+  String get applicationLocked => _get('applicationLocked');
+  String get withdrawApplication => _get('withdrawApplication');
+  String get withdrawApplicationConfirm => _get('withdrawApplicationConfirm');
+  String get applicationWithdrawn => _get('applicationWithdrawn');
+  String get applicationWithdrawnSuccess => _get('applicationWithdrawnSuccess');
+  String get yourRateLabel => _get('yourRateLabel');
+  String get introNote => _get('introNote');
+  String get workSampleOptional => _get('workSampleOptional');
+  String get workSampleSection => _get('workSampleSection');
+  String get explainWhyGoodFit => _get('explainWhyGoodFit');
+  String get aiSuggest => _get('aiSuggest');
+  String get currentWorkSample => _get('currentWorkSample');
+  String get remove => _get('remove');
+  String get workSampleAdded => _get('workSampleAdded');
+  String get addWorkSampleOptional => _get('addWorkSampleOptional');
+  String get portfolioScreenshotOrFile => _get('portfolioScreenshotOrFile');
+  String get browse => _get('browse');
+  String get sendOffer => _get('sendOffer');
+  String get updateOffer => _get('updateOffer');
+  String get offerSentTitle => _get('offerSentTitle');
+  String get offerUpdatedTitle => _get('offerUpdatedTitle');
+  String get chatUnlocksWhenAccepted => _get('chatUnlocksWhenAccepted');
+  String get offerDetailsUpdated => _get('offerDetailsUpdated');
+  String get editYourOffer => _get('editYourOffer');
+  String get applyToHelpTitle => _get('applyToHelpTitle');
+  String get rateAndGiveFeedback => _get('rateAndGiveFeedback');
+  String get writeFeedbackHint => _get('writeFeedbackHint');
+  String get submitFeedbackAndRating => _get('submitFeedbackAndRating');
+  String get feedbackSubmittedSuccess => _get('feedbackSubmittedSuccess');
+  String get editNeed => _get('editNeed');
+  String get titleLabel => _get('titleLabel');
+  String get descriptionLabel => _get('descriptionLabel');
+  String get minBudgetRs => _get('minBudgetRs');
+  String get maxBudgetRs => _get('maxBudgetRs');
+  String get peopleNeededLabel => _get('peopleNeededLabel');
+  String get numberOfPositions => _get('numberOfPositions');
+  String get needUpdatedSuccess => _get('needUpdatedSuccess');
+  String get offerEditHistory => _get('offerEditHistory');
+  String get offerHistory => _get('offerHistory');
+  String get messageSent => _get('messageSent');
+  String get introduceYourself => _get('introduceYourself');
+  String get sendMessage => _get('sendMessage');
+  String get updateMessage => _get('updateMessage');
+  String get applicationsEditWindow => _get('applicationsEditWindow');
+  String get acceptAndFreezeNeed => _get('acceptAndFreezeNeed');
+  String get yesAcceptAndFreeze => _get('yesAcceptAndFreeze');
+  String get renewedNeedLive => _get('renewedNeedLive');
+  String get couldNotRenew => _get('couldNotRenew');
+  String get messageBlocked => _get('messageBlocked');
+  String get messageBlockedDesc => _get('messageBlockedDesc');
+  String get cantApplyOwnNeed => _get('cantApplyOwnNeed');
+  String get offerEditWindowExpired => _get('offerEditWindowExpired');
+  String get applicationEditWindowExpired => _get('applicationEditWindowExpired');
+  String get needNoLongerAvailable => _get('needNoLongerAvailable');
+  String get sessionExpiredLogin => _get('sessionExpiredLogin');
+  String get couldNotGenerateSuggestion => _get('couldNotGenerateSuggestion');
+  // Sort chips
+  String get sortNewest => _get('sortNewest');
+  String get sortHighestPrice => _get('sortHighestPrice');
+  String get sortLowestPrice => _get('sortLowestPrice');
+  String get sortNearest => _get('sortNearest');
+  String get sortOldest => _get('sortOldest');
+  // Ad card / inquiry sheet
+  String get advertiseHere => _get('advertiseHere');
+  String get advertiseDesc => _get('advertiseDesc');
+  String get getInTouch => _get('getInTouch');
+  String get advertiseOnNeedHub => _get('advertiseOnNeedHub');
+  String get adFormSubtitle => _get('adFormSubtitle');
+  String get adNameField => _get('adNameField');
+  String get adPhoneField => _get('adPhoneField');
+  String get adProductField => _get('adProductField');
+  String get adDetailsField => _get('adDetailsField');
+  String get submitInquiry => _get('submitInquiry');
+  String get nameAndProductRequired => _get('nameAndProductRequired');
+  String get pleaseProvideContact => _get('pleaseProvideContact');
+  String get failedToSubmitInquiry => _get('failedToSubmitInquiry');
+  String get inquirySent => _get('inquirySent');
+  String get wellContactYouSoon => _get('wellContactYouSoon');
 }

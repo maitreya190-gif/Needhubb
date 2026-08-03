@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/app_strings.dart';
 import '../services/api_client.dart';
 import '../services/ads_api.dart';
 import '../theme/tokens.dart';
@@ -41,7 +42,7 @@ class _NhAdInquirySheetState extends State<NhAdInquirySheet> {
     if (name.isEmpty || product.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Name and Product are required', style: GoogleFonts.hankenGrotesk()),
+          content: Text(S.current.nameAndProductRequired, style: GoogleFonts.hankenGrotesk()),
           backgroundColor: Colors.red.shade800,
         )
       );
@@ -50,7 +51,7 @@ class _NhAdInquirySheetState extends State<NhAdInquirySheet> {
     if (email.isEmpty && phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please provide an email or phone number', style: GoogleFonts.hankenGrotesk()),
+          content: Text(S.current.pleaseProvideContact, style: GoogleFonts.hankenGrotesk()),
           backgroundColor: Colors.red.shade800,
         )
       );
@@ -79,7 +80,7 @@ class _NhAdInquirySheetState extends State<NhAdInquirySheet> {
         setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to submit inquiry. Please try again later.', style: GoogleFonts.hankenGrotesk()),
+            content: Text(S.current.failedToSubmitInquiry, style: GoogleFonts.hankenGrotesk()),
             backgroundColor: Colors.red.shade800,
           )
         );
@@ -121,7 +122,7 @@ class _NhAdInquirySheetState extends State<NhAdInquirySheet> {
           const SizedBox(height: 20),
           
           Text(
-            'Advertise on NeedHub',
+            S.current.advertiseOnNeedHub,
             style: GoogleFonts.bricolageGrotesque(
               fontSize: 20,
               fontWeight: FontWeight.w800,
@@ -130,20 +131,20 @@ class _NhAdInquirySheetState extends State<NhAdInquirySheet> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Fill in your details and we\'ll get back to you',
+            S.current.adFormSubtitle,
             style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
           ),
           const SizedBox(height: 20),
           
-          _buildTextField(t, 'Name *', _nameController),
+          _buildTextField(t, S.current.adNameField, _nameController),
           const SizedBox(height: 12),
-          _buildTextField(t, 'Email', _emailController),
+          _buildTextField(t, S.current.email, _emailController),
           const SizedBox(height: 12),
-          _buildTextField(t, 'Phone Number', _phoneController),
+          _buildTextField(t, S.current.adPhoneField, _phoneController),
           const SizedBox(height: 12),
-          _buildTextField(t, 'Product/Service *', _productController),
+          _buildTextField(t, S.current.adProductField, _productController),
           const SizedBox(height: 12),
-          _buildTextField(t, 'Additional details', _messageController, maxLines: 3),
+          _buildTextField(t, S.current.adDetailsField, _messageController, maxLines: 3),
           
           const SizedBox(height: 24),
           SizedBox(
@@ -165,7 +166,7 @@ class _NhAdInquirySheetState extends State<NhAdInquirySheet> {
                       width: 24, height: 24, 
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)
                     )
-                  : const Text('Submit Inquiry'),
+                  : Text(S.current.submitInquiry),
             ),
           ),
         ],
@@ -212,7 +213,7 @@ class _NhAdInquirySheetState extends State<NhAdInquirySheet> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Inquiry Sent',
+          S.current.inquirySent,
           style: GoogleFonts.bricolageGrotesque(
             fontSize: 22,
             fontWeight: FontWeight.w800,
@@ -221,7 +222,7 @@ class _NhAdInquirySheetState extends State<NhAdInquirySheet> {
         ),
         const SizedBox(height: 6),
         Text(
-          'We\'ll contact you soon!',
+          S.current.wellContactYouSoon,
           style: GoogleFonts.hankenGrotesk(
             fontSize: 14,
             color: t.muted,
@@ -235,7 +236,7 @@ class _NhAdInquirySheetState extends State<NhAdInquirySheet> {
           height: 48,
           child: OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Done',
+            child: Text(S.current.done,
                 style: GoogleFonts.hankenGrotesk(
                     fontSize: 15, fontWeight: FontWeight.w600)),
           ),

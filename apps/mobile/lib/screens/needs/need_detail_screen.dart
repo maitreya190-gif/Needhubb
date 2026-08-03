@@ -93,6 +93,8 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   late Need _currentNeed;
   String? _translatedTitle;
   String? _translatedDesc;
+  bool _showingOriginal = false;
+  bool _translatingContent = false;
 
   Need get need => _currentNeed;
   List<_OfferData> _realOffers = const [];
@@ -181,16 +183,16 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
         'deadline': deadline.toIso8601String(),
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Renewed! Your need is live again with a fresh deadline.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(S.current.renewedNeedLive),
         backgroundColor: NeedHubTokens.forest,
       ));
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
       setState(() => _renewing = false);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Could not renew right now. Please try again.'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(S.current.couldNotRenew),
       ));
     }
   }
@@ -329,7 +331,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
             Expanded(
               child: Text(
                 isFinalAccept
-                    ? 'Accept & Fully Freeze Need?'
+                    ? S.current.acceptAndFreezeNeed
                     : 'Accept & Freeze Offer ($nextAcceptedCount/${need.peopleNeeded})?',
                 style: GoogleFonts.bricolageGrotesque(
                     fontSize: 17,
@@ -413,7 +415,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
-            child: Text('Yes, accept & freeze',
+            child: Text(S.current.yesAcceptAndFreeze,
                 style: GoogleFonts.hankenGrotesk(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -458,7 +460,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
         );
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Offer accepted! ($newAcceptedCount/$newPeopleNeeded Frozen). Opening chat…')),
+        SnackBar(content: Text('${S.current.accepted}! ($newAcceptedCount/$newPeopleNeeded ${S.current.frozen}). Opening chat…')),
       );
       if (accepted.responderId != null) {
         await Future.delayed(const Duration(milliseconds: 300));
@@ -545,17 +547,20 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
   void _onLangChange() {
     _translatedTitle = null;
     _translatedDesc = null;
+    _showingOriginal = false;
     _translateContent();
   }
 
-  Future<void> _translateContent() async {
+  Future<void> _translateContent({bool manual = false}) async {
     final lang = uiLanguageNotifier.value;
     if (lang == 'en') return;
+    if (manual) setState(() { _translatingContent = true; _showingOriginal = false; });
     final results = await translateBatch([need.title, need.description], lang);
     if (!mounted) return;
     setState(() {
       _translatedTitle = results[0];
       _translatedDesc = results[1];
+      _translatingContent = false;
     });
   }
 
@@ -646,7 +651,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                           )
                                         : const Icon(Icons.replay_rounded,
                                             size: 18),
-                                    label: const Text('Renew'),
+                                    label: Text(S.current.renew),
                                     style: TextButton.styleFrom(
                                       foregroundColor: NeedHubTokens.clay,
                                     ),
@@ -656,7 +661,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                 IconButton(
                                   icon: const Icon(Icons.edit_outlined, size: 20),
                                   color: t.ink,
-                                  tooltip: 'Edit Need',
+                                  tooltip: S.current.editNeed,
                                   onPressed: () {
                                     showModalBottomSheet(
                                       context: context,
@@ -674,18 +679,17 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline_rounded, size: 20),
                                   color: Colors.red,
-                                  tooltip: 'Delete Need',
+                                  tooltip: S.current.deleteNeed,
                                   onPressed: () {
                                     showDialog(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
-                                        title: const Text('Delete Need'),
-                                        content: const Text(
-                                            'Are you sure you want to delete this need? This action cannot be undone.'),
+                                        title: Text(S.current.deleteNeed),
+                                        content: Text(S.current.deleteNeedConfirm),
                                         actions: [
                                           TextButton(
                                             onPressed: () => Navigator.pop(ctx),
-                                            child: const Text('Cancel'),
+                                            child: Text(S.current.cancel),
                                           ),
                                           TextButton(
                                             onPressed: () async {
@@ -697,7 +701,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                                 if (mounted) {
                                                   Navigator.of(context).pop();
                                                   ScaffoldMessenger.of(context).showSnackBar(
-                                                    const SnackBar(content: Text('Need removed.')),
+                                                    SnackBar(content: Text(S.current.needRemoved)),
                                                   );
                                                 }
                                                 return;
@@ -707,7 +711,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                                 if (!mounted) return;
                                                 Navigator.of(context).pop();
                                                 ScaffoldMessenger.of(context).showSnackBar(
-                                                  const SnackBar(content: Text('Need deleted successfully.')),
+                                                  SnackBar(content: Text(S.current.needDeletedSuccess)),
                                                 );
                                               } catch (e) {
                                                 if (mounted) {
@@ -717,7 +721,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                                 }
                                               }
                                             },
-                                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                            child: Text(S.current.delete, style: const TextStyle(color: Colors.red)),
                                           ),
                                         ],
                                       ),
@@ -909,7 +913,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                                               .circular(20),
                                                     ),
                                                     child: Text(
-                                                      'Expired',
+                                                      S.current.expired,
                                                       style: GoogleFonts
                                                           .hankenGrotesk(
                                                         fontSize: 11,
@@ -923,7 +927,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                             ),
                                             const SizedBox(height: 12),
                                             Text(
-                                              _translatedTitle ?? need.title,
+                                              _showingOriginal ? need.title : (_translatedTitle ?? need.title),
                                               style: GoogleFonts
                                                   .bricolageGrotesque(
                                                 fontSize: 22,
@@ -961,7 +965,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                                   ),
                                                 ),
                                                 Text(
-                                                  'per job',
+                                                  S.current.perJob,
                                                   style:
                                                       GoogleFonts.hankenGrotesk(
                                                     fontSize: 10,
@@ -981,7 +985,9 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(top: 16),
                                     child: Text(
-                                      _translatedDesc ?? need.description,
+                                      _showingOriginal
+                                          ? need.description
+                                          : (_translatedDesc ?? need.description),
                                       style: GoogleFonts.hankenGrotesk(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w500,
@@ -990,6 +996,45 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                       ),
                                     ),
                                   ),
+
+                                  // Translate toggle (shown when lang ≠ en)
+                                  if (uiLanguageNotifier.value != 'en') ...[
+                                    const SizedBox(height: 8),
+                                    GestureDetector(
+                                      onTap: _translatingContent ? null : () {
+                                        if (_showingOriginal) {
+                                          setState(() => _showingOriginal = false);
+                                        } else if (_translatedDesc != null) {
+                                          setState(() => _showingOriginal = true);
+                                        } else {
+                                          _translateContent(manual: true);
+                                        }
+                                      },
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (_translatingContent)
+                                            SizedBox(
+                                              width: 12, height: 12,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 1.5, color: t.muted),
+                                            )
+                                          else
+                                            Icon(Icons.translate_rounded, size: 13, color: t.muted),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _translatingContent
+                                                ? S.current.translating
+                                                : (_showingOriginal ? S.current.translate : S.current.showOriginal),
+                                            style: GoogleFonts.hankenGrotesk(
+                                                fontSize: 12,
+                                                color: t.muted,
+                                                fontWeight: FontWeight.w600),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
 
                                   // Tags
                                   if (need.tags.isNotEmpty) ...[
@@ -1212,7 +1257,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                             Row(
                               children: [
                                 Text(
-                                  'OFFERS (${displayOffers.length})',
+                                  '${S.current.offersSection} (${displayOffers.length})',
                                   style: GoogleFonts.hankenGrotesk(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -1222,7 +1267,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                 ),
                                 const Spacer(),
                                 Text(
-                                  'Public Offers',
+                                  S.current.publicOffers,
                                   style: GoogleFonts.hankenGrotesk(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -1238,7 +1283,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                               child: Row(
                                 children: [
                                   _OfferSortChip(
-                                    label: '⏱ Newest',
+                                    label: S.current.sortNewest,
                                     selected: _offerSortMode == 'newest',
                                     onTap: () => setState(
                                         () => _offerSortMode = 'newest'),
@@ -1246,7 +1291,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   _OfferSortChip(
-                                    label: '💰 Highest ₹',
+                                    label: S.current.sortHighestPrice,
                                     selected: _offerSortMode == 'price_high',
                                     onTap: () => setState(
                                         () => _offerSortMode = 'price_high'),
@@ -1254,7 +1299,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   _OfferSortChip(
-                                    label: '🏷 Lowest ₹',
+                                    label: S.current.sortLowestPrice,
                                     selected: _offerSortMode == 'price_low',
                                     onTap: () => setState(
                                         () => _offerSortMode = 'price_low'),
@@ -1262,7 +1307,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   _OfferSortChip(
-                                    label: '📍 Nearest',
+                                    label: S.current.sortNearest,
                                     selected: _offerSortMode == 'nearest',
                                     onTap: () => setState(
                                         () => _offerSortMode = 'nearest'),
@@ -1270,7 +1315,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                                   ),
                                   const SizedBox(width: 6),
                                   _OfferSortChip(
-                                    label: '⏳ Oldest',
+                                    label: S.current.sortOldest,
                                     selected: _offerSortMode == 'oldest',
                                     onTap: () => setState(
                                         () => _offerSortMode = 'oldest'),
@@ -1281,11 +1326,10 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                             ),
                             const SizedBox(height: 12),
                             if (displayOffers.isEmpty)
-                              const NhEmptyState(
+                              NhEmptyState(
                                 icon: Icons.inbox_outlined,
-                                title: 'No offers yet',
-                                subtitle:
-                                    'Offers made by people will appear here',
+                                title: S.current.noOffersYet,
+                                subtitle: S.current.offersMadeByPeople,
                               )
                             else
                               ...displayOffers.map((o) => Padding(
@@ -1355,7 +1399,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                       height: 52,
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.lock_outline_rounded, size: 18),
-                        label: const Text('Need Accepted & Frozen'),
+                        label: Text(S.current.needAcceptedFrozen),
                         onPressed: null,
                         style: ElevatedButton.styleFrom(
                           disabledBackgroundColor: t.rail,
@@ -1372,11 +1416,11 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                 final ctaText = hasApplied
                     ? (canEdit
                         ? (need.category == 'earn'
-                            ? 'Edit Offered Help'
-                            : 'Edit Application')
+                            ? S.current.editOfferedHelp
+                            : S.current.editApplication)
                         : (need.category == 'earn'
-                            ? 'Offer Locked'
-                            : 'Application Locked'))
+                            ? S.current.offerLocked
+                            : S.current.applicationLocked))
                     : _actionLabel;
 
                 return Container(
@@ -1495,7 +1539,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                 const Icon(Icons.star_rounded, color: Color(0xFFEAB308), size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  'FEEDBACK & RATINGS (${_needReviews.length})',
+                  '${S.current.feedbackAndRatings} (${_needReviews.length})',
                   style: GoogleFonts.hankenGrotesk(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -1511,7 +1555,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    _isNeedFullyFrozen ? 'FROZEN' : '$_acceptedOfferCount/${need.peopleNeeded} FROZEN',
+                    _isNeedFullyFrozen ? S.current.frozen.toUpperCase() : '$_acceptedOfferCount/${need.peopleNeeded} ${S.current.frozen.toUpperCase()}',
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
@@ -1534,7 +1578,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
             const SizedBox(height: 12),
             if (_needReviews.isEmpty)
               Text(
-                'No feedback submitted yet.',
+                S.current.noFeedbackYet,
                 style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
               )
             else
@@ -1647,7 +1691,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                 height: 44,
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.rate_review_outlined, size: 18),
-                  label: Text('Rate & Give Feedback to $counterpartyName'),
+                  label: Text('${S.current.rateAndGiveFeedbackBtn} $counterpartyName'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: NeedHubTokens.forest,
                     foregroundColor: Colors.white,
@@ -1680,7 +1724,7 @@ class _NeedDetailScreenState extends ConsumerState<NeedDetailScreen> {
                 height: 44,
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.thumb_up_outlined, size: 18),
-                  label: Text('Vouch for $counterpartyName\'s Skills'),
+                  label: Text('${S.current.vouchForSkillsBtn} — $counterpartyName'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: NeedHubTokens.forest,
                     side: BorderSide(
@@ -1865,7 +1909,7 @@ class _OfferCardState extends State<_OfferCard> {
                   ),
                   if (widget.revisions.isNotEmpty)
                     IconButton(
-                      tooltip: 'Offer history',
+                      tooltip: S.current.offerHistory,
                       onPressed: _showHistory,
                       icon:
                           Icon(Icons.history_rounded, size: 18, color: t.muted),
@@ -1880,7 +1924,7 @@ class _OfferCardState extends State<_OfferCard> {
                         color: NeedHubTokens.forest, size: 14),
                     const SizedBox(width: 4),
                     Text(
-                      'Accepted',
+                      S.current.accepted,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -1891,7 +1935,7 @@ class _OfferCardState extends State<_OfferCard> {
               ] else if (isDeclined) ...[
                 const SizedBox(height: 8),
                 Text(
-                  'Declined',
+                  S.current.declined,
                   style:
                       GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted),
                 ),
@@ -1914,7 +1958,7 @@ class _OfferCardState extends State<_OfferCard> {
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                        child: Text('Decline',
+                        child: Text(S.current.decline,
                             style: GoogleFonts.hankenGrotesk(
                                 fontSize: 13, fontWeight: FontWeight.w600)),
                       ),
@@ -1939,7 +1983,7 @@ class _OfferCardState extends State<_OfferCard> {
                                 height: 14,
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2, color: Colors.white))
-                            : Text('Accept',
+                            : Text(S.current.accept,
                                 style: GoogleFonts.hankenGrotesk(
                                     fontSize: 13, fontWeight: FontWeight.w600)),
                       ),
@@ -1955,7 +1999,7 @@ class _OfferCardState extends State<_OfferCard> {
   }
 }
 
-class _OfferDetailsSheet extends StatelessWidget {
+class _OfferDetailsSheet extends StatefulWidget {
   final String name;
   final String note;
   final String amount;
@@ -1972,7 +2016,38 @@ class _OfferDetailsSheet extends StatelessWidget {
       required this.t});
 
   @override
+  State<_OfferDetailsSheet> createState() => _OfferDetailsSheetState();
+}
+
+class _OfferDetailsSheetState extends State<_OfferDetailsSheet> {
+  String? _translatedNote;
+  bool _showingOriginal = false;
+  bool _translating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoTranslate();
+  }
+
+  Future<void> _autoTranslate({bool manual = false}) async {
+    final lang = uiLanguageNotifier.value;
+    if (lang == 'en') return;
+    if (manual) setState(() { _translating = true; _showingOriginal = false; });
+    final results = await translateBatch([widget.note], lang);
+    if (!mounted) return;
+    setState(() {
+      _translatedNote = results[0];
+      _translating = false;
+    });
+  }
+
+  NeedHubTokens get t => widget.t;
+
+  @override
   Widget build(BuildContext context) {
+    final displayNote = _showingOriginal ? widget.note : (_translatedNote ?? widget.note);
+    final lang = uiLanguageNotifier.value;
     return Container(
       padding: EdgeInsets.fromLTRB(
           20, 18, 20, MediaQuery.of(context).padding.bottom + 20),
@@ -1985,23 +2060,55 @@ class _OfferDetailsSheet extends StatelessWidget {
           children: [
             Row(children: [
               Expanded(
-                  child: Text(name,
+                  child: Text(widget.name,
                       style: GoogleFonts.bricolageGrotesque(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
                           color: t.ink))),
-              Text(amount,
+              Text(widget.amount,
                   style: GoogleFonts.bricolageGrotesque(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
                       color: NeedHubTokens.ochre)),
             ]),
             const SizedBox(height: 8),
-            Text(note,
+            Text(displayNote,
                 style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted)),
-            if (workSampleUrl != null && workSampleUrl!.isNotEmpty) ...[
+            if (lang != 'en') ...[
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: _translating ? null : () {
+                  if (_showingOriginal) {
+                    setState(() => _showingOriginal = false);
+                  } else if (_translatedNote != null) {
+                    setState(() => _showingOriginal = true);
+                  } else {
+                    _autoTranslate(manual: true);
+                  }
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_translating)
+                      SizedBox(width: 12, height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 1.5, color: t.muted))
+                    else
+                      Icon(Icons.translate_rounded, size: 13, color: t.muted),
+                    const SizedBox(width: 4),
+                    Text(
+                      _translating
+                          ? S.current.translating
+                          : (_showingOriginal ? S.current.translate : S.current.showOriginal),
+                      style: GoogleFonts.hankenGrotesk(
+                          fontSize: 12, color: t.muted, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (widget.workSampleUrl != null && widget.workSampleUrl!.isNotEmpty) ...[
               const SizedBox(height: 18),
-              Text('WORK SAMPLE',
+              Text(S.current.workSampleSection,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -2010,10 +2117,10 @@ class _OfferDetailsSheet extends StatelessWidget {
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: () => NHFullScreenImageViewer.open(context,
-                    imageUrl: workSampleUrl, title: '$name’s work sample'),
+                    imageUrl: widget.workSampleUrl, title: "${widget.name}’s work sample"),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(workSampleUrl!,
+                  child: Image.network(widget.workSampleUrl!,
                       height: 180,
                       width: double.infinity,
                       fit: BoxFit.cover,
@@ -2025,7 +2132,7 @@ class _OfferDetailsSheet extends StatelessWidget {
                 ),
               ),
             ],
-            if (revisions.isNotEmpty) ...[
+            if (widget.revisions.isNotEmpty) ...[
               const SizedBox(height: 16),
               Align(
                   alignment: Alignment.centerRight,
@@ -2034,9 +2141,9 @@ class _OfferDetailsSheet extends StatelessWidget {
                           context: context,
                           backgroundColor: Colors.transparent,
                           builder: (_) =>
-                              _OfferHistorySheet(revisions: revisions, t: t)),
+                              _OfferHistorySheet(revisions: widget.revisions, t: t)),
                       icon: const Icon(Icons.history_rounded, size: 17),
-                      label: Text('View edit history (${revisions.length})'))),
+                      label: Text('${S.current.offerHistory} (${widget.revisions.length})'))),
             ],
           ]),
     );
@@ -2060,7 +2167,7 @@ class _OfferHistorySheet extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Offer edit history',
+              Text(S.current.offerEditHistory,
                   style: GoogleFonts.bricolageGrotesque(
                       fontSize: 20, fontWeight: FontWeight.w800, color: t.ink)),
               const SizedBox(height: 10),
@@ -2129,8 +2236,9 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
     setState(() => _suggesting = true);
     try {
       final api = ref.read(apiClientProvider);
-      final res =
-          await api.post('/needs/${widget.need.id}/suggest-response', {});
+      final res = await api.post('/needs/${widget.need.id}/suggest-response', {
+        'lang': uiLanguageNotifier.value,
+      });
       final suggestion = res['suggestion'] as String? ?? '';
       if (suggestion.isNotEmpty && mounted) {
         _noteController.text = suggestion;
@@ -2139,8 +2247,7 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Could not generate suggestion. Try again.')),
+          SnackBar(content: Text(S.current.couldNotGenerateSuggestion)),
         );
       }
     } finally {
@@ -2209,9 +2316,8 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
           showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('Message blocked'),
-              content: const Text(
-                  'Your message contains content that violates community guidelines. Please revise it.'),
+              title: Text(S.current.messageBlocked),
+              content: Text(S.current.messageBlockedDesc),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
@@ -2221,21 +2327,19 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
           );
         } else if (status == 400 && code == 'SELF_RESPONSE') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("You can't apply to your own need.")),
+            SnackBar(content: Text(S.current.cantApplyOwnNeed)),
           );
         } else if (status == 400 && code == 'RESPONSE_EDIT_WINDOW_EXPIRED') {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Offers can only be edited for 10 minutes.')),
+            SnackBar(content: Text(S.current.offerEditWindowExpired)),
           );
         } else if (status == 404) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('This need is no longer available.')),
+            SnackBar(content: Text(S.current.needNoLongerAvailable)),
           );
         } else if (status == 401) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('Session expired. Please log in again.')),
+            SnackBar(content: Text(S.current.sessionExpiredLogin)),
           );
         } else {
           final msg = (data is Map ? data['error'] : null) as String?;
@@ -2296,16 +2400,16 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Withdraw Application'),
-        content: const Text('Are you sure you want to withdraw your application?'),
+        title: Text(S.current.withdrawApplication),
+        content: Text(S.current.withdrawApplicationConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(S.current.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Withdraw', style: TextStyle(color: Colors.red)),
+            child: Text(S.current.withdrawApplication, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -2319,7 +2423,7 @@ class _EarnOfferSheetState extends ConsumerState<_EarnOfferSheet> {
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Application withdrawn successfully.')),
+        SnackBar(content: Text(S.current.applicationWithdrawnSuccess)),
       );
     } catch (e) {
       if (mounted) {
@@ -2452,7 +2556,7 @@ class _OfferFormView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isEditing ? 'Edit your offer' : 'Apply to help',
+                      isEditing ? S.current.editYourOffer : S.current.applyToHelpTitle,
                       style: GoogleFonts.bricolageGrotesque(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
@@ -2499,7 +2603,7 @@ class _OfferFormView extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Applications can be edited or withdrawn within 10 minutes of submitting.',
+                    S.current.applicationsEditWindow,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
@@ -2513,7 +2617,7 @@ class _OfferFormView extends StatelessWidget {
           const SizedBox(height: 16),
 
           // Rate
-          Text('YOUR RATE (₹/hr)',
+          Text(S.current.yourRateLabel,
               style: GoogleFonts.hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -2549,7 +2653,7 @@ class _OfferFormView extends StatelessWidget {
           // Note
           Row(
             children: [
-              Text('INTRO NOTE',
+              Text(S.current.introNote,
                   style: GoogleFonts.hankenGrotesk(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -2571,7 +2675,7 @@ class _OfferFormView extends StatelessWidget {
                           size: 14, color: NeedHubTokens.clay),
                     const SizedBox(width: 4),
                     Text(
-                      'AI Suggest',
+                      S.current.aiSuggest,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
@@ -2596,7 +2700,7 @@ class _OfferFormView extends StatelessWidget {
               onChanged: (_) => onChanged(),
               style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.ink),
               decoration: InputDecoration(
-                hintText: 'Explain why you are a good fit for this task…',
+                hintText: S.current.explainWhyGoodFit,
                 hintStyle:
                     GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted),
                 border: InputBorder.none,
@@ -2606,7 +2710,7 @@ class _OfferFormView extends StatelessWidget {
             ),
           ),
           // Work sample label
-          Text('WORK SAMPLE (OPTIONAL)',
+          Text(S.current.workSampleOptional,
               style: GoogleFonts.hankenGrotesk(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
@@ -2644,7 +2748,7 @@ class _OfferFormView extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Current work sample',
+                      S.current.currentWorkSample,
                       style: GoogleFonts.hankenGrotesk(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -2654,7 +2758,7 @@ class _OfferFormView extends StatelessWidget {
                   TextButton.icon(
                     onPressed: onRemoveWorkSample,
                     icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                    label: const Text('Remove'),
+                    label: Text(S.current.remove),
                   ),
                 ],
               ),
@@ -2693,8 +2797,8 @@ class _OfferFormView extends StatelessWidget {
                       children: [
                         Text(
                           workSamplePath != null
-                              ? 'Work sample added'
-                              : 'Add work sample (optional)',
+                              ? S.current.workSampleAdded
+                              : S.current.addWorkSampleOptional,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -2704,7 +2808,7 @@ class _OfferFormView extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Portfolio, screenshot, or file',
+                          S.current.portfolioScreenshotOrFile,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 12, color: t.muted),
                         ),
@@ -2721,7 +2825,7 @@ class _OfferFormView extends StatelessWidget {
                         border: Border.all(color: t.rail),
                       ),
                       child: Text(
-                        'Browse',
+                        S.current.browse,
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -2756,7 +2860,7 @@ class _OfferFormView extends StatelessWidget {
                       height: 20,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : Text(isEditing ? 'Update offer' : 'Send offer'),
+                  : Text(isEditing ? S.current.updateOffer : S.current.sendOffer),
             ),
           ),
         ],
@@ -2789,15 +2893,15 @@ class _OfferSentView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          isEditing ? 'Offer updated!' : 'Offer sent!',
+          isEditing ? S.current.offerUpdatedTitle : S.current.offerSentTitle,
           style: GoogleFonts.bricolageGrotesque(
               fontSize: 22, fontWeight: FontWeight.w800, color: t.ink),
         ),
         const SizedBox(height: 6),
         Text(
           isEditing
-              ? 'Your updated offer details have been saved.'
-              : 'Chat unlocks when they accept your offer.',
+              ? S.current.offerDetailsUpdated
+              : S.current.chatUnlocksWhenAccepted,
           style: GoogleFonts.hankenGrotesk(
               fontSize: 14, color: t.muted, height: 1.4),
           textAlign: TextAlign.center,
@@ -2808,7 +2912,7 @@ class _OfferSentView extends StatelessWidget {
           height: 48,
           child: OutlinedButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Done',
+            child: Text(S.current.done,
                 style: GoogleFonts.hankenGrotesk(
                     fontSize: 15, fontWeight: FontWeight.w600)),
           ),
@@ -2857,8 +2961,9 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
     setState(() => _suggesting = true);
     try {
       final api = ref.read(apiClientProvider);
-      final res =
-          await api.post('/needs/${widget.need.id}/suggest-response', {});
+      final res = await api.post('/needs/${widget.need.id}/suggest-response', {
+        'lang': uiLanguageNotifier.value,
+      });
       final suggestion = res['suggestion'] as String? ?? '';
       if (suggestion.isNotEmpty && mounted) {
         _controller.text = suggestion;
@@ -2867,8 +2972,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Could not generate suggestion. Try again.')),
+          SnackBar(content: Text(S.current.couldNotGenerateSuggestion)),
         );
       }
     } finally {
@@ -2911,7 +3015,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Message sent!',
+                  S.current.messageSent,
                   style: GoogleFonts.bricolageGrotesque(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -2934,7 +3038,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: Text(
-                      'Done',
+                      S.current.done,
                       style: GoogleFonts.hankenGrotesk(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -3029,7 +3133,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Applications can be edited or withdrawn within 10 minutes of submitting.',
+                          S.current.applicationsEditWindow,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
@@ -3054,7 +3158,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                     style:
                         GoogleFonts.hankenGrotesk(fontSize: 14, color: t.ink),
                     decoration: InputDecoration(
-                      hintText: 'Introduce yourself…',
+                      hintText: S.current.introduceYourself,
                       hintStyle: GoogleFonts.hankenGrotesk(
                         fontSize: 14,
                         color: t.muted,
@@ -3107,9 +3211,8 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                                 showDialog(
                                   context: context,
                                   builder: (ctx) => AlertDialog(
-                                    title: const Text('Message blocked'),
-                                    content: const Text(
-                                        'Your message contains content that violates community guidelines. Please revise it.'),
+                                    title: Text(S.current.messageBlocked),
+                                    content: Text(S.current.messageBlockedDesc),
                                     actions: [
                                       TextButton(
                                           onPressed: () => Navigator.pop(ctx),
@@ -3120,28 +3223,20 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                               } else if (status == 400 &&
                                   code == 'SELF_RESPONSE') {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          "You can't apply to your own need.")),
+                                  SnackBar(content: Text(S.current.cantApplyOwnNeed)),
                                 );
                               } else if (status == 400 &&
                                   code == 'RESPONSE_EDIT_WINDOW_EXPIRED') {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          'Applications can only be edited for 10 minutes.')),
+                                  SnackBar(content: Text(S.current.applicationEditWindowExpired)),
                                 );
                               } else if (status == 404) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          'This need is no longer available.')),
+                                  SnackBar(content: Text(S.current.needNoLongerAvailable)),
                                 );
                               } else if (status == 401) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          'Session expired. Please log in again.')),
+                                  SnackBar(content: Text(S.current.sessionExpiredLogin)),
                                 );
                               } else {
                                 final msg = (data is Map ? data['error'] : null)
@@ -3201,7 +3296,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white),
                           )
-                        : Text(widget.existingOffer != null ? 'Update message' : 'Send message'),
+                        : Text(widget.existingOffer != null ? S.current.updateMessage : S.current.sendMessage),
                   ),
                 ),
                 if (widget.existingOffer != null) ...[
@@ -3212,7 +3307,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
                       label: Text(
-                        'Withdraw Application',
+                        S.current.withdrawApplication,
                         style: GoogleFonts.hankenGrotesk(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -3239,16 +3334,16 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (ctx) => AlertDialog(
-                            title: const Text('Withdraw Application'),
-                            content: const Text('Are you sure you want to withdraw your application?'),
+                            title: Text(S.current.withdrawApplication),
+                            content: Text(S.current.withdrawApplicationConfirm),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Cancel'),
+                                child: Text(S.current.cancel),
                               ),
                               TextButton(
                                 onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Withdraw', style: TextStyle(color: Colors.red)),
+                                child: Text(S.current.withdrawApplication, style: const TextStyle(color: Colors.red)),
                               ),
                             ],
                           ),
@@ -3262,7 +3357,7 @@ class _ConnectSheetState extends ConsumerState<_ConnectSheet> {
                           if (!mounted) return;
                           Navigator.of(context).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Application withdrawn successfully.')),
+                            SnackBar(content: Text(S.current.applicationWithdrawnSuccess)),
                           );
                         } catch (e) {
                           if (mounted) {
@@ -3414,7 +3509,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
           ),
           const SizedBox(height: 18),
           Text(
-            'Rate & Give Feedback',
+            S.current.rateAndGiveFeedback,
             style: GoogleFonts.bricolageGrotesque(
               fontSize: 20,
               fontWeight: FontWeight.w800,
@@ -3461,7 +3556,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
             controller: _commentController,
             maxLines: 3,
             decoration: InputDecoration(
-              hintText: 'Write feedback (visible only to both of you)…',
+              hintText: S.current.writeFeedbackHint,
               hintStyle:
                   GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted),
               filled: true,
@@ -3505,7 +3600,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                                 content: Text(
-                                    'Feedback submitted! ${pts > 0 ? "+$pts points awarded!" : ""}')),
+                                    '${S.current.feedbackSubmittedSuccess} ${pts > 0 ? "+$pts points awarded!" : ""}')),
                           );
                         } catch (e) {
                           if (mounted) {
@@ -3525,7 +3620,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                 child: _submitting
                     ? const CircularProgressIndicator(
                         color: Colors.white, strokeWidth: 2)
-                    : Text('Submit Feedback & Rating',
+                    : Text(S.current.submitFeedbackAndRating,
                         style: GoogleFonts.hankenGrotesk(
                             fontSize: 15, fontWeight: FontWeight.w700)),
               ),
@@ -3610,7 +3705,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
             ),
             const SizedBox(height: 18),
             Text(
-              'Edit Need',
+              S.current.editNeed,
               style: GoogleFonts.bricolageGrotesque(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
@@ -3618,7 +3713,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('TITLE',
+            Text(S.current.titleLabel,
                 style: GoogleFonts.hankenGrotesk(
                     fontSize: 11, fontWeight: FontWeight.w700, color: t.muted2)),
             const SizedBox(height: 6),
@@ -3631,7 +3726,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
               ),
             ),
             const SizedBox(height: 14),
-            Text('DESCRIPTION',
+            Text(S.current.descriptionLabel,
                 style: GoogleFonts.hankenGrotesk(
                     fontSize: 11, fontWeight: FontWeight.w700, color: t.muted2)),
             const SizedBox(height: 6),
@@ -3651,7 +3746,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('MIN BUDGET (₹)',
+                      Text(S.current.minBudgetRs,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -3675,7 +3770,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('MAX BUDGET (₹)',
+                      Text(S.current.maxBudgetRs,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
@@ -3711,7 +3806,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'PEOPLE NEEDED',
+                          S.current.peopleNeededLabel,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -3721,7 +3816,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Number of positions to fill',
+                          S.current.numberOfPositions,
                           style: GoogleFonts.hankenGrotesk(
                             fontSize: 12,
                             color: t.muted,
@@ -3813,8 +3908,8 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                             Navigator.of(context).pop();
                             widget.onUpdated(freshNeed);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Need updated successfully!')),
+                              SnackBar(
+                                  content: Text(S.current.needUpdatedSuccess)),
                             );
                           } catch (e) {
                             if (mounted) {
@@ -3834,7 +3929,7 @@ class _EditNeedSheetState extends State<_EditNeedSheet> {
                   child: _saving
                       ? const CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2)
-                      : Text('Save Changes',
+                      : Text(S.current.saveChanges,
                           style: GoogleFonts.hankenGrotesk(
                               fontSize: 15, fontWeight: FontWeight.w700)),
                 ),
