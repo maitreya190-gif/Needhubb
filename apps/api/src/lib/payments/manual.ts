@@ -24,12 +24,19 @@ export function buildUpiDeepLink(args: { amountPaise: number; currency: string; 
   const tr = args.reference.replace(/[^a-zA-Z0-9]/g, '').slice(0, 35)
   const params = new URLSearchParams({
     pa: config.plusUpiId,
-    pn: 'NeedHub',
     am: amount,
     cu: args.currency,
     tr,
     tn: 'NeedHub Plus',
   })
+  // pn (payee name) is only included when it's genuinely configured to match
+  // the account. Claiming "NeedHub" for what is, today, a personal VPA is a
+  // real name/account mismatch — UPI apps cross-check pn against the actual
+  // registered name and surface a fraud-risk warning when they disagree.
+  // Omitting it lets the UPI app show its own verified lookup instead.
+  if (config.plusUpiPayeeName.trim()) {
+    params.set('pn', config.plusUpiPayeeName.trim())
+  }
   return `upi://pay?${params.toString()}`
 }
 

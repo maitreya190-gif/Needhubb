@@ -72,6 +72,27 @@ describe('buildUpiDeepLink', () => {
     const url = new URL(link.replace('upi://', 'https://'))
     expect(url.searchParams.get('tr')!.length).toBe(35)
   })
+
+  // pn (payee name) mismatches against the real bank-registered name are
+  // exactly what triggered a live "this payment may fail as per UPI Risk
+  // Policy" warning in production — the VPA is a personal account, and we
+  // were claiming a business name ("NeedHub") that doesn't match it.
+  it('omits pn entirely when PLUS_UPI_PAYEE_NAME is not configured, rather than claiming a mismatched name', () => {
+    const link = buildUpiDeepLink({ amountPaise: 5000, currency: 'INR', reference: 'ref123' })
+    const url = new URL(link.replace('upi://', 'https://'))
+    expect(url.searchParams.has('pn')).toBe(false)
+  })
+
+  it('includes pn only when explicitly configured to match the real account', async () => {
+    vi.resetModules()
+    process.env.PLUS_UPI_PAYEE_NAME = 'Real Account Holder Name'
+    const { buildUpiDeepLink: buildWithName } = await import('../manual')
+    const link = buildWithName({ amountPaise: 5000, currency: 'INR', reference: 'ref123' })
+    const url = new URL(link.replace('upi://', 'https://'))
+    expect(url.searchParams.get('pn')).toBe('Real Account Holder Name')
+    delete process.env.PLUS_UPI_PAYEE_NAME
+    vi.resetModules()
+  })
 })
 
 describe('getPaymentProvider', () => {

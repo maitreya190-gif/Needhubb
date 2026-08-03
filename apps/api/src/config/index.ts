@@ -44,4 +44,13 @@ export const config = {
   // register, so a misconfigured deploy would silently route real payments
   // to a stranger. POST /plus/subscribe refuses to build a link without it.
   plusUpiId: process.env.PLUS_UPI_ID || '',
+  // The name UPI apps display for the collection VPA above. Left empty by
+  // default rather than a brand placeholder like "NeedHub" — when the VPA is
+  // a personal account, claiming a different (business-sounding) name than
+  // the one actually registered to it is exactly the mismatch UPI risk
+  // engines flag as a likely scam pattern ("this payment may fail as per UPI
+  // Risk Policy"). Set to whatever name is genuinely registered to the VPA,
+  // or leave unset so the app falls back to its own bank-verified lookup
+  // instead of a claim that can be caught out as false.
+  plusUpiPayeeName: process.env.PLUS_UPI_PAYEE_NAME || '',
 }
