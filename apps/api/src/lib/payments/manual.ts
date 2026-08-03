@@ -15,12 +15,19 @@ import type { PaymentProvider } from './provider'
 /** Builds a real UPI Deep Linking Specification payment URI. */
 export function buildUpiDeepLink(args: { amountPaise: number; currency: string; reference: string }): string {
   const amount = (args.amountPaise / 100).toFixed(2)
+  // NPCI mandates the tr (transaction reference) be alphanumeric only, max 35
+  // chars, and requires PSPs to reject anything else. A raw crypto.randomUUID()
+  // is 36 chars and contains hyphens — non-compliant on both counts, and a
+  // real cause of UPI apps failing with "could not initiate transaction"
+  // before the request ever reaches the payer's bank. Sanitize rather than
+  // pass the idempotency key through untouched.
+  const tr = args.reference.replace(/[^a-zA-Z0-9]/g, '').slice(0, 35)
   const params = new URLSearchParams({
     pa: config.plusUpiId,
     pn: 'NeedHub',
     am: amount,
     cu: args.currency,
-    tr: args.reference,
+    tr,
     tn: 'NeedHub Plus',
   })
   return `upi://pay?${params.toString()}`

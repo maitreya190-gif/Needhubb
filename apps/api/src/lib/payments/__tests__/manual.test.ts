@@ -36,11 +36,11 @@ describe('manualProvider.createIntent', () => {
 
 describe('buildUpiDeepLink', () => {
   it('encodes a real UPI Deep Linking Specification URI', () => {
-    const link = buildUpiDeepLink({ amountPaise: 5000, currency: 'INR', reference: 'ref-123' })
+    const link = buildUpiDeepLink({ amountPaise: 5000, currency: 'INR', reference: 'ref123' })
     const url = new URL(link.replace('upi://', 'https://'))
     expect(url.searchParams.get('am')).toBe('50.00')
     expect(url.searchParams.get('cu')).toBe('INR')
-    expect(url.searchParams.get('tr')).toBe('ref-123')
+    expect(url.searchParams.get('tr')).toBe('ref123')
     expect(url.searchParams.get('pa')).toBe('test-vpa@bank')
   })
 
@@ -48,6 +48,29 @@ describe('buildUpiDeepLink', () => {
     const link = buildUpiDeepLink({ amountPaise: 5099, currency: 'INR', reference: 'r' })
     const url = new URL(link.replace('upi://', 'https://'))
     expect(url.searchParams.get('am')).toBe('50.99')
+  })
+
+  // NPCI mandates tr be alphanumeric-only, max 35 chars, and requires PSPs to
+  // reject anything else — confirmed the real cause of a "could not initiate
+  // transaction" failure in production, since crypto.randomUUID() (the actual
+  // idempotencyKey used as the reference) is 36 chars and hyphenated.
+  it('strips a hyphenated UUID reference down to a compliant alphanumeric tr', () => {
+    const link = buildUpiDeepLink({
+      amountPaise: 5000, currency: 'INR', reference: 'e3446fb5-abb0-40b1-92f4-3e6586fccfa8',
+    })
+    const url = new URL(link.replace('upi://', 'https://'))
+    const tr = url.searchParams.get('tr')!
+    expect(tr).toBe('e3446fb5abb040b192f43e6586fccfa8')
+    expect(tr.length).toBeLessThanOrEqual(35)
+    expect(tr).toMatch(/^[a-zA-Z0-9]+$/)
+  })
+
+  it('truncates any reference over 35 characters', () => {
+    const link = buildUpiDeepLink({
+      amountPaise: 5000, currency: 'INR', reference: 'a'.repeat(50),
+    })
+    const url = new URL(link.replace('upi://', 'https://'))
+    expect(url.searchParams.get('tr')!.length).toBe(35)
   })
 })
 
