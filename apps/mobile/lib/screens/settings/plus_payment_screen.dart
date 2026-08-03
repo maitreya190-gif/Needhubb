@@ -76,7 +76,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = S.current.plusCheckoutFailed;
+        _error = S.current.couldNotStartCheckout;
         _stage = _Stage.error;
       });
     }
@@ -93,7 +93,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
         if (mounted) {
           setState(() => _stage = _Stage.ready);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(S.current.plusNoUpiApp)),
+            SnackBar(content: Text(S.current.noUpiAppFound)),
           );
         }
         return;
@@ -103,7 +103,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
       if (mounted) {
         setState(() => _stage = _Stage.ready);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(S.current.plusCouldNotOpenUpi)),
+          SnackBar(content: Text(S.current.couldNotOpenUpi)),
         );
       }
     }
@@ -118,21 +118,21 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
       builder: (_) => AlertDialog(
         backgroundColor: t.card,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(S.current.plusDidPaymentGoThrough,
+        title: Text(S.current.didPaymentGoThrough,
             style: GoogleFonts.bricolageGrotesque(fontSize: 17, fontWeight: FontWeight.w800, color: t.ink)),
         content: Text(
-          S.current.plusTellUsWhatHappened,
+          S.current.letUsKnowUpi,
           style: GoogleFonts.hankenGrotesk(fontSize: 13.5, color: t.muted),
         ),
         actionsAlignment: MainAxisAlignment.spaceBetween,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'no'),
-            child: Text(S.current.plusNoTryAgain, style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600, color: t.muted)),
+            child: Text(S.current.noTryAgain, style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600, color: t.muted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, 'unsure'),
-            child: Text(S.current.plusNotSureYet, style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600, color: NeedHubTokens.ochre)),
+            child: Text(S.current.notSureYet, style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600, color: NeedHubTokens.ochre)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, 'yes'),
@@ -142,7 +142,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: Text(S.current.plusYesPaid, style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w700)),
+            child: Text(S.current.yesPaid, style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -175,7 +175,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
       if (!mounted) return;
       setState(() => _stage = _Stage.ready);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.current.plusConfirmFailed)),
+        SnackBar(content: Text(S.current.couldNotConfirmPayment)),
       );
     }
   }
@@ -217,7 +217,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
           icon: Icon(Icons.arrow_back_rounded, color: t.ink),
           onPressed: () => Navigator.of(context).pop(_stage == _Stage.success),
         ),
-        title: Text(S.current.plusSubscribeTitle,
+        title: Text(S.current.subscribePlus,
             style: GoogleFonts.bricolageGrotesque(fontSize: 18, fontWeight: FontWeight.w700, color: t.ink)),
       ),
       body: SafeArea(
@@ -242,9 +242,9 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
             children: [
               const Icon(Icons.error_outline_rounded, size: 40, color: NeedHubTokens.clay),
               const SizedBox(height: 12),
-              Text(_error ?? S.current.plusSomethingWentWrong, style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted), textAlign: TextAlign.center),
+              Text(_error ?? S.current.somethingWentWrong, style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted), textAlign: TextAlign.center),
               const SizedBox(height: 16),
-              ElevatedButton(onPressed: _createIntent, child: Text(S.current.plusRetry)),
+              ElevatedButton(onPressed: _createIntent, child: Text(S.current.retry)),
             ],
           ),
         );
@@ -256,18 +256,18 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
             children: [
               const CircularProgressIndicator(color: NeedHubTokens.ochre),
               const SizedBox(height: 20),
-              Text(S.current.plusWaitingConfirmation,
+              Text(S.current.waitingForConfirmation,
                   style: GoogleFonts.bricolageGrotesque(fontSize: 17, fontWeight: FontWeight.w800, color: t.ink)),
               const SizedBox(height: 8),
               Text(
-                S.current.plusWaitingBody,
+                S.current.willActivatePlusWhen,
                 style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted, height: 1.5),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
               TextButton(
                 onPressed: () => Navigator.of(context).pop(false),
-                child: Text(S.current.plusClose),
+                child: Text(S.current.cancel),
               ),
             ],
           ),
@@ -285,10 +285,10 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
                 child: const Icon(Icons.check_rounded, color: Colors.white, size: 40),
               ),
               const SizedBox(height: 20),
-              Text(S.current.plusNowMember,
+              Text(S.current.nowOnNeedHubPlus,
                   style: GoogleFonts.bricolageGrotesque(fontSize: 19, fontWeight: FontWeight.w800, color: t.ink)),
               const SizedBox(height: 8),
-              Text(S.current.plusNowMemberBody,
+              Text(S.current.visibilityBoostActive,
                   style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.muted, height: 1.4), textAlign: TextAlign.center),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -299,7 +299,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
-                child: Text(S.current.plusDone),
+                child: Text(S.current.done),
               ),
             ],
           ),
@@ -320,7 +320,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(S.current.plusAmount, style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
+                  Text(S.current.paymentAmount, style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
                   const SizedBox(height: 4),
                   Text('₹${(intent.amountPaise / 100).toStringAsFixed(2)}',
                       style: GoogleFonts.bricolageGrotesque(fontSize: 28, fontWeight: FontWeight.w800, color: t.ink)),
@@ -334,7 +334,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
             ElevatedButton.icon(
               onPressed: intent.upiDeepLink != null ? _launchUpi : null,
               icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-              label: Text(S.current.plusPayWithUpi,
+              label: Text(S.current.payWithUpi,
                   style: GoogleFonts.hankenGrotesk(fontSize: 14, fontWeight: FontWeight.w700)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: NeedHubTokens.ochre,
@@ -346,7 +346,7 @@ class _PlusPaymentScreenState extends ConsumerState<PlusPaymentScreen> with Widg
             ),
             const SizedBox(height: 12),
             Text(
-              S.current.plusConfirmOnReturn,
+              S.current.youllBeAskedToConfirm,
               style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted3),
               textAlign: TextAlign.center,
             ),

@@ -561,7 +561,7 @@ class _PendingRatingsSectionState extends State<_PendingRatingsSection> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    'Feedback',
+                    S.current.feedback,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,

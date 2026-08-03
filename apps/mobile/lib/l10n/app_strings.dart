@@ -735,6 +735,37 @@ class S {
     'failedToSubmitInquiry': 'Failed to submit inquiry. Please try again later.',
     'inquirySent': 'Inquiry Sent',
     'wellContactYouSoon': "We'll contact you soon!",
+    // Plus payment screen
+    'couldNotStartCheckout': 'Could not start checkout. Please try again.',
+    'noUpiAppFound': 'No UPI app found. Install PhonePe, Paytm or GPay to pay.',
+    'couldNotOpenUpi': 'Could not open a UPI app.',
+    'didPaymentGoThrough': 'Did the payment go through?',
+    'letUsKnowUpi': 'Let us know what happened in your UPI app.',
+    'noTryAgain': 'No, try again',
+    'notSureYet': 'Not sure yet',
+    'yesPaid': 'Yes, paid',
+    'couldNotConfirmPayment': 'Could not confirm right now. Please try again.',
+    'subscribePlus': 'Subscribe to Plus',
+    'waitingForConfirmation': 'Waiting for confirmation…',
+    'willActivatePlusWhen': "We'll activate Plus the moment it's confirmed. You can close this — you'll get a notification.",
+    'nowOnNeedHubPlus': "You're now on NeedHub Plus!",
+    'visibilityBoostActive': 'Your visibility boost and premium badge are active right now.',
+    'paymentAmount': 'Amount',
+    'payWithUpi': 'Pay with PhonePe / Paytm / GPay',
+    'youllBeAskedToConfirm': "You'll be asked to confirm when you return to NeedHub.",
+    // Plus reward claim screen
+    'claimReward': 'Claim Reward',
+    'rewardValue': 'Reward value',
+    'costs': 'Costs',
+    'whereSendIt': 'WHERE SHOULD WE SEND IT?',
+    'submitClaimPts': 'Submit claim — {pts} pts',
+    'claimSubmitted': 'Claim submitted',
+    'claimSubmittedDesc': "We've received your claim for {title}. An admin will review it and you'll get a notification once it's approved.",
+    'gotIt': 'Got it',
+    'couldNotSubmitClaim': 'Could not submit your claim. Please try again.',
+    'rewardExhausted': 'This reward has been fully claimed by everyone.',
+    'belowVerifiedPoints': "You don't have enough verified Impact Points yet.",
+    'insufficientBalance': "You don't have enough points to cover this reward's cost.",
     // Explore bell notifications sheet
     'allQuietForNow': 'All quiet for now',
     'notifyWhenResponds': "You'll be notified when someone responds to your needs or sends you a request",
@@ -760,9 +791,10 @@ class S {
     'plusBenefit4': 'Advanced analytics & AI posting insights',
     'plusBenefit5': 'Early access to new features',
     'plusBenefit6': 'Priority support',
+    // Plus cancel dialog
     'plusCancelBody': "You'll keep every Plus benefit until {date} — it just won't renew after that.",
     'plusYourPeriodEnds': 'your period ends',
-    // NeedHub Plus — payment flow
+    // Plus payment screen (plus-prefixed keys used by screens)
     'plusSubscribeTitle': 'Subscribe to Plus',
     'plusAmount': 'Amount',
     'plusPayWithUpi': 'Pay with PhonePe / Paytm / GPay',
@@ -784,7 +816,7 @@ class S {
     'plusNowMember': "You're now on NeedHub Plus!",
     'plusNowMemberBody': 'Your visibility boost and premium badge are active right now.',
     'plusDone': 'Done',
-    // NeedHub Plus — analytics
+    // Plus analytics screen
     'plusAnalyticsTitle': 'Analytics & Insights',
     'plusWindow7Days': '7 days',
     'plusWindow30Days': '30 days',
@@ -801,7 +833,7 @@ class S {
     'plusTrendDown': 'Visibility trending down {pct}% vs. the previous week',
     'plusAiInsightsHeader': 'AI POSTING INSIGHTS',
     'plusAnalyticsLoadFailed': 'Could not load your analytics right now.',
-    // NeedHub Plus — reward claim
+    // Plus reward claim screen (plus-prefixed)
     'plusClaimRewardTitle': 'Claim Reward',
     'plusRewardValue': 'Reward value',
     'plusCosts': 'Costs',
@@ -1567,9 +1599,10 @@ class S {
   String get plusBenefit4 => _get('plusBenefit4');
   String get plusBenefit5 => _get('plusBenefit5');
   String get plusBenefit6 => _get('plusBenefit6');
+  // Plus cancel dialog
   String plusCancelBody(String date) => _get('plusCancelBody').replaceAll('{date}', date);
   String get plusYourPeriodEnds => _get('plusYourPeriodEnds');
-  // NeedHub Plus — payment flow
+  // Plus payment screen (plus-prefixed)
   String get plusSubscribeTitle => _get('plusSubscribeTitle');
   String get plusAmount => _get('plusAmount');
   String get plusPayWithUpi => _get('plusPayWithUpi');
@@ -1591,7 +1624,7 @@ class S {
   String get plusNowMember => _get('plusNowMember');
   String get plusNowMemberBody => _get('plusNowMemberBody');
   String get plusDone => _get('plusDone');
-  // NeedHub Plus — analytics
+  // Plus analytics screen
   String get plusAnalyticsTitle => _get('plusAnalyticsTitle');
   String get plusWindow7Days => _get('plusWindow7Days');
   String get plusWindow30Days => _get('plusWindow30Days');
@@ -1608,7 +1641,7 @@ class S {
   String plusTrendDown(String pct) => _get('plusTrendDown').replaceAll('{pct}', pct);
   String get plusAiInsightsHeader => _get('plusAiInsightsHeader');
   String get plusAnalyticsLoadFailed => _get('plusAnalyticsLoadFailed');
-  // NeedHub Plus — reward claim
+  // Plus reward claim screen (plus-prefixed)
   String get plusClaimRewardTitle => _get('plusClaimRewardTitle');
   String get plusRewardValue => _get('plusRewardValue');
   String get plusCosts => _get('plusCosts');
@@ -1626,6 +1659,37 @@ class S {
   String plusFieldRequired(String label) => _get('plusFieldRequired').replaceAll('{label}', label);
   String get plusInvalidUpiId => _get('plusInvalidUpiId');
   String get plusInvalidEmail => _get('plusInvalidEmail');
+  // Plus payment screen (non-prefixed, kept for backward compat)
+  String get couldNotStartCheckout => _get('couldNotStartCheckout');
+  String get noUpiAppFound => _get('noUpiAppFound');
+  String get couldNotOpenUpi => _get('couldNotOpenUpi');
+  String get didPaymentGoThrough => _get('didPaymentGoThrough');
+  String get letUsKnowUpi => _get('letUsKnowUpi');
+  String get noTryAgain => _get('noTryAgain');
+  String get notSureYet => _get('notSureYet');
+  String get yesPaid => _get('yesPaid');
+  String get couldNotConfirmPayment => _get('couldNotConfirmPayment');
+  String get subscribePlus => _get('subscribePlus');
+  String get waitingForConfirmation => _get('waitingForConfirmation');
+  String get willActivatePlusWhen => _get('willActivatePlusWhen');
+  String get nowOnNeedHubPlus => _get('nowOnNeedHubPlus');
+  String get visibilityBoostActive => _get('visibilityBoostActive');
+  String get paymentAmount => _get('paymentAmount');
+  String get payWithUpi => _get('payWithUpi');
+  String get youllBeAskedToConfirm => _get('youllBeAskedToConfirm');
+  // Plus reward claim screen
+  String get claimReward => _get('claimReward');
+  String get rewardValue => _get('rewardValue');
+  String get costs => _get('costs');
+  String get whereSendIt => _get('whereSendIt');
+  String submitClaimPts(int pts) => _get('submitClaimPts').replaceAll('{pts}', '$pts');
+  String get claimSubmitted => _get('claimSubmitted');
+  String claimSubmittedDesc(String title) => _get('claimSubmittedDesc').replaceAll('{title}', title);
+  String get gotIt => _get('gotIt');
+  String get couldNotSubmitClaim => _get('couldNotSubmitClaim');
+  String get rewardExhausted => _get('rewardExhausted');
+  String get belowVerifiedPoints => _get('belowVerifiedPoints');
+  String get insufficientBalance => _get('insufficientBalance');
   // Theme names
   String get themeNamePaper => _get('themeNamePaper');
   String get themeNameMidnight => _get('themeNameMidnight');

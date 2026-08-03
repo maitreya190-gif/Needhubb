@@ -1977,8 +1977,8 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
                 Expanded(
                   child: Text(
                     available
-                        ? "You're available for a chat right now"
-                        : 'Mark yourself available',
+                        ? S.current.youreAvailableForChat
+                        : S.current.markYourselfAvailableChat,
                     style: GoogleFonts.hankenGrotesk(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -1997,7 +1997,7 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
 
         if (available) ...[
           Text(
-            'UP FOR A CHAT RIGHT NOW',
+            S.current.upForAChatRightNow,
             style: GoogleFonts.hankenGrotesk(
               fontSize: 11,
               fontWeight: FontWeight.w700,

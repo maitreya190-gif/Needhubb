@@ -806,10 +806,15 @@ class _NotifRowState extends State<_NotifRow> {
     if (lang == 'en') return;
     final results = await translateBatch([widget.notif.title, widget.notif.body], lang);
     if (!mounted) return;
-    // If batch returned originals unchanged (silent API failure), retry once after 4s
-    final gotTranslation = results[0] != widget.notif.title || results[1] != widget.notif.body;
-    setState(() { _ttitle = results[0]; _tbody = results[1]; });
-    if (!gotTranslation && attempt == 0) {
+    final gotTitle = results[0] != widget.notif.title;
+    final gotBody = results[1] != widget.notif.body;
+    if (gotTitle || gotBody) {
+      setState(() {
+        if (gotTitle) _ttitle = results[0];
+        if (gotBody) _tbody = results[1];
+      });
+    }
+    if (!gotTitle && !gotBody && attempt == 0) {
       await Future.delayed(const Duration(seconds: 4));
       if (mounted) _translate(attempt: 1);
     }
@@ -991,9 +996,15 @@ class _SelectableNotifRowState extends State<_SelectableNotifRow> {
     if (lang == 'en') return;
     final results = await translateBatch([widget.notif.title, widget.notif.body], lang);
     if (!mounted) return;
-    final gotTranslation = results[0] != widget.notif.title || results[1] != widget.notif.body;
-    setState(() { _ttitle = results[0]; _tbody = results[1]; });
-    if (!gotTranslation && attempt == 0) {
+    final gotTitle = results[0] != widget.notif.title;
+    final gotBody = results[1] != widget.notif.body;
+    if (gotTitle || gotBody) {
+      setState(() {
+        if (gotTitle) _ttitle = results[0];
+        if (gotBody) _tbody = results[1];
+      });
+    }
+    if (!gotTitle && !gotBody && attempt == 0) {
       await Future.delayed(const Duration(seconds: 4));
       if (mounted) _translate(attempt: 1);
     }

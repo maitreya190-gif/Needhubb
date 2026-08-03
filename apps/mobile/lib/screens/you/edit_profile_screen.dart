@@ -268,21 +268,34 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _translateOptions();
   }
 
-  Future<void> _translateOptions() async {
+  Future<void> _translateOptions({int attempt = 0}) async {
     final lang = uiLanguageNotifier.value;
     if (lang == 'en') return;
     final all = [..._interestOptions, ..._skillOptions];
-    final translated = await translateBatch(all, lang);
+    final untranslated = all.where((s) => _translatedLabels[s] == null).toList();
+    if (untranslated.isEmpty) return;
+    final translated = await translateBatch(untranslated, lang);
     if (!mounted) return;
-    setState(() {
-      for (int i = 0; i < all.length; i++) {
-        _translatedLabels[all[i]] = translated[i];
+    bool anyChanged = false;
+    for (int i = 0; i < untranslated.length; i++) {
+      if (translated[i] != untranslated[i]) {
+        _translatedLabels[untranslated[i]] = translated[i];
+        anyChanged = true;
       }
-    });
+    }
+    if (anyChanged) setState(() {});
+    final stillUntranslated = all.where((s) => _translatedLabels[s] == null).toList();
+    if (stillUntranslated.isNotEmpty && attempt == 0) {
+      await Future.delayed(const Duration(seconds: 4));
+      if (mounted) _translateOptions(attempt: 1);
+    }
   }
 
   void _bump() {
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() { _translatedLabels.clear(); });
+      _translateOptions();
+    }
   }
 
   @override
