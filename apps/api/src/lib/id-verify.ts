@@ -172,8 +172,15 @@ async function matchFaces(
 
   // Face++ returns null confidence when it can't find a face in one of the images
   const confidence: number | null = data.confidence ?? null
-  // face_token1 is the token for image_file1 (the ID photo)
-  const idFaceToken: string | null = data.faces_on_image1?.[0]?.face_token ?? null
+  // Face++ v3 Compare puts detected-face info in `faces1` / `faces2`. Older
+  // drafts used `faces_on_image1` — we probe both, in that order, to be safe.
+  // No fallback to `image_id1` (Face++ generates one per request, so any
+  // image gets a "token") and no synthetic random token — either of those
+  // would silently accept garbage inputs like a dog photo as ID.
+  const idFaceToken: string | null =
+    data.faces1?.[0]?.face_token ??
+    data.faces_on_image1?.[0]?.face_token ??
+    null
   console.log(`[id-verify] face match confidence: ${confidence}, idFaceToken: ${idFaceToken ? 'present' : 'null'}`)
 
   if (confidence === null) {
@@ -184,8 +191,9 @@ async function matchFaces(
   }
   // A missing face_token means the compare succeeded but Face++ didn't return
   // a stable identifier for the ID face. Without it we can't hash for
-  // duplicate-account detection — synthesizing a fake token would silently
-  // bypass that check, so fail instead.
+  // duplicate-account detection, and synthesising a fake token would silently
+  // bypass that check AND accept any image that scores high enough on
+  // similarity. Reject and ask the user to retake.
   if (!idFaceToken) {
     return { verified: false, reason: 'Could not read your ID photo cleanly — please retake it in better lighting.', code: 'ID_TOKEN_MISSING' }
   }

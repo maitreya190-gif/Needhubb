@@ -537,10 +537,16 @@ class _TerminalErrorStep extends StatelessWidget {
     final title = isDuplicate
         ? s.idVerifyDuplicateBlockedTitle
         : s.idVerifyServiceUnavailableTitle;
-    // Prefer localized copy over the server's English reason string.
+    // For SERVICE_UNAVAILABLE we prefer the server's actual reason string
+    // when we have one — it contains the underlying Face++ error (missing
+    // env var, auth failure, unreachable region) which the user or operator
+    // needs to diagnose. Fall back to the generic localised copy if the
+    // server didn't send anything specific.
     final desc = isDuplicate
         ? s.idVerifyDuplicateBlockedDesc
-        : s.idVerifyServiceUnavailableDesc;
+        : (serverReason != null && serverReason!.isNotEmpty
+            ? serverReason!
+            : s.idVerifyServiceUnavailableDesc);
     final icon = isDuplicate ? Icons.block_rounded : Icons.cloud_off_rounded;
 
     return Padding(

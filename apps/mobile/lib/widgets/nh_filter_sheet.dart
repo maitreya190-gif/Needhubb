@@ -406,7 +406,7 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                         // Default — the server's personalized ranking built
                         // from the user's own interests, skills and prompts.
                         _SortOption(
-                          label: S.current.sortRecommended,
+                          label: S.current.aiRanked,
                           value: kSortSmart,
                           selected: _draft.sortBy == kSortSmart,
                           onTap: () => setState(() =>

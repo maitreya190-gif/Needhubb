@@ -132,7 +132,12 @@ void main() {
   });
 
   group('budget', () {
-    test('minBudget excludes cheaper needs and needs with no budget', () {
+    test('minBudget excludes cheaper needs but passes needs with no budget',
+        () {
+      // A budget filter only means something for needs that declare one.
+      // Connect needs carry no budget at all — excluding them the moment a
+      // budget slider moved made the whole feed look broken for a filter
+      // that was never meant to apply to them.
       final needs = [
         makeNeed('rich', budgetMin: 1000),
         makeNeed('cheap', budgetMin: 100),
@@ -140,7 +145,7 @@ void main() {
       ];
       final result =
           filterAndSortNeeds(needs, const FeedFilter(minBudget: 500));
-      expect(idsOf(result), ['rich']);
+      expect(idsOf(result).toSet(), {'rich', 'unpaid'});
     });
 
     test('maxBudget excludes needs above the ceiling', () {

@@ -260,42 +260,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 class _LogoMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    const size = 52.0;
-    const overlap = 18.0;
-    const radius = 12.0;
-
     return SizedBox(
-      width: size + overlap,
-      height: size,
-      child: Stack(
-        children: [
-          // Forest square (back)
-          Positioned(
-            left: 0,
-            top: 0,
-            child: Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                color: NeedHubTokens.forest,
-                borderRadius: BorderRadius.circular(radius),
-              ),
-            ),
-          ),
-          // Clay square (front, overlapping)
-          Positioned(
-            left: overlap,
-            top: 0,
-            child: Container(
-              width: size,
-              height: size,
-              decoration: BoxDecoration(
-                color: NeedHubTokens.clay,
-                borderRadius: BorderRadius.circular(radius),
-              ),
-            ),
-          ),
-        ],
+      width: 80,
+      height: 80,
+      child: Image.asset(
+        'assets/images/logo.png',
+        fit: BoxFit.contain,
       ),
     );
   }

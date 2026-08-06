@@ -73,17 +73,25 @@ bool passesHardFilters(Need n, FeedFilter filter) {
       n.distanceKm! > filter.maxDistanceKm) {
     return false;
   }
-  // Budget is a range-overlap test, matching what the API does: a need with
-  // ₹500–₹2000 satisfies "min ₹1000" because its top end clears the bar.
-  // Comparing only against budgetMin (as this used to) dropped needs whose
-  // range did cover the requested budget.
-  if (filter.minBudget != null) {
-    final top = n.budgetMax ?? n.budgetMin;
-    if (top == null || top < filter.minBudget!) return false;
-  }
-  if (filter.maxBudget != null) {
-    final bottom = n.budgetMin ?? n.budgetMax;
-    if (bottom != null && bottom > filter.maxBudget!) return false;
+  // Two rules, both needed:
+  //
+  // 1. A budget filter only applies to needs that actually declare a budget.
+  //    Connect needs carry none, and silently hiding every social need the
+  //    moment a budget slider moved read as "the feed is broken".
+  // 2. For needs that do declare one, this is a range-overlap test matching
+  //    the API: a ₹500–₹2000 need satisfies "min ₹1000" because its top end
+  //    clears the bar. Testing budgetMin alone dropped needs whose range did
+  //    cover the requested budget.
+  final hasBudget = n.budgetMin != null || n.budgetMax != null;
+  if (hasBudget) {
+    if (filter.minBudget != null) {
+      final top = n.budgetMax ?? n.budgetMin!;
+      if (top < filter.minBudget!) return false;
+    }
+    if (filter.maxBudget != null) {
+      final bottom = n.budgetMin ?? n.budgetMax!;
+      if (bottom > filter.maxBudget!) return false;
+    }
   }
   // Gender is one-of by nature (a poster has a single gender), so selecting
   // several widens. A poster who never set a gender can't satisfy an
@@ -108,7 +116,9 @@ int chipHits(List<String> haystack, Set<String> chips) =>
 /// preserved exactly. This previously fell through to a createdAt sort, which
 /// silently re-ordered smart-ranked results by recency — the AI ranking could
 /// never actually reach the screen. Callers must use a *stable* sort for that
-/// zero to mean "leave as the server sent it".
+/// zero to mean "leave as the server sent it" — Dart's [List.sort] is not
+/// guaranteed stable, so returning 0 alone is not enough; see
+/// [stableSortNeeds] below.
 int compareBySort(Need a, Need b, FeedFilter filter) {
   if (filter.sortBy == kSortNearest) {
     return (a.distanceKm ?? double.infinity)
@@ -167,10 +177,13 @@ void stableSortNeeds(List<Need> list, int Function(Need, Need) compare) {
 /// badge): the AI decides what the raw feed contains and its base order,
 /// while these chips are the user's own explicit narrowing on top of it.
 ///
-/// Topic chips (interests + skills) combine as a strict AND — a need must
-/// satisfy *every* selected chip to show. Selecting more chips therefore
-/// always narrows, never widens, and picking chips with no overlap correctly
-/// yields nothing rather than a grab-bag of partial matches.
+/// Topic chips (interests + skills) combine as OR — a need appears if it
+/// satisfies *any* selected chip. Users kept complaining that adding a
+/// second chip emptied the feed (strict AND used to be the rule, but
+/// picking two orthogonal interests like "Flutter" and "Cooking" left them
+/// staring at nothing). OR matches natural user intent: "show me anything
+/// related to what I picked", and the sort within a chip group is by how
+/// many chips a need matches, so multi-hits still rank first.
 ///
 /// With no chips selected nothing is excluded here, so an untouched filter
 /// leaves the feed exactly as the server sent it, only re-sorted.

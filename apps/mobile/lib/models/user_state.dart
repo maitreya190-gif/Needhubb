@@ -388,6 +388,9 @@ class FeedFilter {
         type: 'sort',
       ));
     }
+    // 'smart' is the default AI-ranked order — not shown as a badge because
+    // it is the baseline, and users don't need a chip reminding them nothing
+    // is being overridden.
     return list;
   }
 
