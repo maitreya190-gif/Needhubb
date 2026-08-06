@@ -293,7 +293,7 @@ class FeedFilter {
   Set<String> get genders => _genders ?? const <String>{};
   Set<String> get interests => _interests ?? const <String>{};
   Set<String> get skills => _skills ?? const <String>{};
-  String get sortBy => _sortBy ?? 'newest';
+  String get sortBy => _sortBy ?? 'smart';
 
   FeedFilter copyWith({
     double? maxDistanceKm,
@@ -367,7 +367,16 @@ class FeedFilter {
         label: 'Sort: Highest Points',
         type: 'sort',
       ));
+    } else if (sortBy == 'newest') {
+      list.add(const FilterBadgeItem(
+        id: 'sort',
+        label: 'Sort: Newest',
+        type: 'sort',
+      ));
     }
+    // 'smart' is the default AI-ranked order — not shown as a badge because
+    // it is the baseline, and users don't need a chip reminding them nothing
+    // is being overridden.
     return list;
   }
 
@@ -394,7 +403,7 @@ class FeedFilter {
       return copyWith(skills: next);
     }
     if (badge.type == 'sort') {
-      return copyWith(sortBy: 'newest');
+      return copyWith(sortBy: 'smart');
     }
     return this;
   }

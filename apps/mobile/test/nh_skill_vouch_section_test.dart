@@ -27,9 +27,9 @@ void main() {
 
   group('empty and populated states', () {
     testWidgets('shows an empty-state message with no skills', (tester) async {
-      await tester.pumpWidget(wrap(NhSkillVouchSection(
-        skills: const [],
-        skillVouches: const {},
+      await tester.pumpWidget(wrap(const NhSkillVouchSection(
+        skills: [],
+        skillVouches: {},
         t: t,
       )));
       expect(find.textContaining('No skills listed'), findsOneWidget);
@@ -37,9 +37,9 @@ void main() {
 
     testWidgets('a skill with zero vouches reads "No vouches yet"',
         (tester) async {
-      await tester.pumpWidget(wrap(NhSkillVouchSection(
-        skills: const [SkillEntry(id: 's1', label: 'Flutter')],
-        skillVouches: const {},
+      await tester.pumpWidget(wrap(const NhSkillVouchSection(
+        skills: [SkillEntry(id: 's1', label: 'Flutter')],
+        skillVouches: {},
         t: t,
       )));
       expect(find.text('Flutter'), findsOneWidget);
@@ -48,10 +48,10 @@ void main() {
 
     testWidgets('shows the vouch count and pluralizes correctly',
         (tester) async {
-      await tester.pumpWidget(wrap(NhSkillVouchSection(
-        skills: const [SkillEntry(id: 's1', label: 'Flutter')],
+      await tester.pumpWidget(wrap(const NhSkillVouchSection(
+        skills: [SkillEntry(id: 's1', label: 'Flutter')],
         skillVouches: {
-          's1': const SkillVouchSummary(
+          's1': SkillVouchSummary(
             skillId: 's1',
             label: 'Flutter',
             vouchCount: 3,
@@ -98,10 +98,10 @@ void main() {
 
   group('the Verified badge', () {
     testWidgets('appears when at least one vouch is verified', (tester) async {
-      await tester.pumpWidget(wrap(NhSkillVouchSection(
-        skills: const [SkillEntry(id: 's1', label: 'Flutter')],
+      await tester.pumpWidget(wrap(const NhSkillVouchSection(
+        skills: [SkillEntry(id: 's1', label: 'Flutter')],
         skillVouches: {
-          's1': const SkillVouchSummary(
+          's1': SkillVouchSummary(
             skillId: 's1',
             label: 'Flutter',
             vouchCount: 1,
@@ -115,10 +115,10 @@ void main() {
     });
 
     testWidgets('does not appear when no vouch is verified', (tester) async {
-      await tester.pumpWidget(wrap(NhSkillVouchSection(
-        skills: const [SkillEntry(id: 's1', label: 'Flutter')],
+      await tester.pumpWidget(wrap(const NhSkillVouchSection(
+        skills: [SkillEntry(id: 's1', label: 'Flutter')],
         skillVouches: {
-          's1': const SkillVouchSummary(
+          's1': SkillVouchSummary(
             skillId: 's1',
             label: 'Flutter',
             vouchCount: 2,
@@ -135,9 +135,9 @@ void main() {
   group('the vouch/edit action', () {
     testWidgets('is absent when no onVouch callback is supplied — own profile',
         (tester) async {
-      await tester.pumpWidget(wrap(NhSkillVouchSection(
-        skills: const [SkillEntry(id: 's1', label: 'Flutter')],
-        skillVouches: const {},
+      await tester.pumpWidget(wrap(const NhSkillVouchSection(
+        skills: [SkillEntry(id: 's1', label: 'Flutter')],
+        skillVouches: {},
         t: t,
       )));
       expect(find.text('Vouch'), findsNothing);
@@ -253,18 +253,18 @@ void main() {
   group('skill ordering', () {
     testWidgets('vouched-for skills render before ones with no vouches, order otherwise preserved',
         (tester) async {
-      await tester.pumpWidget(wrap(NhSkillVouchSection(
-        skills: const [
+      await tester.pumpWidget(wrap(const NhSkillVouchSection(
+        skills: [
           SkillEntry(id: 's1', label: 'Alpha'),
           SkillEntry(id: 's2', label: 'Beta'),
           SkillEntry(id: 's3', label: 'Gamma'),
           SkillEntry(id: 's4', label: 'Delta'),
         ],
         skillVouches: {
-          's3': const SkillVouchSummary(
+          's3': SkillVouchSummary(
             skillId: 's3', label: 'Gamma', vouchCount: 2, verifiedVouchCount: 0, recentVouchers: [],
           ),
-          's4': const SkillVouchSummary(
+          's4': SkillVouchSummary(
             skillId: 's4', label: 'Delta', vouchCount: 0, verifiedVouchCount: 0, recentVouchers: [],
           ),
         },

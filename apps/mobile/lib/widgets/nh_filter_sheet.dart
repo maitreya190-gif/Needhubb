@@ -404,6 +404,14 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                       runSpacing: 8,
                       children: [
                         _SortOption(
+                          label: S.current.aiRanked,
+                          value: 'smart',
+                          selected: _draft.sortBy == 'smart',
+                          onTap: () => setState(
+                              () => _draft = _draft.copyWith(sortBy: 'smart')),
+                          t: t,
+                        ),
+                        _SortOption(
                           label: S.current.newestFirst,
                           value: 'newest',
                           selected: _draft.sortBy == 'newest',

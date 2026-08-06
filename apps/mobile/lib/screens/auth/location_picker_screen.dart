@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
+import '../../services/mappls_service.dart';
 import '../../theme/tokens.dart';
 
 class LocationPickerScreen extends StatefulWidget {
@@ -30,10 +30,9 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   String _currentLabel = 'Locating...';
   bool _isGeocoding = false;
   Timer? _debounce;
-  final _dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 10)));
-  
+
   final _searchController = TextEditingController();
-  List<dynamic> _searchResults = [];
+  List<PlaceSuggestion> _searchResults = const [];
   bool _isSearching = false;
 
   @override
@@ -57,107 +56,49 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   Future<void> _reverseGeocode(LatLng pos) async {
     setState(() => _isGeocoding = true);
-    try {
-      final res = await _dio.get(
-        'https://nominatim.openstreetmap.org/reverse',
-        queryParameters: {
-          'format': 'json',
-          'lat': pos.latitude,
-          'lon': pos.longitude,
-          'zoom': 18,
-        },
-        options: Options(headers: {'User-Agent': 'NeedhubApp/1.0'}),
-      );
-      if (res.data != null && res.data['display_name'] != null) {
-        final address = res.data['address'] as Map<String, dynamic>?;
-        String fullDisplayName = res.data['display_name'];
-        String approxStr = fullDisplayName;
-
-        if (address != null) {
-          final houseNumber = address['house_number'];
-          final building = address['building'] ?? address['apartment'] ?? address['apartments'] ?? address['residential'];
-          final amenity = address['amenity'] ?? address['shop'] ?? address['office'] ?? address['railway'] ?? address['tourism'] ?? address['historic'];
-          final road = address['road'] ?? address['pedestrian'] ?? address['path'];
-          final suburb = address['suburb'] ?? address['neighbourhood'] ?? address['city_district'];
-          final city = address['city'] ?? address['town'] ?? address['village'] ?? address['county'];
-          final state = address['state'];
-
-          // Build exact label (e.g. Building Name, Shop Name, Road Name, Locality, City)
-          final exactParts = <String>[];
-          if (amenity != null) exactParts.add(amenity.toString());
-          if (building != null) exactParts.add(building.toString());
-          if (houseNumber != null) exactParts.add(houseNumber.toString());
-          if (road != null) exactParts.add(road.toString());
-          if (suburb != null && suburb.toString() != road?.toString()) exactParts.add(suburb.toString());
-          if (city != null && city.toString() != suburb?.toString()) exactParts.add(city.toString());
-
-          if (exactParts.isNotEmpty) {
-            fullDisplayName = exactParts.join(', ');
-          }
-
-          // Build approx label (locality/suburb, city)
-          if (suburb != null && city != null) {
-            approxStr = '$suburb, $city';
-          } else if (city != null && state != null) {
-            approxStr = '$city, $state';
-          } else if (city != null) {
-            approxStr = city.toString();
-          }
-        }
-
-        if (mounted) {
-          setState(() {
-            _exactLabel = fullDisplayName;
-            _approxLabel = '$approxStr (2km Radius)';
-            _currentLabel = _exactLocation ? _exactLabel : _approxLabel;
-          });
-        }
+    final result = await mappls.reverseGeocode(pos.latitude, pos.longitude);
+    if (!mounted) return;
+    setState(() {
+      _isGeocoding = false;
+      if (result != null) {
+        _exactLabel = result.exact;
+        _approxLabel = '${result.approx} (2km Radius)';
+        _currentLabel = _exactLocation ? _exactLabel : _approxLabel;
       } else {
-        if (mounted) setState(() => _currentLabel = 'Unknown location');
+        _currentLabel =
+            'Lat ${pos.latitude.toStringAsFixed(3)}, Lon ${pos.longitude.toStringAsFixed(3)}';
       }
-    } catch (e) {
-      if (mounted) setState(() => _currentLabel = 'Lat ${pos.latitude.toStringAsFixed(3)}, Lon ${pos.longitude.toStringAsFixed(3)}');
-    } finally {
-      if (mounted) setState(() => _isGeocoding = false);
-    }
+    });
   }
 
   void _onPositionChanged(MapCamera position, bool hasGesture) {
-    if (position.center != null) {
-      setState(() => _center = position.center!);
-      if (hasGesture) {
-        if (_debounce?.isActive ?? false) _debounce!.cancel();
-        _debounce = Timer(const Duration(milliseconds: 800), () {
-          _reverseGeocode(_center);
-        });
-      }
+    setState(() => _center = position.center);
+    if (hasGesture) {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+      _debounce = Timer(const Duration(milliseconds: 800), () {
+        _reverseGeocode(_center);
+      });
     }
   }
 
   Future<void> _searchLocation(String query) async {
     if (query.trim().isEmpty) {
-      setState(() => _searchResults = []);
+      setState(() => _searchResults = const []);
       return;
     }
     setState(() => _isSearching = true);
-    try {
-      final res = await _dio.get(
-        'https://nominatim.openstreetmap.org/search',
-        queryParameters: {
-          'format': 'json',
-          'q': query,
-          'limit': 5,
-        },
-        options: Options(headers: {'User-Agent': 'NeedhubApp/1.0'}),
-      );
-      if (mounted && res.data != null) {
-        setState(() => _searchResults = res.data as List<dynamic>);
-      }
-    } catch (e) {
-      debugPrint('Search error: $e');
-    } finally {
-      if (mounted) setState(() => _isSearching = false);
-    }
+    // Bias autosuggest to the current map center so common queries
+    // ("chemist", "atm") return the nearest hits, not nationwide chains.
+    final results = await mappls.autosuggest(
+      query,
+      nearLat: _center.latitude,
+      nearLng: _center.longitude,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isSearching = false;
+      _searchResults = results;
+    });
   }
 
   void _confirm() {
@@ -289,19 +230,20 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                         final item = _searchResults[index];
                         return ListTile(
                           title: Text(
-                            item['display_name'] ?? '',
+                            item.display,
                             style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.ink),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                           onTap: () {
-                            final lat = double.parse(item['lat'].toString());
-                            final lon = double.parse(item['lon'].toString());
-                            final newPos = LatLng(lat, lon);
+                            final lat = item.lat;
+                            final lng = item.lng;
+                            if (lat == null || lng == null) return;
+                            final newPos = LatLng(lat, lng);
                             _mapController.move(newPos, 14);
                             setState(() {
                               _center = newPos;
-                              _searchResults = [];
+                              _searchResults = const [];
                               _searchController.clear();
                             });
                             _reverseGeocode(newPos);

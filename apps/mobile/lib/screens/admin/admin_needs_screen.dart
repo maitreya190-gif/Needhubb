@@ -29,15 +29,19 @@ class _AdminNeedsScreenState extends State<AdminNeedsScreen> {
     });
     try {
       final n = await AdminApi.instance.needs();
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _needs = n;
         _loading = false;
       });
+      }
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _error = e.toString();
         _loading = false;
       });
+      }
     }
   }
 
@@ -189,7 +193,7 @@ class _AdminNeedsScreenState extends State<AdminNeedsScreen> {
                                   ),
                                   IconButton(
                                     onPressed: () => _delete(need),
-                                    icon: Icon(Icons.delete_outline_rounded,
+                                    icon: const Icon(Icons.delete_outline_rounded,
                                         color: NeedHubTokens.clay, size: 20),
                                   ),
                                 ],

@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
+import '../../screens/onboarding/tutorial_screen.dart';
 import '../../services/auth_service.dart';
+import '../../services/location_service.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
@@ -125,44 +126,30 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     if (_locating) return;
     setState(() => _locating = true);
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(S.current.enableLocationServices)));
-        }
-        return;
-      }
-      LocationPermission perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
-      }
-      if (perm == LocationPermission.denied ||
-          perm == LocationPermission.deniedForever) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text(S.current.locationPermissionDenied)));
-        }
-        return;
-      }
-      // Try last-known first (instant); fall back to a fresh fix with a 10s cap.
-      // Using LocationAccuracy.lowest helps avoid GPS lock requirements on emulators.
-      Position? pos;
-      try {
-        pos = await Geolocator.getLastKnownPosition();
-        pos ??= await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.lowest,
-          timeLimit: const Duration(seconds: 3),
-        );
-      } catch (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(S.current.couldntGetGpsFix)));
-        }
-        return;
-      }
-      
+      final result = await locationService.getCurrent();
       if (!mounted) return;
+
+      if (!result.isOk) {
+        String message;
+        switch (result.failure!) {
+          case LocationFailure.serviceDisabled:
+            message = S.current.enableLocationServices;
+            break;
+          case LocationFailure.permissionDenied:
+          case LocationFailure.permissionForeverDenied:
+            message = S.current.locationPermissionDenied;
+            break;
+          case LocationFailure.timeout:
+          case LocationFailure.poorAccuracy:
+          case LocationFailure.unknown:
+            message = S.current.couldntGetGpsFix;
+            break;
+        }
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
+        return;
+      }
+      final fix = result.fix!;
 
       final bool? isExact = await showDialog<bool>(
         context: context,
@@ -194,67 +181,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
       if (isExact == null) return; // user cancelled
 
-      String shortLabel = '';
-      try {
-        final res = await Dio(BaseOptions(connectTimeout: const Duration(seconds: 5))).get(
-          'https://nominatim.openstreetmap.org/reverse',
-          queryParameters: {
-            'format': 'json',
-            'lat': pos.latitude,
-            'lon': pos.longitude,
-            'zoom': isExact ? 18 : 14,
-          },
-          options: Options(headers: {'User-Agent': 'NeedhubApp/1.0'}),
-        );
-        if (res.data != null && res.data['display_name'] != null) {
-          final address = res.data['address'] as Map<String, dynamic>?;
-          shortLabel = res.data['display_name'];
-          if (address != null) {
-            final houseNumber = address['house_number'];
-            final building = address['building'] ?? address['apartment'] ?? address['apartments'] ?? address['residential'];
-            final amenity = address['amenity'] ?? address['shop'] ?? address['office'] ?? address['railway'] ?? address['tourism'] ?? address['historic'];
-            final road = address['road'] ?? address['pedestrian'] ?? address['path'];
-            final suburb = address['suburb'] ?? address['neighbourhood'] ?? address['city_district'];
-            final city = address['city'] ?? address['town'] ?? address['village'] ?? address['county'];
-            final state = address['state'];
-
-            if (isExact) {
-              final exactParts = <String>[];
-              if (amenity != null) exactParts.add(amenity.toString());
-              if (building != null) exactParts.add(building.toString());
-              if (houseNumber != null) exactParts.add(houseNumber.toString());
-              if (road != null) exactParts.add(road.toString());
-              if (suburb != null && suburb.toString() != road?.toString()) exactParts.add(suburb.toString());
-              if (city != null && city.toString() != suburb?.toString()) exactParts.add(city.toString());
-
-              if (exactParts.isNotEmpty) {
-                shortLabel = exactParts.join(', ');
-              }
-            } else {
-              if (suburb != null && city != null) {
-                shortLabel = '$suburb, $city';
-              } else if (city != null && state != null) {
-                shortLabel = '$city, $state';
-              } else if (city != null) {
-                shortLabel = city.toString();
-              }
-            }
-          }
-        }
-      } catch (_) {}
-
-      if (shortLabel.isEmpty) {
-        final lat = pos.latitude.toStringAsFixed(3);
-        final lon = pos.longitude.toStringAsFixed(3);
-        shortLabel = 'Lat $lat, Lon $lon';
-      }
-
+      final shortLabel =
+          await locationService.resolveLabel(fix.lat, fix.lng, exact: isExact);
       final label = isExact ? shortLabel : '$shortLabel (Approx)';
 
       if (!mounted) return;
       setState(() {
-        _lat = pos!.latitude;
-        _lng = pos.longitude;
+        _lat = fix.lat;
+        _lng = fix.lng;
         _locationController.text = label;
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -361,6 +295,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     await prefs.setStringList('nh_skills', _selectedSkills.toList());
     await prefs.setString('nh_location', _locationController.text.trim());
     await prefs.setDouble('nh_max_distance_km', _maxDistanceKm);
+    await markTutorialPending();
 
     genderNotifier.value = _gender;
     locationNotifier.value = _locationController.text.trim().isEmpty

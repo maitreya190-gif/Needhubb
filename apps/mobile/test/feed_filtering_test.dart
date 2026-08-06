@@ -124,14 +124,14 @@ void main() {
         makeNeed('unset'),
       ];
       final result =
-          filterAndSortNeeds(needs, FeedFilter(genders: const {'Female'}));
+          filterAndSortNeeds(needs, const FeedFilter(genders: {'Female'}));
       expect(idsOf(result), ['female']);
     });
 
     test('gender comparison ignores case and punctuation', () {
       final needs = [makeNeed('nb', posterGender: 'Non-binary')];
       final result =
-          filterAndSortNeeds(needs, FeedFilter(genders: const {'non binary'}));
+          filterAndSortNeeds(needs, const FeedFilter(genders: {'non binary'}));
       expect(idsOf(result), ['nb']);
     });
   });
@@ -181,7 +181,7 @@ void main() {
       ];
       final result = filterAndSortNeeds(
         needs,
-        FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'}),
+        const FeedFilter(interests: {'Flutter'}, skills: {'Tutoring'}),
       );
       expect(idsOf(result), ['both']);
     });
@@ -192,9 +192,9 @@ void main() {
         makeNeed('b', tags: const ['Chess']),
       ];
       final one =
-          filterAndSortNeeds(needs, FeedFilter(interests: const {'Flutter'}));
+          filterAndSortNeeds(needs, const FeedFilter(interests: {'Flutter'}));
       final two = filterAndSortNeeds(
-          needs, FeedFilter(interests: const {'Flutter', 'Chess'}));
+          needs, const FeedFilter(interests: {'Flutter', 'Chess'}));
       expect(one.length, 1);
       expect(two.length, lessThanOrEqualTo(one.length));
       expect(two, isEmpty);
@@ -203,7 +203,7 @@ void main() {
     test('chips with no overlap correctly return nothing', () {
       final needs = [makeNeed('a', tags: const ['Flutter'])];
       final result = filterAndSortNeeds(
-          needs, FeedFilter(interests: const {'Flutter', 'Cooking'}));
+          needs, const FeedFilter(interests: {'Flutter', 'Cooking'}));
       expect(result, isEmpty);
     });
   });
@@ -212,7 +212,7 @@ void main() {
     test('matches the AI tags the server assigned', () {
       final needs = [makeNeed('tagged', tags: const ['Photography'])];
       final result = filterAndSortNeeds(
-          needs, FeedFilter(interests: const {'Photography'}));
+          needs, const FeedFilter(interests: {'Photography'}));
       expect(idsOf(result), ['tagged']);
     });
 
@@ -221,7 +221,7 @@ void main() {
         makeNeed('titled', title: 'Looking for a Flutter developer'),
       ];
       final result =
-          filterAndSortNeeds(needs, FeedFilter(skills: const {'Flutter'}));
+          filterAndSortNeeds(needs, const FeedFilter(skills: {'Flutter'}));
       expect(idsOf(result), ['titled']);
     });
 
@@ -230,14 +230,14 @@ void main() {
         makeNeed('described', description: 'Help me with Python scripting'),
       ];
       final result =
-          filterAndSortNeeds(needs, FeedFilter(skills: const {'Python'}));
+          filterAndSortNeeds(needs, const FeedFilter(skills: {'Python'}));
       expect(idsOf(result), ['described']);
     });
 
     test("matches the poster's declared interests", () {
       final needs = [makeNeed('poster', posterInterests: const ['Chess'])];
       final result =
-          filterAndSortNeeds(needs, FeedFilter(interests: const {'Chess'}));
+          filterAndSortNeeds(needs, const FeedFilter(interests: {'Chess'}));
       expect(idsOf(result), ['poster']);
     });
   });
@@ -289,14 +289,14 @@ void main() {
         makeNeed('one', tags: const ['Flutter']),
         makeNeed('none', tags: const ['Chess']),
       ];
-      final filter =
+      const filter =
           FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
       expect(idsOf(partialMatchNeeds(needs, filter)), ['one']);
     });
 
     test('never includes an exact match — those belong to the AND result', () {
       final needs = [makeNeed('both', tags: const ['Flutter', 'Tutoring'])];
-      final filter =
+      const filter =
           FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
       expect(partialMatchNeeds(needs, filter), isEmpty);
       expect(idsOf(filterAndSortNeeds(needs, filter)), ['both']);
@@ -304,7 +304,7 @@ void main() {
 
     test('never includes a need matching zero chips', () {
       final needs = [makeNeed('none', tags: const ['Chess'])];
-      final filter =
+      const filter =
           FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
       expect(partialMatchNeeds(needs, filter), isEmpty);
     });
@@ -319,7 +319,7 @@ void main() {
         makeNeed('near', distanceKm: 2, tags: const ['Flutter']),
         makeNeed('far', distanceKm: 90, tags: const ['Flutter']),
       ];
-      final filter = FeedFilter(
+      const filter = FeedFilter(
         maxDistanceKm: 10,
         interests: const {'Flutter', 'Cooking'},
       );
@@ -331,7 +331,7 @@ void main() {
         makeNeed('one', tags: const ['Flutter']),
         makeNeed('two', tags: const ['Flutter', 'Tutoring']),
       ];
-      final filter = FeedFilter(
+      const filter = FeedFilter(
         interests: const {'Flutter'},
         skills: const {'Tutoring', 'Python'},
       );
@@ -343,7 +343,7 @@ void main() {
         makeNeed('both', tags: const ['Flutter', 'Tutoring']),
         makeNeed('one', tags: const ['Flutter']),
       ];
-      final filter =
+      const filter =
           FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
       final exact = idsOf(filterAndSortNeeds(needs, filter)).toSet();
       final partial = idsOf(partialMatchNeeds(needs, filter)).toSet();
@@ -382,9 +382,9 @@ void main() {
         makeNeed('b', tags: const ['Flutter'], createdAt: DateTime(2026, 2, 1)),
       ];
       final forward =
-          filterAndSortNeeds(needs, FeedFilter(interests: const {'Flutter'}));
+          filterAndSortNeeds(needs, const FeedFilter(interests: {'Flutter'}));
       final reversed = filterAndSortNeeds(
-          needs.reversed.toList(), FeedFilter(interests: const {'Flutter'}));
+          needs.reversed.toList(), const FeedFilter(interests: {'Flutter'}));
       expect(idsOf(forward), idsOf(reversed));
     });
   });

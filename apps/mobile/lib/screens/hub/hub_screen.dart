@@ -7,6 +7,7 @@ import '../../l10n/app_strings.dart';
 import '../../models/need.dart';
 import '../../providers/language_provider.dart';
 import '../../theme/tokens.dart';
+import '../onboarding/tutorial_screen.dart';
 import 'tabs/hub_home_tab.dart';
 import 'tabs/feed_tab.dart';
 import 'tabs/chats_tab.dart';
@@ -25,10 +26,80 @@ class HubScreen extends ConsumerStatefulWidget {
 class _HubScreenState extends ConsumerState<HubScreen> {
   int _index = 0;
 
+  // Spotlight anchors for the first-run tour. Nothing else reads these.
+  final _exploreKey = GlobalKey();
+  final _fabKey = GlobalKey();
+  final _chatsNavKey = GlobalKey();
+  final _alertsNavKey = GlobalKey();
+  final _youNavKey = GlobalKey();
+  bool _tourActive = false;
+
   @override
   void initState() {
     super.initState();
     uiLanguageNotifier.addListener(_onLangChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (await consumeTutorialPending() && mounted) {
+        setState(() => _tourActive = true);
+      }
+    });
+  }
+
+  List<TourStep> _tourSteps() {
+    final s = S.current;
+    return [
+      TourStep(
+        tab: 0,
+        title: s.tutWelcomeTitle,
+        body: s.tutWelcomeBody,
+      ),
+      TourStep(
+        tab: 0,
+        target: _fabKey,
+        radius: 20,
+        title: s.tutPostTitle,
+        body: s.tutPostBody,
+        chips: [s.tutPostChip1, s.tutPostChip2, s.tutPostChip3],
+      ),
+      TourStep(
+        tab: 0,
+        target: _exploreKey,
+        radius: 22,
+        title: s.tutExploreTitle,
+        body: s.tutExploreBody,
+        chips: [s.tutExploreChip1, s.tutExploreChip2, s.tutExploreChip3],
+      ),
+      TourStep(
+        tab: 1,
+        target: _chatsNavKey,
+        radius: 14,
+        title: s.tutChatsTitle,
+        body: s.tutChatsBody,
+        chips: [s.tutChatsChip1, s.tutChatsChip2, s.tutChatsChip3],
+      ),
+      TourStep(
+        tab: 3,
+        target: _alertsNavKey,
+        radius: 14,
+        title: s.tutAlertsTitle,
+        body: s.tutAlertsBody,
+        chips: [s.tutAlertsChip1, s.tutAlertsChip2],
+      ),
+      TourStep(
+        tab: 4,
+        target: _youNavKey,
+        radius: 14,
+        title: s.tutYouTitle,
+        body: s.tutYouBody,
+        chips: [
+          s.tutYouChip1,
+          s.tutYouChip2,
+          s.tutYouChip3,
+          s.tutYouChip4,
+        ],
+      ),
+    ];
   }
 
   @override
@@ -69,6 +140,7 @@ class _HubScreenState extends ConsumerState<HubScreen> {
 
     final List<Widget> pages = [
       HubHomeTab(
+        exploreKey: _exploreKey,
         onBrowseEarn: () => _browseTo(context, 'earn'),
         onBrowseConnect: () => _browseTo(context, 'connect'),
         onPost: () => _showPostSheet(),
@@ -77,7 +149,7 @@ class _HubScreenState extends ConsumerState<HubScreen> {
       const ChatsTab(),
       const SizedBox.shrink(),
       const AlertsTab(),
-      YouScreen(),
+      const YouScreen(),
     ];
 
     return Scaffold(
@@ -99,6 +171,10 @@ class _HubScreenState extends ConsumerState<HubScreen> {
             bottom: 0,
             child: _NavBar(
               currentIndex: _index,
+              fabKey: _fabKey,
+              chatsKey: _chatsNavKey,
+              alertsKey: _alertsNavKey,
+              youKey: _youNavKey,
               onTap: (i) {
                 if (i == 2) {
                   _showPostSheet();
@@ -108,6 +184,25 @@ class _HubScreenState extends ConsumerState<HubScreen> {
               },
             ),
           ),
+
+          // First-run guided tour — sits above the nav bar so it can spotlight it.
+          if (_tourActive)
+            Positioned.fill(
+              child: TutorialOverlay(
+                steps: _tourSteps(),
+                onGoToTab: (i) {
+                  if (_index != i) setState(() => _index = i);
+                },
+                onFinish: () {
+                  if (mounted) {
+                    setState(() {
+                      _tourActive = false;
+                      _index = 0;
+                    });
+                  }
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -119,8 +214,19 @@ class _HubScreenState extends ConsumerState<HubScreen> {
 class _NavBar extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final GlobalKey? fabKey;
+  final GlobalKey? chatsKey;
+  final GlobalKey? alertsKey;
+  final GlobalKey? youKey;
 
-  const _NavBar({required this.currentIndex, required this.onTap});
+  const _NavBar({
+    required this.currentIndex,
+    required this.onTap,
+    this.fabKey,
+    this.chatsKey,
+    this.alertsKey,
+    this.youKey,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -149,6 +255,7 @@ class _NavBar extends ConsumerWidget {
                 onTap: () => onTap(0),
               ),
               _NavItem(
+                key: chatsKey,
                 icon: Icons.chat_bubble_outline_rounded,
                 label: S.current.chats,
                 active: currentIndex == 1,
@@ -156,6 +263,7 @@ class _NavBar extends ConsumerWidget {
               ),
               // FAB
               GestureDetector(
+                key: fabKey,
                 onTap: () => onTap(2),
                 child: Container(
                   width: 52,
@@ -179,12 +287,14 @@ class _NavBar extends ConsumerWidget {
                 ),
               ),
               _NavItem(
+                key: alertsKey,
                 icon: Icons.notifications_outlined,
                 label: S.current.alerts,
                 active: currentIndex == 3,
                 onTap: () => onTap(3),
               ),
               _NavItem(
+                key: youKey,
                 icon: Icons.person_outline_rounded,
                 label: S.current.you,
                 active: currentIndex == 4,
@@ -205,6 +315,7 @@ class _NavItem extends StatelessWidget {
   final VoidCallback onTap;
 
   const _NavItem({
+    super.key,
     required this.icon,
     required this.label,
     required this.active,
