@@ -73,14 +73,18 @@ bool passesHardFilters(Need n, FeedFilter filter) {
       n.distanceKm! > filter.maxDistanceKm) {
     return false;
   }
-  if (filter.minBudget != null &&
-      (n.budgetMin == null || n.budgetMin! < filter.minBudget!)) {
-    return false;
-  }
-  if (filter.maxBudget != null &&
-      n.budgetMin != null &&
-      n.budgetMin! > filter.maxBudget!) {
-    return false;
+  // Budget filters only apply to needs that actually declare a budget
+  // (Earn needs). Connect needs have no budgetMin — excluding them silently
+  // whenever a budget slider is touched confused users into thinking the
+  // feed was empty. If someone wants to filter budget, they mean "hide
+  // low/high paid Earn needs", not "hide every social need too".
+  if (n.budgetMin != null) {
+    if (filter.minBudget != null && n.budgetMin! < filter.minBudget!) {
+      return false;
+    }
+    if (filter.maxBudget != null && n.budgetMin! > filter.maxBudget!) {
+      return false;
+    }
   }
   // Gender is one-of by nature (a poster has a single gender), so selecting
   // several widens. A poster who never set a gender can't satisfy an
@@ -100,6 +104,10 @@ int chipHits(List<String> haystack, Set<String> chips) =>
     chips.where((c) => haystack.any((h) => termMatches(h, c))).length;
 
 /// The user's explicit sort choice.
+///
+/// 'smart' returns 0 for every pair so the server's AI-ranked order is
+/// preserved — a local .sort() with all-equal keys keeps the source order
+/// stable (Dart's List.sort is stable), which is exactly what we want.
 int compareBySort(Need a, Need b, FeedFilter filter) {
   if (filter.sortBy == 'nearest') {
     return (a.distanceKm ?? double.infinity)
@@ -108,7 +116,10 @@ int compareBySort(Need a, Need b, FeedFilter filter) {
   if (filter.sortBy == 'highest_points') {
     return (b.budgetMin ?? 0).compareTo(a.budgetMin ?? 0);
   }
-  return b.createdAt.compareTo(a.createdAt); // 'newest'
+  if (filter.sortBy == 'newest') {
+    return b.createdAt.compareTo(a.createdAt);
+  }
+  return 0; // 'smart' — keep server-provided AI ranking untouched
 }
 
 /// Maps the user's sort choice onto the server's own sort parameter.
@@ -128,6 +139,8 @@ String serverSortFor(String sortBy) {
       return 'newest';
     case 'nearest':
       return 'distance';
+    case 'highest_points':
+    case 'smart':
     default:
       return 'smart';
   }
@@ -138,10 +151,13 @@ String serverSortFor(String sortBy) {
 /// badge): the AI decides what the raw feed contains and its base order,
 /// while these chips are the user's own explicit narrowing on top of it.
 ///
-/// Topic chips (interests + skills) combine as a strict AND — a need must
-/// satisfy *every* selected chip to show. Selecting more chips therefore
-/// always narrows, never widens, and picking chips with no overlap correctly
-/// yields nothing rather than a grab-bag of partial matches.
+/// Topic chips (interests + skills) combine as OR — a need appears if it
+/// satisfies *any* selected chip. Users kept complaining that adding a
+/// second chip emptied the feed (strict AND used to be the rule, but
+/// picking two orthogonal interests like "Flutter" and "Cooking" left them
+/// staring at nothing). OR matches natural user intent: "show me anything
+/// related to what I picked", and the sort within a chip group is by how
+/// many chips a need matches, so multi-hits still rank first.
 ///
 /// With no chips selected nothing is excluded here, so an untouched filter
 /// leaves the feed exactly as the server sent it, only re-sorted.
@@ -149,43 +165,30 @@ List<Need> filterAndSortNeeds(List<Need> source, FeedFilter filter) {
   final pool = source.where((n) => passesHardFilters(n, filter)).toList();
   final chips = {...filter.interests, ...filter.skills};
 
-  final matched = chips.isEmpty
-      ? pool
-      : pool
-          .where((n) => chipHits(needHaystack(n), chips) == chips.length)
-          .toList();
-
-  matched.sort((a, b) => compareBySort(a, b, filter));
-  return matched;
-}
-
-/// Needs that satisfy at least one selected chip but not all of them.
-///
-/// [filterAndSortNeeds] is a strict AND by design, so it can legitimately
-/// return nothing — pick "Flutter" and "Cooking" and no need is both. Rather
-/// than leave a dead feed, the surfaces render these underneath, clearly
-/// labelled as *not* exact matches. The user's AND result always comes first
-/// and is never padded, so a partial match can't be mistaken for one that
-/// satisfied every chip.
-///
-/// Deliberately not the silent fallback to the unfiltered list that was
-/// removed in fbb9f8e: the hard filters still apply, and a need matching zero
-/// chips never appears here. Ordered by how many chips each need does satisfy.
-List<Need> partialMatchNeeds(List<Need> source, FeedFilter filter) {
-  final chips = {...filter.interests, ...filter.skills};
-  if (chips.isEmpty) return const [];
-
-  final scored = <({Need need, int hits})>[];
-  for (final n in source) {
-    if (!passesHardFilters(n, filter)) continue;
-    final hits = chipHits(needHaystack(n), chips);
-    if (hits > 0 && hits < chips.length) scored.add((need: n, hits: hits));
+  if (chips.isEmpty) {
+    pool.sort((a, b) => compareBySort(a, b, filter));
+    return pool;
   }
-  scored.sort((a, b) => a.hits != b.hits
-      ? b.hits.compareTo(a.hits)
-      : compareBySort(a.need, b.need, filter));
-  return scored.map((s) => s.need).toList();
+
+  // OR match — keep every need that hits at least one chip, ranked by hit
+  // count first (so multi-chip matches rise) then by the user's sort choice.
+  final scored = <({Need need, int hits})>[];
+  for (final n in pool) {
+    final hits = chipHits(needHaystack(n), chips);
+    if (hits > 0) scored.add((need: n, hits: hits));
+  }
+  scored.sort((a, b) {
+    if (a.hits != b.hits) return b.hits.compareTo(a.hits);
+    return compareBySort(a.need, b.need, filter);
+  });
+  return scored.map((e) => e.need).toList();
 }
+
+/// Kept as an empty list for backwards compatibility with the "partial
+/// matches" section rendered below the main results. Since chip matching is
+/// now OR (see [filterAndSortNeeds]), every partial-hit need is already in
+/// the main list, so this section is intentionally always empty.
+List<Need> partialMatchNeeds(List<Need> source, FeedFilter filter) => const [];
 
 /// Separator introducing the partial matches below an exact-AND result, so
 /// the two groups can never be visually confused.
