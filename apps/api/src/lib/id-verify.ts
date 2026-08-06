@@ -48,15 +48,27 @@ function buildForm(apiKey: string, apiSecret: string): FormData {
   return form
 }
 
+/**
+ * Try each Face++ endpoint until one succeeds. The caller passes a **factory**
+ * (not a pre-built FormData) because Node/undici FormData is single-use:
+ * once fetch() consumes the multipart body stream, sending the same instance
+ * again produces an empty request. That was silently corrupting the fallback
+ * to the CN region — Face++ received a POST with no api_key and returned
+ * AUTHENTICATION_ERROR from the second (and final) attempt.
+ *
+ * face-verify.ts avoided this by rebuilding the FormData inside its retry
+ * loop; this brings id-verify in line.
+ */
 async function fetchFacePP(
   endpoints: string[],
-  form: FormData,
+  buildForm: () => FormData,
 ): Promise<any> {
   let lastErr = 'Unknown error'
   for (const endpoint of endpoints) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
     try {
+      const form = buildForm()
       const res = await fetch(endpoint, { method: 'POST', body: form, signal: controller.signal })
       const text = await res.text()
       let data: any = {}
@@ -89,15 +101,16 @@ async function checkLiveness(
   selfieBuffer: Buffer,
   selfieMime: string,
 ): Promise<LivenessResult> {
-  const form = buildForm(apiKey, apiSecret)
-  form.append(
-    'image_file',
-    new Blob([new Uint8Array(selfieBuffer)], { type: selfieMime || 'image/jpeg' }),
-    'selfie.jpg',
-  )
-  form.append('return_attributes', 'eyestatus,headpose,blur,occlusion')
-
-  const data = await fetchFacePP(FACEPP_DETECT_ENDPOINTS, form)
+  const data = await fetchFacePP(FACEPP_DETECT_ENDPOINTS, () => {
+    const form = buildForm(apiKey, apiSecret)
+    form.append(
+      'image_file',
+      new Blob([new Uint8Array(selfieBuffer)], { type: selfieMime || 'image/jpeg' }),
+      'selfie.jpg',
+    )
+    form.append('return_attributes', 'eyestatus,headpose,blur,occlusion')
+    return form
+  })
   const faces: any[] = data.faces ?? []
 
   if (faces.length === 0) {
@@ -156,19 +169,20 @@ async function matchFaces(
   selfieBuffer: Buffer,
   selfieMime: string,
 ): Promise<IdVerifyResult> {
-  const form = buildForm(apiKey, apiSecret)
-  form.append(
-    'image_file1',
-    new Blob([new Uint8Array(idBuffer)], { type: idMime || 'image/jpeg' }),
-    'id.jpg',
-  )
-  form.append(
-    'image_file2',
-    new Blob([new Uint8Array(selfieBuffer)], { type: selfieMime || 'image/jpeg' }),
-    'selfie.jpg',
-  )
-
-  const data = await fetchFacePP(FACEPP_COMPARE_ENDPOINTS, form)
+  const data = await fetchFacePP(FACEPP_COMPARE_ENDPOINTS, () => {
+    const form = buildForm(apiKey, apiSecret)
+    form.append(
+      'image_file1',
+      new Blob([new Uint8Array(idBuffer)], { type: idMime || 'image/jpeg' }),
+      'id.jpg',
+    )
+    form.append(
+      'image_file2',
+      new Blob([new Uint8Array(selfieBuffer)], { type: selfieMime || 'image/jpeg' }),
+      'selfie.jpg',
+    )
+    return form
+  })
 
   // Face++ returns null confidence when it can't find a face in one of the images
   const confidence: number | null = data.confidence ?? null
