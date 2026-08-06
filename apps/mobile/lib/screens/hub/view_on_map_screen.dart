@@ -11,6 +11,7 @@ import '../../providers/language_provider.dart';
 import '../../services/mappls_service.dart';
 import '../../services/social_providers.dart';
 import '../../services/profiles_api.dart';
+import '../../services/translate_api.dart';
 import '../../theme/tokens.dart';
 import '../needs/need_detail_screen.dart';
 
@@ -59,6 +60,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     uiLanguageNotifier.addListener(_onLangChange);
+    feedLanguageNotifier.addListener(_onFeedLangChange);
 
     final me = myProfileNotifier.value;
     if (me != null && me.lat != null && me.lng != null) {
@@ -73,6 +75,48 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
     if (mounted) setState(() {});
   }
 
+  void _onFeedLangChange() {
+    if (mounted) setState(() {});
+    _batchTranslateMapNeeds();
+  }
+
+  /// Translates every currently-loaded map need title in one Groq call,
+  /// mirroring feed_tab's approach. Populates the shared `translationCache`
+  /// so titles displayed here match what the feed shows for the same need.
+  Future<void> _batchTranslateMapNeeds({int attempt = 0}) async {
+    final lang = feedLanguageNotifier.value;
+    if (lang == 'en') return;
+    final needs = [..._activeNeeds, ..._fulfilledNeeds];
+    final uncached =
+        needs.where((n) => translationCache[n.id]?[lang] == null).toList();
+    if (uncached.isEmpty) return;
+    final titles = uncached.map((n) => n.title).toList();
+    final translated = await translateBatch(titles, lang);
+    bool anyTranslated = false;
+    for (int i = 0; i < uncached.length; i++) {
+      if (translated[i] != titles[i]) {
+        translationCache.putIfAbsent(uncached[i].id, () => {})[lang] =
+            translated[i];
+        anyTranslated = true;
+      }
+    }
+    if (mounted && anyTranslated) setState(() {});
+    // Best-effort single retry, same pattern as feed_tab — Groq occasionally
+    // rate-limits and a 4-second breather usually clears it.
+    final stillUntranslated =
+        needs.where((n) => translationCache[n.id]?[lang] == null).length;
+    if (stillUntranslated > 0 && attempt == 0) {
+      await Future.delayed(const Duration(seconds: 4));
+      if (mounted) _batchTranslateMapNeeds(attempt: 1);
+    }
+  }
+
+  /// Read the translated title for a need if one is cached, otherwise the
+  /// original — same lookup shape the feed uses so a title translated in one
+  /// surface immediately appears translated in the other.
+  String _tTitle(Need n) =>
+      translationCache[n.id]?[feedLanguageNotifier.value] ?? n.title;
+
   @override
   void dispose() {
     _fetchDebounce?.cancel();
@@ -80,6 +124,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
     _emptyDismissTimer?.cancel();
     _tabController.removeListener(_onTabChanged);
     uiLanguageNotifier.removeListener(_onLangChange);
+    feedLanguageNotifier.removeListener(_onFeedLangChange);
     _tabController.dispose();
     _mapController.dispose();
     _pageController.dispose();
@@ -149,6 +194,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
           _isEmptyStateMinimized = false;
         });
         if (needs.isEmpty) _startEmptyDismissTimer();
+        _batchTranslateMapNeeds();
       }
     } catch (e) {
       if (mounted) {
@@ -182,6 +228,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
           _isEmptyStateMinimized = false;
         });
         if (needs.isEmpty) _startEmptyDismissTimer();
+        _batchTranslateMapNeeds();
       }
     } catch (e) {
       if (mounted) {
@@ -859,7 +906,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            need.title,
+                            _tTitle(need),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.bricolageGrotesque(
@@ -1256,9 +1303,12 @@ class _NeedDetailSheet extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 20),
-              Text(need.title,
-                  style: GoogleFonts.bricolageGrotesque(
-                      fontSize: 20, fontWeight: FontWeight.w800, color: t.ink)),
+              Text(
+                translationCache[need.id]?[feedLanguageNotifier.value] ??
+                    need.title,
+                style: GoogleFonts.bricolageGrotesque(
+                    fontSize: 20, fontWeight: FontWeight.w800, color: t.ink),
+              ),
               const SizedBox(height: 14),
               Text(
                 need.description,
