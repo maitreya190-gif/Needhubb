@@ -108,7 +108,11 @@ async function checkLiveness(
       new Blob([new Uint8Array(selfieBuffer)], { type: selfieMime || 'image/jpeg' }),
       'selfie.jpg',
     )
-    form.append('return_attributes', 'eyestatus,headpose,blur,occlusion')
+    // NOTE: `occlusion` is NOT a valid Face++ Detect attribute — sending it
+    // makes Face++ reject the whole request with BAD_ARGUMENTS. Removed.
+    // (occlusion IS exposed via the separate "faceanalyze" API which needs
+    // a paid tier, so we get by with blur + eyestatus + headpose only.)
+    form.append('return_attributes', 'eyestatus,headpose,blur')
     return form
   })
   const faces: any[] = data.faces ?? []
@@ -135,16 +139,10 @@ async function checkLiveness(
     return { verified: false, reason: 'Please open your eyes and retake the selfie.', code: 'EYES_CLOSED' }
   }
 
-  // Occlusion — Face++ returns per-region 0–1 values (higher = more occluded).
-  // Blocks masks and sunglasses, which the eye-open check alone misses
-  // because Face++ may still infer eyes from other landmarks.
-  const occ = attrs.occlusion ?? {}
-  if ((occ.eye_left ?? 0) > 0.7 || (occ.eye_right ?? 0) > 0.7) {
-    return { verified: false, reason: 'Please remove any glasses or covering from your eyes and retake the selfie.', code: 'EYES_OCCLUDED' }
-  }
-  if ((occ.mouth ?? 0) > 0.7 || (occ.nose ?? 0) > 0.7) {
-    return { verified: false, reason: 'Please remove any mask or covering from your face and retake the selfie.', code: 'FACE_OCCLUDED' }
-  }
+  // (Occlusion check removed — the `occlusion` attribute isn't available on
+  // Face++'s standard Detect API. Sunglasses/masks are partially caught by
+  // the eyes-open check above and, if the whole face is covered, by the
+  // face-match step failing.)
 
   // Head pose — a photo of a photo held perfectly parallel to the camera has
   // pitch, roll, and yaw all essentially zero. Real faces have micro-tilt
