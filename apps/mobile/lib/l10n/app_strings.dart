@@ -912,39 +912,35 @@ class S {
     'themeNameBlush': 'Blush',
     'themeNameSky': 'Sky',
     'themeNamePlum': 'Plum',
-    // First-run tutorial
+    // First-run guided tour
     'tutSkip': 'Skip',
-    'tutWelcomeTitle': 'Welcome to NeedHub',
-    'tutWelcomeBody': 'Ask for what you need. Help with what you know. All with real people near you.',
-    'tutWelcomePoint1': 'Post a need — offers come to you',
-    'tutWelcomePoint2': 'Or browse and help someone nearby',
-    'tutWelcomePoint3': 'Nothing is auto-matched — you always choose',
-    'tutPostTitle': 'Post a need in seconds',
-    'tutPostBody': 'Tap the ⊕ in the middle of the bottom bar, add a title, details, budget and a deadline.',
-    'tutPostPoint1': 'Earn for paid help, Connect to team up with people',
-    'tutPostPoint2': 'Let AI split a big need into smaller tasks',
-    'tutPostPoint3': 'Mark it Urgent to push it up as the deadline nears',
-    'tutExploreTitle': 'Find work & people nearby',
-    'tutExploreBody': 'Your feed is ranked for you — by distance, your interests and your skills.',
-    'tutExplorePoint1': 'Filter by radius, budget, skills — or sort your way',
-    'tutExplorePoint2': 'See what is open around you on the map',
-    'tutExplorePoint3': 'Send an offer with your rate and a short intro',
-    'tutChatTitle': 'Chat when you both agree',
-    'tutChatBody': 'Chat unlocks when your offer is accepted, or when a friend request is.',
-    'tutChatPoint1': 'ChitChat — say hi to people free for the next 24 hours',
-    'tutChatPoint2': 'Translate any message into your language in one tap',
-    'tutChatPoint3': 'Report or block anytime — your exact address is never shared',
-    'tutTrustTitle': 'Build a profile people trust',
-    'tutTrustBody': 'Your Trust Score comes from what you actually do, not what you claim.',
-    'tutTrustPoint1': 'Verify your phone and face for the biggest boost',
-    'tutTrustPoint2': 'Collect reviews, skill vouches and badges',
-    'tutTrustPoint3': 'Upload certificates and achievements for review',
-    'tutRewardsTitle': 'Earn points, get rewards',
-    'tutRewardsBody': 'Finish needs and earn good reviews to collect Impact Points.',
-    'tutRewardsPoint1': 'Redeem points for rewards, or boost a need to the top',
-    'tutRewardsPoint2': 'Climb the Impact League leaderboard each season',
-    'tutRewardsPoint3': 'Invite a friend — you both earn 15 points',
-    'tutMoreNote': 'Also in your You tab: the AI personality test, languages, themes, and NeedHub Plus.',
+    'tutWelcomeTitle': 'Welcome to NeedHub 👋',
+    'tutWelcomeBody': 'Ask for what you need. Help with what you know. A quick look around — 30 seconds.',
+    'tutPostTitle': 'Post a need',
+    'tutPostBody': 'Tap here anytime. Add details, a budget and a deadline — offers come to you.',
+    'tutPostChip1': 'Earn or Connect',
+    'tutPostChip2': 'AI splits big tasks',
+    'tutPostChip3': 'Urgent boost',
+    'tutExploreTitle': 'Find work & people',
+    'tutExploreBody': 'Your feed is ranked by distance, your interests and your skills.',
+    'tutExploreChip1': 'Filters & sort',
+    'tutExploreChip2': 'Map view',
+    'tutExploreChip3': 'Send an offer',
+    'tutChatsTitle': 'Chats',
+    'tutChatsBody': 'Opens when an offer or a friend request is accepted — never before.',
+    'tutChatsChip1': 'ChitChat for 24h',
+    'tutChatsChip2': 'One-tap translate',
+    'tutChatsChip3': 'Report & block',
+    'tutAlertsTitle': 'Alerts',
+    'tutAlertsBody': 'Offers, requests and updates land here in real time.',
+    'tutAlertsChip1': 'Grouped by type',
+    'tutAlertsChip2': 'Clear in bulk',
+    'tutYouTitle': 'You',
+    'tutYouBody': 'Your trust, points and rewards all live here.',
+    'tutYouChip1': 'Verify phone & face',
+    'tutYouChip2': 'Vouches & badges',
+    'tutYouChip3': 'Points → rewards',
+    'tutYouChip4': 'League, quiz & Plus',
   };
 
   static String _get(String key) {
@@ -1837,37 +1833,33 @@ class S {
   String get themeNameBlush => _get('themeNameBlush');
   String get themeNameSky => _get('themeNameSky');
   String get themeNamePlum => _get('themeNamePlum');
-  // First-run tutorial
+  // First-run guided tour
   String get tutSkip => _get('tutSkip');
   String get tutWelcomeTitle => _get('tutWelcomeTitle');
   String get tutWelcomeBody => _get('tutWelcomeBody');
-  String get tutWelcomePoint1 => _get('tutWelcomePoint1');
-  String get tutWelcomePoint2 => _get('tutWelcomePoint2');
-  String get tutWelcomePoint3 => _get('tutWelcomePoint3');
   String get tutPostTitle => _get('tutPostTitle');
   String get tutPostBody => _get('tutPostBody');
-  String get tutPostPoint1 => _get('tutPostPoint1');
-  String get tutPostPoint2 => _get('tutPostPoint2');
-  String get tutPostPoint3 => _get('tutPostPoint3');
+  String get tutPostChip1 => _get('tutPostChip1');
+  String get tutPostChip2 => _get('tutPostChip2');
+  String get tutPostChip3 => _get('tutPostChip3');
   String get tutExploreTitle => _get('tutExploreTitle');
   String get tutExploreBody => _get('tutExploreBody');
-  String get tutExplorePoint1 => _get('tutExplorePoint1');
-  String get tutExplorePoint2 => _get('tutExplorePoint2');
-  String get tutExplorePoint3 => _get('tutExplorePoint3');
-  String get tutChatTitle => _get('tutChatTitle');
-  String get tutChatBody => _get('tutChatBody');
-  String get tutChatPoint1 => _get('tutChatPoint1');
-  String get tutChatPoint2 => _get('tutChatPoint2');
-  String get tutChatPoint3 => _get('tutChatPoint3');
-  String get tutTrustTitle => _get('tutTrustTitle');
-  String get tutTrustBody => _get('tutTrustBody');
-  String get tutTrustPoint1 => _get('tutTrustPoint1');
-  String get tutTrustPoint2 => _get('tutTrustPoint2');
-  String get tutTrustPoint3 => _get('tutTrustPoint3');
-  String get tutRewardsTitle => _get('tutRewardsTitle');
-  String get tutRewardsBody => _get('tutRewardsBody');
-  String get tutRewardsPoint1 => _get('tutRewardsPoint1');
-  String get tutRewardsPoint2 => _get('tutRewardsPoint2');
-  String get tutRewardsPoint3 => _get('tutRewardsPoint3');
-  String get tutMoreNote => _get('tutMoreNote');
+  String get tutExploreChip1 => _get('tutExploreChip1');
+  String get tutExploreChip2 => _get('tutExploreChip2');
+  String get tutExploreChip3 => _get('tutExploreChip3');
+  String get tutChatsTitle => _get('tutChatsTitle');
+  String get tutChatsBody => _get('tutChatsBody');
+  String get tutChatsChip1 => _get('tutChatsChip1');
+  String get tutChatsChip2 => _get('tutChatsChip2');
+  String get tutChatsChip3 => _get('tutChatsChip3');
+  String get tutAlertsTitle => _get('tutAlertsTitle');
+  String get tutAlertsBody => _get('tutAlertsBody');
+  String get tutAlertsChip1 => _get('tutAlertsChip1');
+  String get tutAlertsChip2 => _get('tutAlertsChip2');
+  String get tutYouTitle => _get('tutYouTitle');
+  String get tutYouBody => _get('tutYouBody');
+  String get tutYouChip1 => _get('tutYouChip1');
+  String get tutYouChip2 => _get('tutYouChip2');
+  String get tutYouChip3 => _get('tutYouChip3');
+  String get tutYouChip4 => _get('tutYouChip4');
 }

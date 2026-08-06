@@ -18,12 +18,16 @@ class HubHomeTab extends ConsumerWidget {
   final VoidCallback onPost;
   final VoidCallback onOpenChats;
 
+  /// Spotlight anchor for the first-run tour. Null outside the tour.
+  final GlobalKey? exploreKey;
+
   const HubHomeTab({
     super.key,
     required this.onBrowseEarn,
     required this.onBrowseConnect,
     required this.onPost,
     required this.onOpenChats,
+    this.exploreKey,
   });
 
   @override
@@ -215,6 +219,7 @@ class HubHomeTab extends ConsumerWidget {
 
                   // Explore needs
                   GestureDetector(
+                    key: exploreKey,
                     onTap: onBrowseEarn,
                     child: Container(
                       width: double.infinity,
