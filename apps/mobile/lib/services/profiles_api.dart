@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart' as dio;
 import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 import 'league_api.dart';
@@ -74,6 +75,7 @@ class ProfileMe {
   final List<String> interestLabels;
   final List<String> skillLabels;
   final DateTime? faceVerifiedAt;
+  final DateTime? idVerifiedAt;
   final DateTime? emailVerifiedAt;
   final DateTime? phoneVerifiedAt;
   final String? phone;
@@ -134,6 +136,7 @@ class ProfileMe {
     required this.interestLabels,
     required this.skillLabels,
     this.faceVerifiedAt,
+    this.idVerifiedAt,
     this.emailVerifiedAt,
     this.phoneVerifiedAt,
     this.phone,
@@ -233,6 +236,10 @@ class ProfileMe {
     final faceVerifiedAt = faceVerifiedAtStr != null
         ? DateTime.tryParse(faceVerifiedAtStr)
         : null;
+    final idVerifiedAtStr = profile['idVerifiedAt'] as String?;
+    final idVerifiedAt = idVerifiedAtStr != null
+        ? DateTime.tryParse(idVerifiedAtStr)
+        : null;
 
     // email/phone verifiedAt + trustScore live on the User row, not the
     // nested Profile — read from `j` directly (see apps/api profiles.router.ts).
@@ -287,6 +294,7 @@ class ProfileMe {
       interestLabels: interests,
       skillLabels: skills,
       faceVerifiedAt: faceVerifiedAt,
+      idVerifiedAt: idVerifiedAt,
       emailVerifiedAt: emailVerifiedAt,
       phoneVerifiedAt: phoneVerifiedAt,
       phone: j['phone'] as String?,
@@ -376,6 +384,19 @@ class ProfilesApi {
   /// Verifies the 6-digit code and marks the phone verified server-side.
   Future<Map<String, dynamic>> verifyPhoneOtp(String code) async {
     return _api.post('/profile/me/phone/verify-otp', {'code': code});
+  }
+
+  /// Submits a government ID photo + live selfie for automated ID verification.
+  /// Returns `{'verified': true}` on success or throws with a `reason` field.
+  Future<Map<String, dynamic>> verifyId({
+    required String idPhotoPath,
+    required String selfiePath,
+  }) async {
+    final form = dio.FormData.fromMap({
+      'idPhoto': await dio.MultipartFile.fromFile(idPhotoPath, filename: 'id.jpg'),
+      'selfie': await dio.MultipartFile.fromFile(selfiePath, filename: 'selfie.jpg'),
+    });
+    return _api.postForm('/profile/me/id-verify', form);
   }
 }
 

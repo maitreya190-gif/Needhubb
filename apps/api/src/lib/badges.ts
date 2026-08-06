@@ -20,6 +20,7 @@ export interface BadgeInputs {
   emailVerifiedAt: Date | null
   phoneVerifiedAt: Date | null
   faceVerifiedAt: Date | null
+  idVerifiedAt: Date | null
   /** Needs where this user was the accepted responder and the need completed. */
   helpedNeedCount: number
   /** Needs this user posted that reached FULFILLED. */
@@ -73,12 +74,20 @@ export const BADGE_DEFINITIONS: BadgeDefinition[] = [
     isEarned: (i) => i.faceVerifiedAt != null,
   },
   {
+    id: 'id_verified',
+    label: 'ID Verified',
+    description: 'Match a government ID with a live selfie',
+    group: 'verification',
+    isEarned: (i) => i.idVerifiedAt != null,
+  },
+  {
     id: 'fully_verified',
     label: 'Fully Verified',
-    description: 'Verify email, phone and face',
+    description: 'Verify email, phone, face and government ID',
     group: 'verification',
     isEarned: (i) =>
-      i.emailVerifiedAt != null && i.phoneVerifiedAt != null && i.faceVerifiedAt != null,
+      i.emailVerifiedAt != null && i.phoneVerifiedAt != null &&
+      i.faceVerifiedAt != null && i.idVerifiedAt != null,
   },
 
   // ── Helping: what you have actually done for people ──────────────────────

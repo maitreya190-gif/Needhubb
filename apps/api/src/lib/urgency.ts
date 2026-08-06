@@ -568,7 +568,7 @@ export async function evaluateAndStoreUrgency(
   const [user, record, reliability, pressure, eligibleVouchCount] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
-      select: { emailVerifiedAt: true, phoneVerifiedAt: true, profile: { select: { faceVerifiedAt: true } } },
+      select: { emailVerifiedAt: true, phoneVerifiedAt: true, profile: { select: { faceVerifiedAt: true, idVerifiedAt: true } } },
     }),
     fetchTrackRecord(userId),
     getReliability(userId),
@@ -584,6 +584,7 @@ export async function evaluateAndStoreUrgency(
     emailVerifiedAt: user?.emailVerifiedAt ?? null,
     phoneVerifiedAt: user?.phoneVerifiedAt ?? null,
     faceVerifiedAt: user?.profile?.faceVerifiedAt ?? null,
+    idVerifiedAt: user?.profile?.idVerifiedAt ?? null,
   }
   const badgeInputs = { ...verification, ...record }
   const trustScore = computeTrustScore({

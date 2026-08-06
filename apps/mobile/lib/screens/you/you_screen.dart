@@ -36,6 +36,7 @@ import '../redeem/redeem_screen.dart';
 import 'edit_profile_screen.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'id_verify_screen.dart';
 import 'qr_scanner_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
@@ -437,6 +438,8 @@ class YouScreen extends ConsumerWidget {
                         _FaceVerifySection(t: t),
                         const SizedBox(height: 16),
                         _PhoneVerifySection(t: t),
+                        const SizedBox(height: 16),
+                        _IdVerifySection(t: t),
                       ],
                     ),
                   ),
@@ -2456,6 +2459,7 @@ class _TrustScoreSection extends StatelessWidget {
                       _TrustChip(label: 'Email', done: me?.emailVerifiedAt != null),
                       _TrustChip(label: 'Phone', done: me?.phoneVerifiedAt != null),
                       _TrustChip(label: 'Face', done: me?.faceVerifiedAt != null),
+                      _TrustChip(label: 'ID', done: me?.idVerifiedAt != null),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -2505,6 +2509,99 @@ class _TrustChip extends StatelessWidget {
               color: color,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── ID Verification Section ───────────────────────────────────────────────────
+
+class _IdVerifySection extends ConsumerWidget {
+  final NeedHubTokens t;
+  const _IdVerifySection({required this.t});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = myProfileNotifier.value;
+    final isVerified = me?.idVerifiedAt != null;
+    final s = S.current;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: t.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isVerified ? NeedHubTokens.forest.withValues(alpha: 0.3) : t.rail),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42, height: 42,
+            decoration: BoxDecoration(
+              color: isVerified
+                  ? NeedHubTokens.forest.withValues(alpha: 0.12)
+                  : t.chip,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isVerified ? Icons.verified_user_rounded : Icons.badge_rounded,
+              color: isVerified ? NeedHubTokens.forest : t.muted2,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isVerified ? 'ID Verified' : 'Verify Government ID',
+                  style: GoogleFonts.hankenGrotesk(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: isVerified ? NeedHubTokens.forest : t.ink,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isVerified
+                      ? 'Your identity is verified — highest trust badge active'
+                      : 'Match your Aadhaar/PAN to a live selfie for the top trust badge',
+                  style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          if (isVerified)
+            Icon(Icons.check_circle_rounded, color: NeedHubTokens.forest, size: 22)
+          else
+            TextButton(
+              onPressed: () async {
+                final result = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (_) => const IdVerifyScreen()),
+                );
+                if (result == true) {
+                  // Profile already refreshed inside IdVerifyScreen
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('ID Verified! Trust score updated.',
+                            style: GoogleFonts.hankenGrotesk(fontWeight: FontWeight.w600)),
+                        backgroundColor: NeedHubTokens.forest,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: NeedHubTokens.forest,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              ),
+              child: Text(s.verify,
+                  style: GoogleFonts.hankenGrotesk(fontSize: 13, fontWeight: FontWeight.w700)),
+            ),
         ],
       ),
     );

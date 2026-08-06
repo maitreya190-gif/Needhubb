@@ -40,8 +40,9 @@
  */
 export const TRUST_WEIGHTS = {
   email: 5,
-  face: 20,
-  phone: 25,
+  face: 10,
+  phone: 15,
+  id: 20,              // highest — proves real identity with government document
   certificateEach: 5,
   certificateCap: 4,
   fulfilledEach: 2,
@@ -57,6 +58,7 @@ export interface TrustInputs {
   emailVerifiedAt: Date | null
   phoneVerifiedAt: Date | null
   faceVerifiedAt: Date | null
+  idVerifiedAt: Date | null
   approvedCertificateCount: number
   /**
    * Completed needs, counting needs this user *helped with* as well as needs
@@ -78,6 +80,7 @@ export function computeTrustScore(input: TrustInputs): number {
   if (input.emailVerifiedAt) score += TRUST_WEIGHTS.email
   if (input.faceVerifiedAt) score += TRUST_WEIGHTS.face
   if (input.phoneVerifiedAt) score += TRUST_WEIGHTS.phone
+  if (input.idVerifiedAt) score += TRUST_WEIGHTS.id
   score += Math.min(input.approvedCertificateCount * TRUST_WEIGHTS.certificateEach, TRUST_WEIGHTS.certificateCap)
   score += Math.min(input.fulfilledNeedCount * TRUST_WEIGHTS.fulfilledEach, TRUST_WEIGHTS.fulfilledCap)
   if (input.ratingCount > 0) score += Math.round((input.avgRating / 5) * TRUST_WEIGHTS.reviewsMax)

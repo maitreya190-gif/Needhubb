@@ -175,6 +175,8 @@ model Profile {
   promptNeed             String?
   chitchatAvailableUntil DateTime?
   faceVerifiedAt         DateTime?
+  idVerifiedAt           DateTime?
+  idFaceHash             String?   @unique  // SHA-256 of Face++ face_token — blocks same ID on multiple accounts
   personalityTraits      Json?
   personalityNickname    String?
   personalitySummary     String?

@@ -20,6 +20,7 @@ const NOBODY: BadgeInputs = {
   emailVerifiedAt: null,
   phoneVerifiedAt: null,
   faceVerifiedAt: null,
+  idVerifiedAt: null,
   helpedNeedCount: 0,
   fulfilledPostedCount: 0,
   approvedCertificateCount: 0,
@@ -56,17 +57,18 @@ describe('a new user earns nothing', () => {
 })
 
 describe('verification badges', () => {
-  it('email, phone and face each unlock only their own badge', () => {
+  it('email, phone, face and id each unlock only their own badge', () => {
     expect(earnedIds({ emailVerifiedAt: NOW })).toEqual(['email_verified'])
     expect(earnedIds({ phoneVerifiedAt: NOW })).toEqual(['phone_verified'])
     expect(earnedIds({ faceVerifiedAt: NOW })).toEqual(['face_verified'])
+    expect(earnedIds({ idVerifiedAt: NOW })).toEqual(['id_verified'])
   })
 
-  it('fully_verified needs all three, not two', () => {
-    expect(earnedIds({ emailVerifiedAt: NOW, phoneVerifiedAt: NOW }))
+  it('fully_verified needs all four, not three', () => {
+    expect(earnedIds({ emailVerifiedAt: NOW, phoneVerifiedAt: NOW, faceVerifiedAt: NOW }))
       .not.toContain('fully_verified')
     expect(
-      earnedIds({ emailVerifiedAt: NOW, phoneVerifiedAt: NOW, faceVerifiedAt: NOW }),
+      earnedIds({ emailVerifiedAt: NOW, phoneVerifiedAt: NOW, faceVerifiedAt: NOW, idVerifiedAt: NOW }),
     ).toContain('fully_verified')
   })
 })
@@ -130,6 +132,7 @@ describe('badge definitions are coherent', () => {
       emailVerifiedAt: NOW,
       phoneVerifiedAt: NOW,
       faceVerifiedAt: NOW,
+      idVerifiedAt: NOW,
       helpedNeedCount: 100,
       fulfilledPostedCount: 100,
       approvedCertificateCount: 10,
@@ -147,6 +150,7 @@ describe('trust score', () => {
       TRUST_WEIGHTS.email +
       TRUST_WEIGHTS.face +
       TRUST_WEIGHTS.phone +
+      TRUST_WEIGHTS.id +
       TRUST_WEIGHTS.certificateCap +
       TRUST_WEIGHTS.fulfilledCap +
       TRUST_WEIGHTS.reviewsMax +
@@ -161,6 +165,7 @@ describe('trust score', () => {
         emailVerifiedAt: NOW,
         phoneVerifiedAt: NOW,
         faceVerifiedAt: NOW,
+        idVerifiedAt: NOW,
         approvedCertificateCount: 10,
         fulfilledNeedCount: 100,
         avgRating: 5,
@@ -177,6 +182,7 @@ describe('trust score', () => {
         emailVerifiedAt: null,
         phoneVerifiedAt: null,
         faceVerifiedAt: null,
+        idVerifiedAt: null,
         approvedCertificateCount: 0,
         fulfilledNeedCount: 0,
         avgRating: 0,
@@ -192,6 +198,7 @@ describe('trust score', () => {
       emailVerifiedAt: NOW,
       phoneVerifiedAt: null,
       faceVerifiedAt: null,
+      idVerifiedAt: null,
       approvedCertificateCount: 0,
       fulfilledNeedCount: 0,
       avgRating: 0,
@@ -208,6 +215,7 @@ describe('trust score', () => {
       emailVerifiedAt: null,
       phoneVerifiedAt: null,
       faceVerifiedAt: null,
+      idVerifiedAt: null,
       approvedCertificateCount: 0,
       fulfilledNeedCount: 0,
       avgRating: 0,
@@ -224,6 +232,7 @@ describe('trust score', () => {
         emailVerifiedAt: NOW,
         phoneVerifiedAt: NOW,
         faceVerifiedAt: NOW,
+        idVerifiedAt: NOW,
         approvedCertificateCount: 999,
         fulfilledNeedCount: 999,
         avgRating: 5,
