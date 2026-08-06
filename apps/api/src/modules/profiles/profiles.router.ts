@@ -17,7 +17,7 @@ import { countTrustEligibleVouches, fetchSkillVouchSummaries, tryGetUserId } fro
 import {
   fetchSeasonHistory, fetchMilestoneTimestamps, seasonalBadgesFromHistory, computeLeagueAchievements,
 } from '../../lib/impact-league'
-import { otpLimiter } from '../../middleware/rateLimiter'
+import { otpLimiter, uploadLimiter } from '../../middleware/rateLimiter'
 import { isUserConnected } from '../../lib/socket'
 import { computeIsOnline } from '../../lib/presence'
 import { fetchPlusUserIds } from '../../lib/plus'
@@ -104,7 +104,11 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
     const isPlus = (await fetchPlusUserIds([userId])).has(userId)
     res.json({
       ...user,
-      profile: user.profile ? { ...user.profile, plus: isPlus } : user.profile,
+      // idFaceHash is a duplicate-detection secret and must never leave the
+      // server. Strip it here rather than change every Prisma query.
+      profile: user.profile
+        ? (({ idFaceHash: _idFaceHash, ...p }) => ({ ...p, plus: isPlus }))(user.profile)
+        : user.profile,
       avgRating: record.avgRating,
       ratingCount: record.ratingCount,
       trustScore,
@@ -323,6 +327,7 @@ const uploadTwo = multer({
 profilesRouter.post(
   '/me/id-verify',
   authenticate,
+  uploadLimiter,
   uploadTwo.fields([{ name: 'idPhoto', maxCount: 1 }, { name: 'selfie', maxCount: 1 }]),
   async (req, res, next) => {
     try {
@@ -340,6 +345,11 @@ profilesRouter.post(
         return res.json({ verified: true, alreadyVerified: true })
       }
 
+      // Fail closed: if Face++ is unreachable we surface an error to the client
+      // rather than marking the user verified. Any "fallback" that skips the
+      // check defeats the point of the whole feature — an attacker who forces
+      // an outage (or just waits for one) could otherwise get verified with
+      // two random images.
       let result
       try {
         result = await verifyIdWithSelfie(
@@ -349,40 +359,32 @@ profilesRouter.post(
       } catch (err: any) {
         const msg = err?.message ?? 'ID verification service unavailable'
         console.error('[id-verify] service error:', msg)
-        const strictMode = process.env.FACE_VERIFY_STRICT === 'true'
-        if (!strictMode && idFile.size > 5000 && selfieFile.size > 5000) {
-          console.warn('[id-verify] Face++ unreachable — using fallback')
-          result = { verified: true as const }
-        } else {
-          return res.status(400).json({ verified: false, reason: 'Verification service error — please try again.', code: 'SERVICE_ERROR' })
-        }
+        return res.status(503).json({
+          verified: false,
+          reason: 'Verification service is temporarily unavailable — please try again in a few minutes.',
+          code: 'SERVICE_UNAVAILABLE',
+        })
       }
 
       if (!result.verified) {
         return res.status(400).json(result)
       }
 
-      // Hash the face token for duplicate ID detection. In the service-down
-      // fallback the token is absent, so we skip duplicate checking and store
-      // a null hash — better than blocking a legitimate user because Face++ was
-      // temporarily unreachable.
-      const idFaceToken = 'idFaceToken' in result ? result.idFaceToken : null
-      const faceHash = idFaceToken
-        ? createHash('sha256').update(idFaceToken).digest('hex')
-        : null
+      // Hash the face token for duplicate ID detection. The token itself is
+      // never stored — only its SHA-256 hash. verifyIdWithSelfie only returns
+      // `verified: true` when a real token is present, so this is safe.
+      const faceHash = createHash('sha256').update(result.idFaceToken).digest('hex')
 
-      if (faceHash) {
-        const existingWithHash = await prisma.profile.findFirst({
-          where: { idFaceHash: faceHash, NOT: { userId } },
-          select: { userId: true },
+      const existingWithHash = await prisma.profile.findFirst({
+        where: { idFaceHash: faceHash, NOT: { userId } },
+        select: { userId: true },
+      })
+      if (existingWithHash) {
+        return res.status(400).json({
+          verified: false,
+          reason: 'This ID has already been used to verify a different account.',
+          code: 'DUPLICATE_ID',
         })
-        if (existingWithHash) {
-          return res.status(400).json({
-            verified: false,
-            reason: 'This ID has already been used to verify a different account.',
-            code: 'DUPLICATE_ID',
-          })
-        }
       }
 
       await prisma.profile.upsert({
@@ -673,7 +675,11 @@ profilesRouter.get('/:userId', async (req, res, next) => {
     const isPlus = (await fetchPlusUserIds([user.id])).has(user.id)
     res.json({
       ...user,
-      profile: user.profile ? { ...user.profile, plus: isPlus } : user.profile,
+      // idFaceHash is a duplicate-detection secret and must never leave the
+      // server, even for public profile views.
+      profile: user.profile
+        ? (({ idFaceHash: _idFaceHash, ...p }) => ({ ...p, plus: isPlus }))(user.profile)
+        : user.profile,
       avgRating: record.avgRating,
       ratingCount: record.ratingCount,
       trustScore,

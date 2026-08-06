@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../l10n/app_strings.dart';
+import '../../providers/language_provider.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
 import '../../theme/tokens.dart';
@@ -17,15 +18,31 @@ class IdVerifyScreen extends ConsumerStatefulWidget {
 }
 
 class _IdVerifyScreenState extends ConsumerState<IdVerifyScreen> {
-  // Step 0 = intro, 1 = pick ID, 2 = take selfie, 3 = verifying, 4 = done/error
+  // Step 0 = intro, 1 = pick ID, 2 = take selfie, 3 = verifying,
+  // 4 = success, 5 = terminal error (duplicate ID / service down)
   int _step = 0;
   File? _idPhoto;
   File? _selfie;
-  bool _verifying = false;
   String? _errorReason;
   String? _errorCode;
 
   final _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    uiLanguageNotifier.addListener(_onLangChange);
+  }
+
+  @override
+  void dispose() {
+    uiLanguageNotifier.removeListener(_onLangChange);
+    super.dispose();
+  }
+
+  void _onLangChange() {
+    if (mounted) setState(() {});
+  }
 
   Future<void> _pickIdPhoto() async {
     final xf = await _picker.pickImage(
@@ -59,7 +76,6 @@ class _IdVerifyScreenState extends ConsumerState<IdVerifyScreen> {
   Future<void> _submit() async {
     if (_idPhoto == null || _selfie == null) return;
     setState(() {
-      _verifying = true;
       _errorReason = null;
       _errorCode = null;
       _step = 3;
@@ -77,22 +93,27 @@ class _IdVerifyScreenState extends ConsumerState<IdVerifyScreen> {
       final body = e.response?.data;
       final reason = body is Map ? body['reason'] as String? : null;
       final code = body is Map ? body['code'] as String? : null;
-      if (mounted) {
-        setState(() {
-          _verifying = false;
-          _errorReason = reason ?? 'Verification failed. Please try again.';
-          _errorCode = code;
-          // Go back to appropriate step based on error
-          _step = (code == 'NO_FACE_ON_ID' || code == 'FACE_MISMATCH')
-              ? 1  // retake ID
-              : 2; // retake selfie
-        });
-      }
+      if (!mounted) return;
+      // Terminal errors: retrying can't fix them, so send the user to a
+      // full-stop screen instead of looping through selfie retakes.
+      final isTerminal = code == 'DUPLICATE_ID' ||
+          code == 'SERVICE_UNAVAILABLE' ||
+          code == 'ID_TOKEN_MISSING';
+      setState(() {
+        _errorReason = reason ?? S.current.idVerifyGenericError;
+        _errorCode = code;
+        if (isTerminal) {
+          _step = 5;
+        } else if (code == 'NO_FACE_ON_ID' || code == 'FACE_MISMATCH') {
+          _step = 1; // retake ID
+        } else {
+          _step = 2; // retake selfie
+        }
+      });
     } catch (_) {
       if (mounted) {
         setState(() {
-          _verifying = false;
-          _errorReason = 'Something went wrong. Please try again.';
+          _errorReason = S.current.idVerifyNetworkError;
           _step = 1;
         });
       }
@@ -102,6 +123,7 @@ class _IdVerifyScreenState extends ConsumerState<IdVerifyScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.tokens;
+    final s = S.current;
     return Scaffold(
       backgroundColor: t.paper,
       appBar: AppBar(
@@ -113,23 +135,48 @@ class _IdVerifyScreenState extends ConsumerState<IdVerifyScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'ID Verification',
+          s.idVerificationTitle,
           style: GoogleFonts.bricolageGrotesque(fontSize: 18, fontWeight: FontWeight.w700, color: t.ink),
         ),
       ),
       body: SafeArea(
-        child: _buildStep(t),
+        child: _buildStep(t, s),
       ),
     );
   }
 
-  Widget _buildStep(NeedHubTokens t) {
+  Widget _buildStep(NeedHubTokens t, S s) {
     return switch (_step) {
-      0 => _IntroStep(t: t, onStart: () => setState(() => _step = 1)),
-      1 => _IdPhotoStep(t: t, onPick: _pickIdPhoto, error: _errorCode == 'NO_FACE_ON_ID' || _errorCode == 'FACE_MISMATCH' ? _errorReason : null),
-      2 => _SelfieStep(t: t, idPhoto: _idPhoto!, onTakeSelfie: _takeSelfie, error: _errorReason != null && _errorCode != 'NO_FACE_ON_ID' && _errorCode != 'FACE_MISMATCH' ? _errorReason : null),
-      3 => _VerifyingStep(t: t),
-      4 => _SuccessStep(t: t, onDone: () => Navigator.of(context).pop(true)),
+      0 => _IntroStep(t: t, s: s, onStart: () => setState(() => _step = 1)),
+      1 => _IdPhotoStep(
+          t: t,
+          s: s,
+          onPick: _pickIdPhoto,
+          error: _errorCode == 'NO_FACE_ON_ID' || _errorCode == 'FACE_MISMATCH' ? _errorReason : null,
+        ),
+      2 => _SelfieStep(
+          t: t,
+          s: s,
+          idPhoto: _idPhoto!,
+          onTakeSelfie: _takeSelfie,
+          error: _errorReason != null && _errorCode != 'NO_FACE_ON_ID' && _errorCode != 'FACE_MISMATCH' ? _errorReason : null,
+        ),
+      3 => _VerifyingStep(t: t, s: s),
+      4 => _SuccessStep(t: t, s: s, onDone: () => Navigator.of(context).pop(true)),
+      5 => _TerminalErrorStep(
+          t: t,
+          s: s,
+          code: _errorCode,
+          serverReason: _errorReason,
+          onBack: () => Navigator.of(context).pop(false),
+          onRetry: _errorCode == 'SERVICE_UNAVAILABLE'
+              ? () => setState(() {
+                    _errorCode = null;
+                    _errorReason = null;
+                    _step = 1;
+                  })
+              : null,
+        ),
       _ => const SizedBox.shrink(),
     };
   }
@@ -139,8 +186,9 @@ class _IdVerifyScreenState extends ConsumerState<IdVerifyScreen> {
 
 class _IntroStep extends StatelessWidget {
   final NeedHubTokens t;
+  final S s;
   final VoidCallback onStart;
-  const _IntroStep({required this.t, required this.onStart});
+  const _IntroStep({required this.t, required this.s, required this.onStart});
 
   @override
   Widget build(BuildContext context) {
@@ -158,22 +206,22 @@ class _IntroStep extends StatelessWidget {
             child: const Icon(Icons.verified_user_rounded, color: NeedHubTokens.forest, size: 28),
           ),
           const SizedBox(height: 20),
-          Text('Verify your identity',
+          Text(s.idVerifyIntroTitle,
               style: GoogleFonts.bricolageGrotesque(fontSize: 22, fontWeight: FontWeight.w800, color: t.ink)),
           const SizedBox(height: 10),
           Text(
-            'Upload a government ID (Aadhaar, PAN, or driving licence) and take a live selfie. Our system checks that the face on the ID matches you — in seconds, fully automated.',
+            s.idVerifyIntroDesc,
             style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted, height: 1.6),
           ),
           const SizedBox(height: 24),
           _BulletPoint(t: t, icon: Icons.shield_rounded, color: NeedHubTokens.forest,
-              text: 'Your ID is never stored — images are checked and immediately discarded.'),
+              text: s.idVerifyPrivacyBullet1),
           const SizedBox(height: 12),
           _BulletPoint(t: t, icon: Icons.lock_rounded, color: NeedHubTokens.ochre,
-              text: 'Only the verification result is saved — not the photo.'),
+              text: s.idVerifyPrivacyBullet2),
           const SizedBox(height: 12),
           _BulletPoint(t: t, icon: Icons.badge_rounded, color: NeedHubTokens.clay,
-              text: 'Earn the ID Verified badge and the highest trust score boost on NeedHub.'),
+              text: s.idVerifyPrivacyBullet3),
           const Spacer(),
           SizedBox(
             width: double.infinity,
@@ -186,7 +234,7 @@ class _IntroStep extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
-              child: Text('Start Verification',
+              child: Text(s.idVerifyStartBtn,
                   style: GoogleFonts.hankenGrotesk(fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ),
@@ -224,9 +272,10 @@ class _BulletPoint extends StatelessWidget {
 
 class _IdPhotoStep extends StatelessWidget {
   final NeedHubTokens t;
+  final S s;
   final VoidCallback onPick;
   final String? error;
-  const _IdPhotoStep({required this.t, required this.onPick, this.error});
+  const _IdPhotoStep({required this.t, required this.s, required this.onPick, this.error});
 
   @override
   Widget build(BuildContext context) {
@@ -235,12 +284,12 @@ class _IdPhotoStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _StepIndicator(t: t, step: 1, total: 2, label: 'Government ID'),
+          _StepIndicator(t: t, s: s, step: 1, total: 2, label: s.idVerifyStepGovId),
           const SizedBox(height: 24),
-          Text('Upload your ID',
+          Text(s.idVerifyUploadIdTitle,
               style: GoogleFonts.bricolageGrotesque(fontSize: 20, fontWeight: FontWeight.w800, color: t.ink)),
           const SizedBox(height: 8),
-          Text('Take a clear photo of your Aadhaar card, PAN card, or driving licence.',
+          Text(s.idVerifyUploadIdDesc,
               style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted, height: 1.5)),
           const SizedBox(height: 32),
           GestureDetector(
@@ -262,10 +311,10 @@ class _IdPhotoStep extends StatelessWidget {
                 children: [
                   Icon(Icons.add_photo_alternate_rounded, size: 36, color: t.muted2),
                   const SizedBox(height: 10),
-                  Text('Tap to upload ID photo',
+                  Text(s.idVerifyTapUpload,
                       style: GoogleFonts.hankenGrotesk(fontSize: 14, fontWeight: FontWeight.w600, color: t.muted2)),
                   const SizedBox(height: 4),
-                  Text('From your gallery', style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
+                  Text(s.idVerifyFromGallery, style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted)),
                 ],
               ),
             ),
@@ -282,7 +331,7 @@ class _IdPhotoStep extends StatelessWidget {
               Icon(Icons.tips_and_updates_rounded, size: 16, color: t.muted2),
               const SizedBox(width: 8),
               Expanded(child: Text(
-                'Make sure all text on the ID is clearly readable. Avoid glare and shadows.',
+                s.idVerifyIdTip,
                 style: GoogleFonts.hankenGrotesk(fontSize: 12, color: t.muted2, height: 1.4),
               )),
             ]),
@@ -297,10 +346,11 @@ class _IdPhotoStep extends StatelessWidget {
 
 class _SelfieStep extends StatelessWidget {
   final NeedHubTokens t;
+  final S s;
   final File idPhoto;
   final VoidCallback onTakeSelfie;
   final String? error;
-  const _SelfieStep({required this.t, required this.idPhoto, required this.onTakeSelfie, this.error});
+  const _SelfieStep({required this.t, required this.s, required this.idPhoto, required this.onTakeSelfie, this.error});
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +359,7 @@ class _SelfieStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _StepIndicator(t: t, step: 2, total: 2, label: 'Live Selfie'),
+          _StepIndicator(t: t, s: s, step: 2, total: 2, label: s.idVerifyStepSelfie),
           const SizedBox(height: 16),
           Row(children: [
             Container(
@@ -319,15 +369,15 @@ class _SelfieStep extends StatelessWidget {
               child: Image.file(idPhoto, fit: BoxFit.cover),
             ),
             const SizedBox(width: 10),
-            Icon(Icons.check_circle_rounded, color: NeedHubTokens.forest, size: 18),
+            const Icon(Icons.check_circle_rounded, color: NeedHubTokens.forest, size: 18),
             const SizedBox(width: 6),
-            Text('ID uploaded', style: GoogleFonts.hankenGrotesk(fontSize: 13, color: NeedHubTokens.forest, fontWeight: FontWeight.w600)),
+            Text(s.idVerifyIdUploaded, style: GoogleFonts.hankenGrotesk(fontSize: 13, color: NeedHubTokens.forest, fontWeight: FontWeight.w600)),
           ]),
           const SizedBox(height: 20),
-          Text('Now take a selfie',
+          Text(s.idVerifyTakeSelfieTitle,
               style: GoogleFonts.bricolageGrotesque(fontSize: 20, fontWeight: FontWeight.w800, color: t.ink)),
           const SizedBox(height: 8),
-          Text('Use your front camera. Your face must be clearly visible and your eyes open.',
+          Text(s.idVerifyTakeSelfieDesc,
               style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted, height: 1.5)),
           const SizedBox(height: 32),
           if (error != null) ...[
@@ -344,9 +394,9 @@ class _SelfieStep extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('LIVENESS CHECK', style: GoogleFonts.hankenGrotesk(fontSize: 10, fontWeight: FontWeight.w700, color: NeedHubTokens.ochre, letterSpacing: 0.8)),
+                Text(s.idVerifyLivenessLabel, style: GoogleFonts.hankenGrotesk(fontSize: 10, fontWeight: FontWeight.w700, color: NeedHubTokens.ochre, letterSpacing: 0.8)),
                 const SizedBox(height: 8),
-                Text('Our system checks that you\'re a real person — not a photo or screen. Keep your eyes open and hold the camera naturally.',
+                Text(s.idVerifyLivenessDesc,
                     style: GoogleFonts.hankenGrotesk(fontSize: 13, color: t.ink, height: 1.5)),
               ],
             ),
@@ -357,7 +407,7 @@ class _SelfieStep extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onTakeSelfie,
               icon: const Icon(Icons.camera_front_rounded, size: 20),
-              label: Text('Take Selfie',
+              label: Text(s.idVerifyTakeSelfieBtn,
                   style: GoogleFonts.hankenGrotesk(fontSize: 15, fontWeight: FontWeight.w700)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: NeedHubTokens.forest,
@@ -378,7 +428,8 @@ class _SelfieStep extends StatelessWidget {
 
 class _VerifyingStep extends StatelessWidget {
   final NeedHubTokens t;
-  const _VerifyingStep({required this.t});
+  final S s;
+  const _VerifyingStep({required this.t, required this.s});
 
   @override
   Widget build(BuildContext context) {
@@ -393,10 +444,10 @@ class _VerifyingStep extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 3, color: NeedHubTokens.forest),
             ),
             const SizedBox(height: 28),
-            Text('Verifying…',
+            Text(s.idVerifyVerifying,
                 style: GoogleFonts.bricolageGrotesque(fontSize: 20, fontWeight: FontWeight.w800, color: t.ink)),
             const SizedBox(height: 8),
-            Text('Checking liveness and matching your face to the ID.\nThis takes about 3 seconds.',
+            Text(s.idVerifyVerifyingDesc,
                 textAlign: TextAlign.center,
                 style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted, height: 1.5)),
           ],
@@ -410,8 +461,9 @@ class _VerifyingStep extends StatelessWidget {
 
 class _SuccessStep extends StatelessWidget {
   final NeedHubTokens t;
+  final S s;
   final VoidCallback onDone;
-  const _SuccessStep({required this.t, required this.onDone});
+  const _SuccessStep({required this.t, required this.s, required this.onDone});
 
   @override
   Widget build(BuildContext context) {
@@ -429,11 +481,11 @@ class _SuccessStep extends StatelessWidget {
             child: const Icon(Icons.verified_rounded, size: 44, color: NeedHubTokens.forest),
           ),
           const SizedBox(height: 24),
-          Text('ID Verified!',
+          Text(s.idVerifiedTitle,
               style: GoogleFonts.bricolageGrotesque(fontSize: 26, fontWeight: FontWeight.w800, color: t.ink)),
           const SizedBox(height: 10),
           Text(
-            'Your government ID matches your selfie. Your profile now shows the ID Verified badge and your trust score has been updated.',
+            s.idVerifySuccessDesc,
             textAlign: TextAlign.center,
             style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted, height: 1.6),
           ),
@@ -449,7 +501,101 @@ class _SuccessStep extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
               ),
-              child: Text(S.current.done,
+              child: Text(s.done,
+                  style: GoogleFonts.hankenGrotesk(fontSize: 15, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Step 5: Terminal error ────────────────────────────────────────────────────
+// DUPLICATE_ID → back to profile only (retrying can't help).
+// SERVICE_UNAVAILABLE → back or retry from step 1.
+
+class _TerminalErrorStep extends StatelessWidget {
+  final NeedHubTokens t;
+  final S s;
+  final String? code;
+  final String? serverReason;
+  final VoidCallback onBack;
+  final VoidCallback? onRetry;
+  const _TerminalErrorStep({
+    required this.t,
+    required this.s,
+    required this.code,
+    required this.serverReason,
+    required this.onBack,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDuplicate = code == 'DUPLICATE_ID';
+    final title = isDuplicate
+        ? s.idVerifyDuplicateBlockedTitle
+        : s.idVerifyServiceUnavailableTitle;
+    // Prefer localized copy over the server's English reason string.
+    final desc = isDuplicate
+        ? s.idVerifyDuplicateBlockedDesc
+        : s.idVerifyServiceUnavailableDesc;
+    final icon = isDuplicate ? Icons.block_rounded : Icons.cloud_off_rounded;
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80, height: 80,
+            decoration: BoxDecoration(
+              color: NeedHubTokens.clay.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 44, color: NeedHubTokens.clay),
+          ),
+          const SizedBox(height: 24),
+          Text(title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.bricolageGrotesque(fontSize: 22, fontWeight: FontWeight.w800, color: t.ink)),
+          const SizedBox(height: 10),
+          Text(
+            desc,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.hankenGrotesk(fontSize: 14, color: t.muted, height: 1.6),
+          ),
+          const SizedBox(height: 36),
+          if (onRetry != null) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: onRetry,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: NeedHubTokens.forest,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 0,
+                ),
+                child: Text(s.idVerifyTryAgain,
+                    style: GoogleFonts.hankenGrotesk(fontSize: 15, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: onBack,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: t.ink,
+                side: BorderSide(color: t.rail),
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              child: Text(s.idVerifyBackToProfile,
                   style: GoogleFonts.hankenGrotesk(fontSize: 15, fontWeight: FontWeight.w700)),
             ),
           ),
@@ -463,15 +609,16 @@ class _SuccessStep extends StatelessWidget {
 
 class _StepIndicator extends StatelessWidget {
   final NeedHubTokens t;
+  final S s;
   final int step;
   final int total;
   final String label;
-  const _StepIndicator({required this.t, required this.step, required this.total, required this.label});
+  const _StepIndicator({required this.t, required this.s, required this.step, required this.total, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Row(children: [
-      Text('Step $step of $total',
+      Text(s.idVerifyStepOf(step, total),
           style: GoogleFonts.hankenGrotesk(fontSize: 11, fontWeight: FontWeight.w700, color: t.muted2, letterSpacing: 0.5)),
       const SizedBox(width: 8),
       Expanded(child: LinearProgressIndicator(

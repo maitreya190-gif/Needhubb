@@ -122,10 +122,24 @@ async function checkLiveness(
     return { verified: false, reason: 'Please open your eyes and retake the selfie.', code: 'EYES_CLOSED' }
   }
 
-  // Head pose — a flat image held up to the camera has pitch/roll near 0 and yaw near 0
-  // Real faces have natural slight variations. We flag extreme flatness (all near 0) as suspicious.
+  // Occlusion — Face++ returns per-region 0–1 values (higher = more occluded).
+  // Blocks masks and sunglasses, which the eye-open check alone misses
+  // because Face++ may still infer eyes from other landmarks.
+  const occ = attrs.occlusion ?? {}
+  if ((occ.eye_left ?? 0) > 0.7 || (occ.eye_right ?? 0) > 0.7) {
+    return { verified: false, reason: 'Please remove any glasses or covering from your eyes and retake the selfie.', code: 'EYES_OCCLUDED' }
+  }
+  if ((occ.mouth ?? 0) > 0.7 || (occ.nose ?? 0) > 0.7) {
+    return { verified: false, reason: 'Please remove any mask or covering from your face and retake the selfie.', code: 'FACE_OCCLUDED' }
+  }
+
+  // Head pose — a photo of a photo held perfectly parallel to the camera has
+  // pitch, roll, and yaw all essentially zero. Real faces have micro-tilt
+  // even when the user tries to hold still. We only trip when all three are
+  // effectively zero (< 0.5°); a user who holds their phone very steady but
+  // has any natural head angle still passes.
   const { pitch_angle = 0, roll_angle = 0, yaw_angle = 0 } = attrs.headpose ?? {}
-  if (Math.abs(pitch_angle) < 1 && Math.abs(roll_angle) < 1 && Math.abs(yaw_angle) < 1) {
+  if (Math.abs(pitch_angle) < 0.5 && Math.abs(roll_angle) < 0.5 && Math.abs(yaw_angle) < 0.5) {
     return { verified: false, reason: 'Selfie looks like a photo of a photo — please take a live selfie.', code: 'FLAT_POSE' }
   }
 
@@ -168,8 +182,15 @@ async function matchFaces(
   if (confidence < MATCH_THRESHOLD) {
     return { verified: false, reason: `Your selfie doesn't match the face on your ID (confidence: ${Math.round(confidence)}%). Please retake your selfie or use a clearer ID photo.`, code: 'FACE_MISMATCH' }
   }
+  // A missing face_token means the compare succeeded but Face++ didn't return
+  // a stable identifier for the ID face. Without it we can't hash for
+  // duplicate-account detection — synthesizing a fake token would silently
+  // bypass that check, so fail instead.
+  if (!idFaceToken) {
+    return { verified: false, reason: 'Could not read your ID photo cleanly — please retake it in better lighting.', code: 'ID_TOKEN_MISSING' }
+  }
 
-  return { verified: true, idFaceToken: idFaceToken ?? `fallback-${Date.now()}` }
+  return { verified: true, idFaceToken }
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

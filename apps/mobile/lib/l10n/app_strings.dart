@@ -105,6 +105,40 @@ class S {
     'phoneVerified': 'Phone Verified',
     'verifyPhoneDesc': 'Adds the biggest boost to your trust score',
     'verify': 'Verify',
+    // ID verification screen
+    'idVerificationTitle': 'ID Verification',
+    'idVerifyIntroTitle': 'Verify your identity',
+    'idVerifyIntroDesc': 'Upload a government ID (Aadhaar, PAN, or driving licence) and take a live selfie. Our system checks that the face on the ID matches you — in seconds, fully automated.',
+    'idVerifyPrivacyBullet1': 'Your ID is never stored — images are checked and immediately discarded.',
+    'idVerifyPrivacyBullet2': 'Only the verification result is saved — not the photo.',
+    'idVerifyPrivacyBullet3': 'Earn the ID Verified badge and the highest trust score boost on NeedHub.',
+    'idVerifyStartBtn': 'Start Verification',
+    'idVerifyStepGovId': 'Government ID',
+    'idVerifyStepSelfie': 'Live Selfie',
+    'idVerifyUploadIdTitle': 'Upload your ID',
+    'idVerifyUploadIdDesc': 'Take a clear photo of your Aadhaar card, PAN card, or driving licence.',
+    'idVerifyTapUpload': 'Tap to upload ID photo',
+    'idVerifyFromGallery': 'From your gallery',
+    'idVerifyIdTip': 'Make sure all text on the ID is clearly readable. Avoid glare and shadows.',
+    'idVerifyIdUploaded': 'ID uploaded',
+    'idVerifyTakeSelfieTitle': 'Now take a selfie',
+    'idVerifyTakeSelfieDesc': 'Use your front camera. Your face must be clearly visible and your eyes open.',
+    'idVerifyLivenessLabel': 'LIVENESS CHECK',
+    'idVerifyLivenessDesc': "Our system checks that you're a real person — not a photo or screen. Keep your eyes open and hold the camera naturally.",
+    'idVerifyTakeSelfieBtn': 'Take Selfie',
+    'idVerifyVerifying': 'Verifying…',
+    'idVerifyVerifyingDesc': 'Checking liveness and matching your face to the ID.\nThis takes about 3 seconds.',
+    'idVerifiedTitle': 'ID Verified!',
+    'idVerifySuccessDesc': 'Your government ID matches your selfie. Your profile now shows the ID Verified badge and your trust score has been updated.',
+    'idVerifyStepOf': 'Step {step} of {total}',
+    'idVerifyGenericError': 'Verification failed. Please try again.',
+    'idVerifyNetworkError': 'Something went wrong. Please try again.',
+    'idVerifyDuplicateBlockedTitle': 'This ID is already in use',
+    'idVerifyDuplicateBlockedDesc': 'This government ID has already been used to verify a different NeedHub account. Each ID can only verify one person.',
+    'idVerifyServiceUnavailableTitle': 'Verification service is down',
+    'idVerifyServiceUnavailableDesc': 'The verification service is temporarily unavailable. Please try again in a few minutes.',
+    'idVerifyBackToProfile': 'Back to Profile',
+    'idVerifyTryAgain': 'Try again',
     'sustainabilityCerts': 'SUSTAINABILITY CERTIFICATES',
     'noCertificates': 'No certificates yet — tap Add to upload one.',
     'badges': 'BADGES',
@@ -987,6 +1021,41 @@ class S {
   String get verifyYourPhone => _get('verifyYourPhone');
   String get phoneVerified => _get('phoneVerified');
   String get verifyPhoneDesc => _get('verifyPhoneDesc');
+  String get idVerificationTitle => _get('idVerificationTitle');
+  String get idVerifyIntroTitle => _get('idVerifyIntroTitle');
+  String get idVerifyIntroDesc => _get('idVerifyIntroDesc');
+  String get idVerifyPrivacyBullet1 => _get('idVerifyPrivacyBullet1');
+  String get idVerifyPrivacyBullet2 => _get('idVerifyPrivacyBullet2');
+  String get idVerifyPrivacyBullet3 => _get('idVerifyPrivacyBullet3');
+  String get idVerifyStartBtn => _get('idVerifyStartBtn');
+  String get idVerifyStepGovId => _get('idVerifyStepGovId');
+  String get idVerifyStepSelfie => _get('idVerifyStepSelfie');
+  String get idVerifyUploadIdTitle => _get('idVerifyUploadIdTitle');
+  String get idVerifyUploadIdDesc => _get('idVerifyUploadIdDesc');
+  String get idVerifyTapUpload => _get('idVerifyTapUpload');
+  String get idVerifyFromGallery => _get('idVerifyFromGallery');
+  String get idVerifyIdTip => _get('idVerifyIdTip');
+  String get idVerifyIdUploaded => _get('idVerifyIdUploaded');
+  String get idVerifyTakeSelfieTitle => _get('idVerifyTakeSelfieTitle');
+  String get idVerifyTakeSelfieDesc => _get('idVerifyTakeSelfieDesc');
+  String get idVerifyLivenessLabel => _get('idVerifyLivenessLabel');
+  String get idVerifyLivenessDesc => _get('idVerifyLivenessDesc');
+  String get idVerifyTakeSelfieBtn => _get('idVerifyTakeSelfieBtn');
+  String get idVerifyVerifying => _get('idVerifyVerifying');
+  String get idVerifyVerifyingDesc => _get('idVerifyVerifyingDesc');
+  String get idVerifiedTitle => _get('idVerifiedTitle');
+  String get idVerifySuccessDesc => _get('idVerifySuccessDesc');
+  String idVerifyStepOf(int step, int total) => _get('idVerifyStepOf')
+      .replaceAll('{step}', step.toString())
+      .replaceAll('{total}', total.toString());
+  String get idVerifyGenericError => _get('idVerifyGenericError');
+  String get idVerifyNetworkError => _get('idVerifyNetworkError');
+  String get idVerifyDuplicateBlockedTitle => _get('idVerifyDuplicateBlockedTitle');
+  String get idVerifyDuplicateBlockedDesc => _get('idVerifyDuplicateBlockedDesc');
+  String get idVerifyServiceUnavailableTitle => _get('idVerifyServiceUnavailableTitle');
+  String get idVerifyServiceUnavailableDesc => _get('idVerifyServiceUnavailableDesc');
+  String get idVerifyBackToProfile => _get('idVerifyBackToProfile');
+  String get idVerifyTryAgain => _get('idVerifyTryAgain');
   String get verify => _get('verify');
   String get sustainabilityCerts => _get('sustainabilityCerts');
   String get noCertificates => _get('noCertificates');
