@@ -213,7 +213,7 @@ async function computeUserTrustScoreForVouching(userId: string): Promise<number>
     const [user, record, eligibleVouchCount] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
-        select: { emailVerifiedAt: true, phoneVerifiedAt: true, profile: { select: { faceVerifiedAt: true } } },
+        select: { emailVerifiedAt: true, phoneVerifiedAt: true, profile: { select: { faceVerifiedAt: true, idVerifiedAt: true } } },
       }),
       fetchTrackRecord(userId),
       countTrustEligibleVouches(userId),
@@ -222,6 +222,7 @@ async function computeUserTrustScoreForVouching(userId: string): Promise<number>
       emailVerifiedAt: user?.emailVerifiedAt ?? null,
       phoneVerifiedAt: user?.phoneVerifiedAt ?? null,
       faceVerifiedAt: user?.profile?.faceVerifiedAt ?? null,
+      idVerifiedAt: user?.profile?.idVerifiedAt ?? null,
     }
     const badgeInputs = { ...verification, ...record }
     return computeTrustScore({

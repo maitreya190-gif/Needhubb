@@ -126,6 +126,7 @@ export interface VerificationTimestamps {
   emailVerifiedAt: Date | null
   phoneVerifiedAt: Date | null
   faceVerifiedAt: Date | null
+  idVerifiedAt: Date | null
 }
 
 /** Combine identity verification with track record into badge inputs. */

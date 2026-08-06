@@ -6,6 +6,8 @@ import { authenticate, type AuthedRequest } from '../../middleware/authenticate'
 import { notFound, badRequest, tooMany } from '../../lib/http-error'
 import { uploadFile, deleteFile, storageKey } from '../../lib/storage'
 import { verifyFace } from '../../lib/face-verify'
+import { createHash } from 'node:crypto'
+import { verifyIdWithSelfie } from '../../lib/id-verify'
 import { analyzePersonality } from '../../lib/lyzr'
 import { twilioVerifyConfigured, startPhoneVerification, checkPhoneVerification } from '../../lib/sms'
 import { computeTrustScore } from '../../lib/trust-score'
@@ -15,7 +17,7 @@ import { countTrustEligibleVouches, fetchSkillVouchSummaries, tryGetUserId } fro
 import {
   fetchSeasonHistory, fetchMilestoneTimestamps, seasonalBadgesFromHistory, computeLeagueAchievements,
 } from '../../lib/impact-league'
-import { otpLimiter } from '../../middleware/rateLimiter'
+import { otpLimiter, uploadLimiter } from '../../middleware/rateLimiter'
 import { isUserConnected } from '../../lib/socket'
 import { computeIsOnline } from '../../lib/presence'
 import { fetchPlusUserIds } from '../../lib/plus'
@@ -70,12 +72,14 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
       emailVerifiedAt: user.emailVerifiedAt,
       phoneVerifiedAt: user.phoneVerifiedAt,
       faceVerifiedAt: user.profile?.faceVerifiedAt ?? null,
+      idVerifiedAt: user.profile?.idVerifiedAt ?? null,
     }, record)
     const badges = computeBadges(badgeInputs)
     const trustScore = computeTrustScore({
       emailVerifiedAt: user.emailVerifiedAt,
       phoneVerifiedAt: user.phoneVerifiedAt,
       faceVerifiedAt: user.profile?.faceVerifiedAt ?? null,
+      idVerifiedAt: user.profile?.idVerifiedAt ?? null,
       approvedCertificateCount: record.approvedCertificateCount,
       fulfilledNeedCount: totalFulfilledCount(record),
       avgRating: record.avgRating,
@@ -100,7 +104,11 @@ profilesRouter.get('/me', authenticate, async (req, res, next) => {
     const isPlus = (await fetchPlusUserIds([userId])).has(userId)
     res.json({
       ...user,
-      profile: user.profile ? { ...user.profile, plus: isPlus } : user.profile,
+      // idFaceHash is a duplicate-detection secret and must never leave the
+      // server. Strip it here rather than change every Prisma query.
+      profile: user.profile
+        ? (({ idFaceHash: _idFaceHash, ...p }) => ({ ...p, plus: isPlus }))(user.profile)
+        : user.profile,
       avgRating: record.avgRating,
       ratingCount: record.ratingCount,
       trustScore,
@@ -301,6 +309,95 @@ profilesRouter.post('/me/face-verify', authenticate, upload.single('selfie'), as
     res.json({ verified: true })
   } catch (err) { next(err) }
 })
+
+// ── POST /profile/me/id-verify ───────────────────────────────────────────────
+// Two images required: idPhoto (government ID) + selfie (live camera shot).
+// Runs liveness detection on the selfie, then face-matches it against the ID.
+// Both buffers are processed in-memory only — never stored anywhere.
+
+const uploadTwo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) cb(new Error('Images only'))
+    else cb(null, true)
+  },
+})
+
+profilesRouter.post(
+  '/me/id-verify',
+  authenticate,
+  uploadLimiter,
+  uploadTwo.fields([{ name: 'idPhoto', maxCount: 1 }, { name: 'selfie', maxCount: 1 }]),
+  async (req, res, next) => {
+    try {
+      const userId = (req as AuthedRequest).userId!
+      const files = req.files as Record<string, Express.Multer.File[]> | undefined
+      const idFile = files?.['idPhoto']?.[0]
+      const selfieFile = files?.['selfie']?.[0]
+
+      if (!idFile) return next(badRequest('No ID photo uploaded', 'NO_ID_PHOTO'))
+      if (!selfieFile) return next(badRequest('No selfie uploaded', 'NO_SELFIE'))
+
+      // Check not already verified
+      const existing = await prisma.profile.findUnique({ where: { userId }, select: { idVerifiedAt: true } })
+      if (existing?.idVerifiedAt) {
+        return res.json({ verified: true, alreadyVerified: true })
+      }
+
+      // Fail closed: if Face++ is unreachable we surface an error to the client
+      // rather than marking the user verified. Any "fallback" that skips the
+      // check defeats the point of the whole feature — an attacker who forces
+      // an outage (or just waits for one) could otherwise get verified with
+      // two random images.
+      let result
+      try {
+        result = await verifyIdWithSelfie(
+          idFile.buffer, idFile.mimetype,
+          selfieFile.buffer, selfieFile.mimetype,
+        )
+      } catch (err: any) {
+        const msg = err?.message ?? 'ID verification service unavailable'
+        console.error('[id-verify] service error:', msg)
+        return res.status(503).json({
+          verified: false,
+          reason: 'Verification service is temporarily unavailable — please try again in a few minutes.',
+          code: 'SERVICE_UNAVAILABLE',
+        })
+      }
+
+      if (!result.verified) {
+        return res.status(400).json(result)
+      }
+
+      // Hash the face token for duplicate ID detection. The token itself is
+      // never stored — only its SHA-256 hash. verifyIdWithSelfie only returns
+      // `verified: true` when a real token is present, so this is safe.
+      const faceHash = createHash('sha256').update(result.idFaceToken).digest('hex')
+
+      const existingWithHash = await prisma.profile.findFirst({
+        where: { idFaceHash: faceHash, NOT: { userId } },
+        select: { userId: true },
+      })
+      if (existingWithHash) {
+        return res.status(400).json({
+          verified: false,
+          reason: 'This ID has already been used to verify a different account.',
+          code: 'DUPLICATE_ID',
+        })
+      }
+
+      await prisma.profile.upsert({
+        where: { userId },
+        update: { idVerifiedAt: new Date(), idFaceHash: faceHash },
+        create: { userId, idVerifiedAt: new Date(), idFaceHash: faceHash },
+      })
+
+      // Buffers dereferenced here — never stored
+      res.json({ verified: true })
+    } catch (err) { next(err) }
+  },
+)
 
 // ── POST /profile/me/phone/send-otp ──────────────────────────────────────────
 // Trust Score, step 2 (after compulsory email verification at signup). Uses
@@ -540,6 +637,7 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       emailVerifiedAt: user.emailVerifiedAt,
       phoneVerifiedAt: user.phoneVerifiedAt,
       faceVerifiedAt: user.profile?.faceVerifiedAt ?? null,
+      idVerifiedAt: user.profile?.idVerifiedAt ?? null,
     }, record)
     // Badges are public: the whole point is that someone deciding whether to
     // meet this person can see what they have actually done.
@@ -548,6 +646,7 @@ profilesRouter.get('/:userId', async (req, res, next) => {
       emailVerifiedAt: user.emailVerifiedAt,
       phoneVerifiedAt: user.phoneVerifiedAt,
       faceVerifiedAt: user.profile?.faceVerifiedAt ?? null,
+      idVerifiedAt: user.profile?.idVerifiedAt ?? null,
       approvedCertificateCount: record.approvedCertificateCount,
       fulfilledNeedCount: totalFulfilledCount(record),
       avgRating: record.avgRating,
@@ -576,7 +675,11 @@ profilesRouter.get('/:userId', async (req, res, next) => {
     const isPlus = (await fetchPlusUserIds([user.id])).has(user.id)
     res.json({
       ...user,
-      profile: user.profile ? { ...user.profile, plus: isPlus } : user.profile,
+      // idFaceHash is a duplicate-detection secret and must never leave the
+      // server, even for public profile views.
+      profile: user.profile
+        ? (({ idFaceHash: _idFaceHash, ...p }) => ({ ...p, plus: isPlus }))(user.profile)
+        : user.profile,
       avgRating: record.avgRating,
       ratingCount: record.ratingCount,
       trustScore,
