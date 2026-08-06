@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import '../../l10n/app_strings.dart';
 import '../../models/need.dart';
 import '../../providers/language_provider.dart';
+import '../../services/mappls_service.dart';
 import '../../services/social_providers.dart';
 import '../../services/profiles_api.dart';
 import '../../theme/tokens.dart';
@@ -26,8 +26,6 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
   late final MapController _mapController;
   final PageController _pageController = PageController(viewportFraction: 0.85);
   final TextEditingController _searchController = TextEditingController();
-  final Dio _dio =
-      Dio(BaseOptions(connectTimeout: const Duration(seconds: 10)));
 
   late TabController _tabController;
 
@@ -47,7 +45,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
   Timer? _emptyDismissTimer;
 
   Need? _selectedNeed;
-  List<dynamic> _searchResults = [];
+  List<PlaceSuggestion> _searchResults = const [];
   bool _isSearching = false;
   bool _showSearchResults = false;
   bool _isEmptyStateVisible = true;
@@ -197,48 +195,39 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
   Future<void> _searchLocation(String query) async {
     if (query.trim().isEmpty) {
       setState(() {
-        _searchResults = [];
+        _searchResults = const [];
         _showSearchResults = false;
       });
       return;
     }
 
     setState(() => _isSearching = true);
-    try {
-      final res = await _dio.get(
-        'https://nominatim.openstreetmap.org/search',
-        queryParameters: {
-          'format': 'json',
-          'q': query,
-          'limit': 5,
-        },
-        options: Options(headers: {'User-Agent': 'NeedhubApp/1.0'}),
-      );
-
-      if (mounted && res.data != null) {
-        setState(() {
-          _searchResults = res.data as List<dynamic>;
-          _showSearchResults = true;
-        });
-      }
-    } catch (e) {
-      debugPrint('Search error: $e');
-    } finally {
-      if (mounted) setState(() => _isSearching = false);
-    }
+    // Bias suggestions to the current map center — a "medical store" search
+    // in Pune should return Pune hits, not the top nationwide chains.
+    final results = await mappls.autosuggest(
+      query,
+      nearLat: _center.latitude,
+      nearLng: _center.longitude,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isSearching = false;
+      _searchResults = results;
+      _showSearchResults = results.isNotEmpty;
+    });
   }
 
-  void _onLocationSuggestionTap(dynamic result) {
-    final lat = double.tryParse(result['lat'] ?? '');
-    final lon = double.tryParse(result['lon'] ?? '');
-    if (lat != null && lon != null) {
-      final newCenter = LatLng(lat, lon);
+  void _onLocationSuggestionTap(PlaceSuggestion result) {
+    final lat = result.lat;
+    final lng = result.lng;
+    if (lat != null && lng != null) {
+      final newCenter = LatLng(lat, lng);
       setState(() {
         _center = newCenter;
         _mapCenter = newCenter;
         _showSearchResults = false;
-        _searchResults = [];
-        _searchController.text = result['display_name'] ?? '';
+        _searchResults = const [];
+        _searchController.text = result.display;
         _isEmptyStateVisible = true;
         _isEmptyStateMinimized = false;
       });
@@ -466,7 +455,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                                   onPressed: () {
                                     _searchController.clear();
                                     setState(() {
-                                      _searchResults = [];
+                                      _searchResults = const [];
                                       _showSearchResults = false;
                                     });
                                   },
@@ -503,7 +492,7 @@ class _ViewOnMapScreenState extends ConsumerState<ViewOnMapScreen>
                         final item = _searchResults[index];
                         return ListTile(
                           title: Text(
-                            item['display_name'] ?? '',
+                            item.display,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.hankenGrotesk(
