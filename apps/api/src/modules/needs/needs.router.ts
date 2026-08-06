@@ -349,7 +349,7 @@ needsRouter.get('/', async (req, res, next) => {
           select: {
             id: true, displayName: true, emailVerifiedAt: true, phoneVerifiedAt: true,
             profile: { select: {
-              avatarUrl: true, gender: true, lat: true, lng: true, faceVerifiedAt: true,
+              avatarUrl: true, gender: true, lat: true, lng: true, faceVerifiedAt: true, idVerifiedAt: true,
               bio: true,
               personalityTraits: true, personalityNickname: true, personalityVibeTags: true,
               interests: { include: { interest: { select: { label: true } } } },
@@ -382,6 +382,7 @@ needsRouter.get('/', async (req, res, next) => {
           emailVerifiedAt: need.poster.emailVerifiedAt,
           phoneVerifiedAt: need.poster.phoneVerifiedAt,
           faceVerifiedAt: need.poster.profile?.faceVerifiedAt ?? null,
+          idVerifiedAt: need.poster.profile?.idVerifiedAt ?? null,
         }
         return [id, computeTrustScore({
           ...verification,
@@ -670,7 +671,7 @@ needsRouter.get('/:id', async (req, res, next) => {
         poster: {
           select: {
             id: true, displayName: true, emailVerifiedAt: true, phoneVerifiedAt: true,
-            profile: { select: { avatarUrl: true, bio: true, pointsTotal: true, faceVerifiedAt: true } },
+            profile: { select: { avatarUrl: true, bio: true, pointsTotal: true, faceVerifiedAt: true, idVerifiedAt: true } },
           },
         },
         subNeeds: true,
@@ -717,6 +718,7 @@ needsRouter.get('/:id', async (req, res, next) => {
       emailVerifiedAt: need.poster.emailVerifiedAt,
       phoneVerifiedAt: need.poster.phoneVerifiedAt,
       faceVerifiedAt: need.poster.profile?.faceVerifiedAt ?? null,
+      idVerifiedAt: need.poster.profile?.idVerifiedAt ?? null,
     }
     const trustScore = computeTrustScore({
       ...posterVerification,
