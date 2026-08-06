@@ -359,9 +359,16 @@ profilesRouter.post(
       } catch (err: any) {
         const msg = err?.message ?? 'ID verification service unavailable'
         console.error('[id-verify] service error:', msg)
+        // Surface the underlying message so the client (and the operator
+        // watching the app) can tell whether Railway is missing FACEPP env
+        // vars ("Face++ not configured — ..."), Face++ is genuinely
+        // unreachable ("All Face++ endpoints failed. Last: ..."), or
+        // credentials are wrong ("AUTHENTICATION_ERROR"). The generic
+        // "temporarily unavailable" string hid these three very different
+        // failure modes behind one opaque message.
         return res.status(503).json({
           verified: false,
-          reason: 'Verification service is temporarily unavailable — please try again in a few minutes.',
+          reason: `Verification service error: ${msg}`,
           code: 'SERVICE_UNAVAILABLE',
         })
       }
