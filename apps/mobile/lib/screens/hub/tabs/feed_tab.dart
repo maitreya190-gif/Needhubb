@@ -1871,7 +1871,12 @@ class _EarnCard extends StatelessWidget {
                                   const SizedBox(width: 4),
                                   const NhPlusBadge(compact: true),
                                 ],
-                                if (need.posterTrustScore > 0 && need.category == 'connect') ...[
+                                // Trust score is not Connect-specific — it is
+                                // exactly as relevant to deciding whether to
+                                // pay someone for an Earn need, so it shows on
+                                // both surfaces rather than being gated to
+                                // Connect only.
+                                if (need.posterTrustScore > 0) ...[
                                   const SizedBox(width: 4),
                                   _TrustBadge(score: need.posterTrustScore),
                                 ],
