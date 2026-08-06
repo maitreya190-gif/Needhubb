@@ -398,6 +398,7 @@ class S {
     'sortOrder': 'SORT ORDER',
     'sortSubtitle': 'Arrange items by recency, distance, or reward',
     'sortByUpper': 'SORT BY',
+    'sortRecommended': 'Recommended for you',
     'newestFirst': 'Newest first',
     'nearestFirst': 'Nearest first',
     'oldestFirst': 'Oldest first',
@@ -1328,6 +1329,7 @@ class S {
   String get sortOrder => _get('sortOrder');
   String get sortSubtitle => _get('sortSubtitle');
   String get sortByUpper => _get('sortByUpper');
+  String get sortRecommended => _get('sortRecommended');
   String get newestFirst => _get('newestFirst');
   String get nearestFirst => _get('nearestFirst');
   String get oldestFirst => _get('oldestFirst');

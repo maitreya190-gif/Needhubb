@@ -324,6 +324,7 @@ const Map<String, String> stringsMr = {
   'genderFilterSubtitle': 'विशिष्ट लिंगाचे प्रोफाइल किंवा पोस्टर दाखवा',
   'sortOrder': 'क्रमवारी',
   'sortSubtitle': 'अलीकडेपणा, अंतर किंवा बक्षिसानुसार व्यवस्थित करा',
+  'sortRecommended': 'तुमच्यासाठी शिफारस केलेले',
   'newestFirst': 'नवीनतम आधी',
   'nearestFirst': 'सर्वात जवळचे आधी',
   'highestReward': 'सर्वाधिक बक्षीस/गुण',

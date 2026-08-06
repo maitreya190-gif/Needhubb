@@ -403,28 +403,38 @@ class _NhFilterSheetState extends State<NhFilterSheet> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
+                        // Default — the server's personalized ranking built
+                        // from the user's own interests, skills and prompts.
+                        _SortOption(
+                          label: S.current.sortRecommended,
+                          value: kSortSmart,
+                          selected: _draft.sortBy == kSortSmart,
+                          onTap: () => setState(() =>
+                              _draft = _draft.copyWith(sortBy: kSortSmart)),
+                          t: t,
+                        ),
                         _SortOption(
                           label: S.current.newestFirst,
-                          value: 'newest',
-                          selected: _draft.sortBy == 'newest',
-                          onTap: () => setState(
-                              () => _draft = _draft.copyWith(sortBy: 'newest')),
+                          value: kSortNewest,
+                          selected: _draft.sortBy == kSortNewest,
+                          onTap: () => setState(() =>
+                              _draft = _draft.copyWith(sortBy: kSortNewest)),
                           t: t,
                         ),
                         _SortOption(
                           label: S.current.nearestFirst,
-                          value: 'nearest',
-                          selected: _draft.sortBy == 'nearest',
+                          value: kSortNearest,
+                          selected: _draft.sortBy == kSortNearest,
                           onTap: () => setState(() =>
-                              _draft = _draft.copyWith(sortBy: 'nearest')),
+                              _draft = _draft.copyWith(sortBy: kSortNearest)),
                           t: t,
                         ),
                         _SortOption(
                           label: S.current.highestReward,
-                          value: 'highest_points',
-                          selected: _draft.sortBy == 'highest_points',
+                          value: kSortHighestPoints,
+                          selected: _draft.sortBy == kSortHighestPoints,
                           onTap: () => setState(() => _draft =
-                              _draft.copyWith(sortBy: 'highest_points')),
+                              _draft.copyWith(sortBy: kSortHighestPoints)),
                           t: t,
                         ),
                       ],

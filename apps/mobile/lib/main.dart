@@ -7,7 +7,7 @@ import 'providers/auth_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router/router.dart';
 import 'services/chitchat_api.dart';
-import 'services/needs_api.dart' show NeedsApi, feedNeedsNotifier, feedRankerNotifier, needFromSocketData;
+import 'services/needs_api.dart' show NeedsApi, activeFeedQueryNotifier, feedNeedsNotifier, feedRankerNotifier, needFromSocketData;
 import 'services/notifications_api.dart';
 import 'services/profiles_api.dart';
 import 'services/reviews_api.dart';
@@ -203,13 +203,35 @@ class _NeedHubAppState extends ConsumerState<NeedHubApp> with WidgetsBindingObse
 
   Future<void> _hydrateFeed(NeedsApi api) async {
     try {
-      final res = await api.feed(sort: 'smart', take: 60);
+      // Mirror whatever query the visible feed is using. Polling with a fixed
+      // unfiltered 'smart' query used to wipe out the user's applied filters
+      // and chosen sort roughly 30 seconds after they set them.
+      final q = activeFeedQueryNotifier.value;
+      final res = await api.feed(
+        sort: q.sort,
+        distanceKm: q.distanceKm,
+        minBudget: q.minBudget,
+        maxBudget: q.maxBudget,
+        genders: q.genders,
+        take: 60,
+      );
+      // Optimistically-added local needs ("You") are re-attached so a
+      // just-posted need doesn't vanish on the next poll — but only on an
+      // unfiltered query. Re-attaching them under an active filter would put
+      // needs on screen that don't match what the user asked for.
+      final unfiltered = q.distanceKm == null &&
+          q.minBudget == null &&
+          q.maxBudget == null &&
+          q.genders.isEmpty;
       final Map<String, Need> map = {};
-      for (final n in feedNeedsNotifier.value.where((n) => n.authorName == 'You' || n.authorInitials == 'ME')) {
-        map[n.id] = n;
-      }
       for (final n in res.needs) {
         map[n.id] = n;
+      }
+      if (unfiltered) {
+        for (final n in feedNeedsNotifier.value.where(
+            (n) => n.authorName == 'You' || n.authorInitials == 'ME')) {
+          map.putIfAbsent(n.id, () => n);
+        }
       }
       feedNeedsNotifier.value = map.values.toList();
       feedRankerNotifier.value = res.ranker;

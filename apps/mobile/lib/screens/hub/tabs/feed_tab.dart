@@ -73,14 +73,17 @@ bool passesHardFilters(Need n, FeedFilter filter) {
       n.distanceKm! > filter.maxDistanceKm) {
     return false;
   }
-  if (filter.minBudget != null &&
-      (n.budgetMin == null || n.budgetMin! < filter.minBudget!)) {
-    return false;
+  // Budget is a range-overlap test, matching what the API does: a need with
+  // ₹500–₹2000 satisfies "min ₹1000" because its top end clears the bar.
+  // Comparing only against budgetMin (as this used to) dropped needs whose
+  // range did cover the requested budget.
+  if (filter.minBudget != null) {
+    final top = n.budgetMax ?? n.budgetMin;
+    if (top == null || top < filter.minBudget!) return false;
   }
-  if (filter.maxBudget != null &&
-      n.budgetMin != null &&
-      n.budgetMin! > filter.maxBudget!) {
-    return false;
+  if (filter.maxBudget != null) {
+    final bottom = n.budgetMin ?? n.budgetMax;
+    if (bottom != null && bottom > filter.maxBudget!) return false;
   }
   // Gender is one-of by nature (a poster has a single gender), so selecting
   // several widens. A poster who never set a gender can't satisfy an
@@ -100,15 +103,25 @@ int chipHits(List<String> haystack, Set<String> chips) =>
     chips.where((c) => haystack.any((h) => termMatches(h, c))).length;
 
 /// The user's explicit sort choice.
+///
+/// Returns 0 for the default AI ranking so the server's personalized order is
+/// preserved exactly. This previously fell through to a createdAt sort, which
+/// silently re-ordered smart-ranked results by recency — the AI ranking could
+/// never actually reach the screen. Callers must use a *stable* sort for that
+/// zero to mean "leave as the server sent it".
 int compareBySort(Need a, Need b, FeedFilter filter) {
-  if (filter.sortBy == 'nearest') {
+  if (filter.sortBy == kSortNearest) {
     return (a.distanceKm ?? double.infinity)
         .compareTo(b.distanceKm ?? double.infinity);
   }
-  if (filter.sortBy == 'highest_points') {
-    return (b.budgetMin ?? 0).compareTo(a.budgetMin ?? 0);
+  if (filter.sortBy == kSortHighestPoints) {
+    return (b.budgetMax ?? b.budgetMin ?? 0)
+        .compareTo(a.budgetMax ?? a.budgetMin ?? 0);
   }
-  return b.createdAt.compareTo(a.createdAt); // 'newest'
+  if (filter.sortBy == kSortNewest) {
+    return b.createdAt.compareTo(a.createdAt);
+  }
+  return 0; // kSortSmart — keep the server's AI order.
 }
 
 /// Maps the user's sort choice onto the server's own sort parameter.
@@ -124,12 +137,28 @@ int compareBySort(Need a, Need b, FeedFilter filter) {
 /// so it keeps the smart page and is sorted locally.
 String serverSortFor(String sortBy) {
   switch (sortBy) {
-    case 'newest':
+    case kSortNewest:
       return 'newest';
-    case 'nearest':
+    case kSortNearest:
       return 'distance';
     default:
       return 'smart';
+  }
+}
+
+/// Dart's [List.sort] is not stable, so a comparator returning 0 is free to
+/// reorder equal elements. The AI ranking depends on ties keeping the server's
+/// order, so sort on (comparator, original index) instead.
+void stableSortNeeds(List<Need> list, int Function(Need, Need) compare) {
+  final indexed = <({Need need, int i})>[
+    for (var i = 0; i < list.length; i++) (need: list[i], i: i),
+  ];
+  indexed.sort((a, b) {
+    final c = compare(a.need, b.need);
+    return c != 0 ? c : a.i.compareTo(b.i);
+  });
+  for (var i = 0; i < list.length; i++) {
+    list[i] = indexed[i].need;
   }
 }
 
@@ -155,7 +184,7 @@ List<Need> filterAndSortNeeds(List<Need> source, FeedFilter filter) {
           .where((n) => chipHits(needHaystack(n), chips) == chips.length)
           .toList();
 
-  matched.sort((a, b) => compareBySort(a, b, filter));
+  stableSortNeeds(matched, (a, b) => compareBySort(a, b, filter));
   return matched;
 }
 
@@ -175,15 +204,21 @@ List<Need> partialMatchNeeds(List<Need> source, FeedFilter filter) {
   final chips = {...filter.interests, ...filter.skills};
   if (chips.isEmpty) return const [];
 
-  final scored = <({Need need, int hits})>[];
+  final scored = <({Need need, int hits, int i})>[];
   for (final n in source) {
     if (!passesHardFilters(n, filter)) continue;
     final hits = chipHits(needHaystack(n), chips);
-    if (hits > 0 && hits < chips.length) scored.add((need: n, hits: hits));
+    if (hits > 0 && hits < chips.length) {
+      scored.add((need: n, hits: hits, i: scored.length));
+    }
   }
-  scored.sort((a, b) => a.hits != b.hits
-      ? b.hits.compareTo(a.hits)
-      : compareBySort(a.need, b.need, filter));
+  // Original index is the final tie-breaker so equal-scoring needs keep the
+  // server's AI order under the default sort.
+  scored.sort((a, b) {
+    if (a.hits != b.hits) return b.hits.compareTo(a.hits);
+    final c = compareBySort(a.need, b.need, filter);
+    return c != 0 ? c : a.i.compareTo(b.i);
+  });
   return scored.map((s) => s.need).toList();
 }
 
@@ -317,10 +352,40 @@ class _FeedTabState extends ConsumerState<FeedTab> {
       ? connectFilterNotifier.value
       : earnFilterNotifier.value;
 
-  /// Distance, budget, gender and chips are all applied locally, so a filter
-  /// change needs no new data. A *sort* change does — see [serverSortFor].
+  /// The server-side query for the current filter.
+  ///
+  /// Distance, budget and gender are sent to the API rather than only applied
+  /// locally. The server ranks the *whole* table and then truncates to `take`,
+  /// so filtering a already-truncated page meant a narrow filter — or any two
+  /// filters together — routinely showed nothing even when plenty of matching
+  /// needs existed. Asking the server means the page is drawn from matching
+  /// rows in the first place. Topic chips stay local on purpose: the API's
+  /// `interests` param doubles as the personalization signal, so sending chips
+  /// there would hijack the AI ranking.
+  FeedQuery _queryFor(FeedFilter f) => FeedQuery(
+        sort: serverSortFor(f.sortBy),
+        // 50 is the slider's "Any" notch — not a real 50km cap.
+        distanceKm: f.maxDistanceKm < 50 ? f.maxDistanceKm : null,
+        minBudget: f.minBudget,
+        maxBudget: f.maxBudget,
+        genders: f.genders.toList(),
+      );
+
+  bool _sameQuery(FeedQuery a, FeedQuery b) =>
+      a.sort == b.sort &&
+      a.distanceKm == b.distanceKm &&
+      a.minBudget == b.minBudget &&
+      a.maxBudget == b.maxBudget &&
+      a.genders.join(',') == b.genders.join(',');
+
+  /// Chips are refined locally (no refetch needed), but any hard filter or
+  /// sort change means the server must build a different page.
   void _onFilterChanged() {
-    if (serverSortFor(_activeFilter.sortBy) != _fetchedSort) _fetchFeed();
+    final next = _queryFor(_activeFilter);
+    if (!_sameQuery(next, activeFeedQueryNotifier.value)) {
+      _fetchFeed();
+    }
+    _bump();
   }
 
   /// Earn and Connect keep separate filters, so switching surface can also
@@ -331,16 +396,26 @@ class _FeedTabState extends ConsumerState<FeedTab> {
   }
 
   Future<void> _fetchFeed() async {
-    final sort = serverSortFor(_activeFilter.sortBy);
-    _fetchedSort = sort;
+    final query = _queryFor(_activeFilter);
+    _fetchedSort = query.sort;
+    // Publish before awaiting so the background poller in main.dart uses the
+    // same query for its next refresh instead of overwriting this one.
+    activeFeedQueryNotifier.value = query;
     try {
       final api = ref.read(needsApiProvider);
-      final result = await api.feed(sort: sort, take: 60);
+      final result = await api.feed(
+        sort: query.sort,
+        distanceKm: query.distanceKm,
+        minBudget: query.minBudget,
+        maxBudget: query.maxBudget,
+        genders: query.genders,
+        take: 60,
+      );
       if (!mounted) return;
-      if (result.needs.isNotEmpty) {
-        feedNeedsNotifier.value = result.needs;
-        feedRankerNotifier.value = result.ranker;
-      }
+      // An empty result is a legitimate answer once filters are involved —
+      // keeping the previous list here would show needs that don't match.
+      feedNeedsNotifier.value = result.needs;
+      feedRankerNotifier.value = result.ranker;
     } catch (_) {}
     // Batch-translate all need titles in one Groq call after the feed loads.
     _batchTranslateFeed();

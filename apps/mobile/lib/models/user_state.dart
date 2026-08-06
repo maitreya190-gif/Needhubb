@@ -267,6 +267,13 @@ class FilterBadgeItem {
   });
 }
 
+// Feed sort modes. 'smart' is the personalized AI ranking the server computes
+// from the signed-in user's interests, skills, bio and prompts.
+const String kSortSmart = 'smart';
+const String kSortNewest = 'newest';
+const String kSortNearest = 'nearest';
+const String kSortHighestPoints = 'highest_points';
+
 // Feed filters
 class FeedFilter {
   final double maxDistanceKm;
@@ -293,7 +300,12 @@ class FeedFilter {
   Set<String> get genders => _genders ?? const <String>{};
   Set<String> get interests => _interests ?? const <String>{};
   Set<String> get skills => _skills ?? const <String>{};
-  String get sortBy => _sortBy ?? 'newest';
+
+  /// Default is the server's personalized ranking — needs scored against the
+  /// user's own interests, skills, bio and prompts (see `userSignalText` on
+  /// the API). It used to default to 'newest', which meant the AI ranking was
+  /// never what a user actually saw unless they went and chose it.
+  String get sortBy => _sortBy ?? kSortSmart;
 
   FeedFilter copyWith({
     double? maxDistanceKm,
@@ -355,16 +367,24 @@ class FeedFilter {
         type: 'skill',
       ));
     }
-    if (sortBy == 'nearest') {
+    // 'smart' is the default, so it is never a badge. Every other sort is an
+    // explicit departure from the AI ranking and should be visible/clearable.
+    if (sortBy == kSortNearest) {
       list.add(const FilterBadgeItem(
         id: 'sort',
         label: 'Sort: Nearest',
         type: 'sort',
       ));
-    } else if (sortBy == 'highest_points') {
+    } else if (sortBy == kSortHighestPoints) {
       list.add(const FilterBadgeItem(
         id: 'sort',
         label: 'Sort: Highest Points',
+        type: 'sort',
+      ));
+    } else if (sortBy == kSortNewest) {
+      list.add(const FilterBadgeItem(
+        id: 'sort',
+        label: 'Sort: Newest',
         type: 'sort',
       ));
     }
@@ -394,7 +414,8 @@ class FeedFilter {
       return copyWith(skills: next);
     }
     if (badge.type == 'sort') {
-      return copyWith(sortBy: 'newest');
+      // Clearing a sort badge returns to the AI ranking, not to 'newest'.
+      return copyWith(sortBy: kSortSmart);
     }
     return this;
   }

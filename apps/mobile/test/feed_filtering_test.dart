@@ -18,6 +18,7 @@ Need makeNeed(
   String description = 'Some description',
   double? distanceKm,
   int? budgetMin,
+  int? budgetMax,
   String? posterGender,
   List<String> tags = const [],
   List<String> posterInterests = const [],
@@ -34,6 +35,7 @@ Need makeNeed(
     distanceKm: distanceKm,
     createdAt: createdAt ?? DateTime(2026, 1, 1),
     budgetMin: budgetMin,
+    budgetMax: budgetMax,
     tags: tags,
     posterGender: posterGender,
     posterInterests: posterInterests,
@@ -54,14 +56,50 @@ void main() {
       expect(result.length, 3);
     });
 
-    test('default sort is newest first', () {
+    // The default is the server's personalized AI ranking, so the client must
+    // hand the list back untouched. It used to re-sort by createdAt here,
+    // which meant the AI ordering never actually reached the screen.
+    test('default sort preserves the AI order the server sent', () {
       final needs = [
         makeNeed('old', createdAt: DateTime(2026, 1, 1)),
         makeNeed('newest', createdAt: DateTime(2026, 3, 1)),
         makeNeed('middle', createdAt: DateTime(2026, 2, 1)),
       ];
       expect(idsOf(filterAndSortNeeds(needs, const FeedFilter())),
-          ['newest', 'middle', 'old']);
+          ['old', 'newest', 'middle']);
+    });
+
+    test('default sortBy is smart, not newest', () {
+      expect(const FeedFilter().sortBy, kSortSmart);
+      expect(serverSortFor(const FeedFilter().sortBy), 'smart');
+    });
+
+    // An untouched filter must not look "active", or the feed would show a
+    // clear-filters ribbon on a fresh launch.
+    test('an untouched filter reports no active badges', () {
+      expect(const FeedFilter().filterCount, 0);
+      expect(const FeedFilter().isDefault, isTrue);
+    });
+
+    // Choosing newest is now an explicit departure from the AI ranking, so it
+    // has to be visible and clearable — and clearing returns to smart.
+    test('explicit newest is a clearable badge that resets to smart', () {
+      const f = FeedFilter(sortBy: kSortNewest);
+      expect(f.filterCount, 1);
+      final cleared = f.removeBadge(f.activeBadges.first);
+      expect(cleared.sortBy, kSortSmart);
+    });
+
+    test('explicit newest still sorts newest first', () {
+      final needs = [
+        makeNeed('old', createdAt: DateTime(2026, 1, 1)),
+        makeNeed('newest', createdAt: DateTime(2026, 3, 1)),
+        makeNeed('middle', createdAt: DateTime(2026, 2, 1)),
+      ];
+      expect(
+        idsOf(filterAndSortNeeds(needs, const FeedFilter(sortBy: kSortNewest))),
+        ['newest', 'middle', 'old'],
+      );
     });
   });
 
@@ -385,7 +423,121 @@ void main() {
           filterAndSortNeeds(needs, const FeedFilter(interests: {'Flutter'}));
       final reversed = filterAndSortNeeds(
           needs.reversed.toList(), const FeedFilter(interests: {'Flutter'}));
-      expect(idsOf(forward), idsOf(reversed));
+      // Membership is order-independent; ordering deliberately is not, since
+      // the default sort preserves the server's AI ranking.
+      expect(idsOf(forward).toSet(), idsOf(reversed).toSet());
+    });
+
+    // Under an explicit sort the result must be fully order-independent.
+    test('an explicit sort is not affected by input order', () {
+      final needs = [
+        makeNeed('a', tags: const ['Flutter'], createdAt: DateTime(2026, 1, 1)),
+        makeNeed('b', tags: const ['Flutter'], createdAt: DateTime(2026, 2, 1)),
+      ];
+      const f = FeedFilter(interests: {'Flutter'}, sortBy: kSortNewest);
+      expect(idsOf(filterAndSortNeeds(needs, f)),
+          idsOf(filterAndSortNeeds(needs.reversed.toList(), f)));
+    });
+  });
+
+  // Reported in the field as "no filters work, combining two works even less,
+  // gender does nothing". Root causes were (a) posterGender never parsed from
+  // the API so every need looked genderless, and (b) budget compared only
+  // against budgetMin so ranges were mis-tested.
+  group('reported filter failures', () {
+    test('gender filter keeps matching posters rather than emptying the feed',
+        () {
+      final needs = [
+        makeNeed('f', posterGender: 'Female'),
+        makeNeed('m', posterGender: 'Male'),
+      ];
+      expect(
+        idsOf(filterAndSortNeeds(needs, const FeedFilter(genders: {'Female'}))),
+        ['f'],
+      );
+    });
+
+    test('selecting several genders widens rather than narrows', () {
+      final needs = [
+        makeNeed('f', posterGender: 'Female'),
+        makeNeed('m', posterGender: 'Male'),
+        makeNeed('n', posterGender: 'Non-binary'),
+      ];
+      final r = filterAndSortNeeds(
+          needs, const FeedFilter(genders: {'Female', 'Male'}));
+      expect(idsOf(r).toSet(), {'f', 'm'});
+    });
+
+    test('gender combines with a topic chip instead of cancelling it', () {
+      final needs = [
+        makeNeed('want', posterGender: 'Female', tags: const ['Flutter']),
+        makeNeed('wrongGender', posterGender: 'Male', tags: const ['Flutter']),
+        makeNeed('wrongTopic', posterGender: 'Female', tags: const ['Chess']),
+      ];
+      final r = filterAndSortNeeds(
+        needs,
+        const FeedFilter(genders: {'Female'}, interests: {'Flutter'}),
+      );
+      expect(idsOf(r), ['want']);
+    });
+
+    test('three filters together still resolve to the one real match', () {
+      final needs = [
+        makeNeed('match',
+            posterGender: 'Female',
+            tags: const ['Flutter'],
+            distanceKm: 3,
+            budgetMin: 500,
+            budgetMax: 1500),
+        makeNeed('tooFar',
+            posterGender: 'Female',
+            tags: const ['Flutter'],
+            distanceKm: 40,
+            budgetMin: 500,
+            budgetMax: 1500),
+        makeNeed('tooCheap',
+            posterGender: 'Female',
+            tags: const ['Flutter'],
+            distanceKm: 3,
+            budgetMin: 50,
+            budgetMax: 90),
+      ];
+      final r = filterAndSortNeeds(
+        needs,
+        const FeedFilter(
+          genders: {'Female'},
+          interests: {'Flutter'},
+          maxDistanceKm: 10,
+          minBudget: 400,
+        ),
+      );
+      expect(idsOf(r), ['match']);
+    });
+
+    // A need paying ₹500–₹2000 does satisfy "at least ₹1000": its top end
+    // clears the bar. Testing budgetMin alone wrongly dropped it.
+    test('a budget range spanning the minimum is kept', () {
+      final needs = [makeNeed('span', budgetMin: 500, budgetMax: 2000)];
+      expect(
+        idsOf(filterAndSortNeeds(needs, const FeedFilter(minBudget: 1000))),
+        ['span'],
+      );
+    });
+
+    test('a need priced entirely under the minimum is dropped', () {
+      final needs = [makeNeed('cheap', budgetMin: 100, budgetMax: 200)];
+      expect(
+        filterAndSortNeeds(needs, const FeedFilter(minBudget: 1000)),
+        isEmpty,
+      );
+    });
+
+    test('a need starting above the maximum is dropped', () {
+      final needs = [makeNeed('pricey', budgetMin: 5000, budgetMax: 9000)];
+      expect(
+        filterAndSortNeeds(needs, const FeedFilter(maxBudget: 1000)),
+        isEmpty,
+      );
     });
   });
 }

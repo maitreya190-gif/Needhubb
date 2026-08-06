@@ -170,6 +170,10 @@ Need _needFromJson(Map<String, dynamic> j) {
     posterTrustScore: posterTrustScore,
     posterPlus: posterPlus,
     posterBio: profile['bio'] as String?,
+    // Without this the gender filter excluded every server need, because
+    // passesHardFilters treats a null poster gender as "cannot satisfy an
+    // explicit gender filter". The API has always returned it.
+    posterGender: profile['gender'] as String?,
     posterInterests: posterInterests,
     posterPersonalityTraits: personalityTraits is Map
         ? Map<String, dynamic>.from(personalityTraits)
@@ -226,3 +230,27 @@ final feedNeedsNotifier = ValueNotifier<List<Need>>(mockNeeds);
 /// back to substring matching. UI can badge the feed with a small "AI-ranked"
 /// indicator when this is 'embeddings'.
 final feedRankerNotifier = ValueNotifier<String>('heuristic');
+
+/// The query backing whatever feed is currently on screen.
+///
+/// The background poller in `main.dart` refreshes the feed every 30s. It used
+/// to always ask for an unfiltered, smart-sorted page, which silently replaced
+/// the user's filtered/sorted feed moments after they applied it. Both the
+/// feed screen and the poller now read this, so a refresh preserves intent.
+class FeedQuery {
+  final String sort;
+  final double? distanceKm;
+  final int? minBudget;
+  final int? maxBudget;
+  final List<String> genders;
+
+  const FeedQuery({
+    this.sort = 'smart',
+    this.distanceKm,
+    this.minBudget,
+    this.maxBudget,
+    this.genders = const [],
+  });
+}
+
+final activeFeedQueryNotifier = ValueNotifier<FeedQuery>(const FeedQuery());
