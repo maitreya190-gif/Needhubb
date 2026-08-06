@@ -165,7 +165,7 @@ class _ScannerOverlay extends StatelessWidget {
               child: SizedBox(
                 width: size,
                 height: size,
-                child: Stack(
+                child: const Stack(
                   children: [
                     _CornerBorder(
                       alignment: Alignment.topLeft,

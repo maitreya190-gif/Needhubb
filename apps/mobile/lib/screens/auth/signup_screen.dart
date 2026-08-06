@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
+import '../../screens/onboarding/tutorial_screen.dart';
 import '../../services/auth_service.dart';
 import '../../services/profiles_api.dart';
 import '../../services/social_providers.dart';
@@ -361,6 +362,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     await prefs.setStringList('nh_skills', _selectedSkills.toList());
     await prefs.setString('nh_location', _locationController.text.trim());
     await prefs.setDouble('nh_max_distance_km', _maxDistanceKm);
+    await markTutorialPending();
 
     genderNotifier.value = _gender;
     locationNotifier.value = _locationController.text.trim().isEmpty

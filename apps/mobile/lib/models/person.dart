@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/tokens.dart';
 
 class Person {
   final String id;

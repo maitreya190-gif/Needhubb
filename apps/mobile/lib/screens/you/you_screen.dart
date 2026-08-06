@@ -7,9 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../l10n/app_strings.dart';
-import '../../providers/language_provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:share_plus/share_plus.dart' show Share;
 import '../../models/need.dart';
 import '../../models/user_state.dart';
 import '../../providers/auth_provider.dart';
@@ -28,7 +26,6 @@ import '../../widgets/nh_plus_badge.dart';
 import '../../widgets/nh_seasonal_badge.dart';
 import '../../widgets/nh_skill_vouch_section.dart';
 import '../history/history_screen.dart';
-import '../hub/tabs/feed_tab.dart';
 import '../league/impact_league_screen.dart';
 import '../needs/need_detail_screen.dart';
 import '../personality/personality_test_screen.dart';
@@ -38,7 +35,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'qr_scanner_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/services.dart';
 
 class YouScreen extends ConsumerWidget {
   const YouScreen({super.key});

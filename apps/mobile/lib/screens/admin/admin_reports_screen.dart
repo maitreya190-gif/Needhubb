@@ -29,15 +29,19 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     });
     try {
       final r = await AdminApi.instance.reports();
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _reports = r;
         _loading = false;
       });
+      }
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _error = e.toString();
         _loading = false;
       });
+      }
     }
   }
 
@@ -458,7 +462,7 @@ class _ResolveSheetState extends State<_ResolveSheet> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: NeedHubTokens.ochre, width: 1.5),
+                      borderSide: const BorderSide(color: NeedHubTokens.ochre, width: 1.5),
                     ),
                     contentPadding: const EdgeInsets.all(12),
                   ),

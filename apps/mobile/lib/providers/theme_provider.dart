@@ -35,4 +35,4 @@ final themeProvider = StateNotifierProvider<ThemeNotifier, NeedHubTokens>(
 );
 
 /// All 8 available themes, for display in the settings screen.
-final allThemes = NeedHubThemes.all;
+const allThemes = NeedHubThemes.all;

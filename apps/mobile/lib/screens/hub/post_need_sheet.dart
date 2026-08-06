@@ -307,7 +307,9 @@ class _PostNeedSheetState extends ConsumerState<PostNeedSheet> {
 
     // Prepend ALL posted needs to the feed immediately
     final postedIds = postedNeeds.map((n) => n.id).toSet();
-    for (final n in postedNeeds) mockNeeds.insert(0, n);
+    for (final n in postedNeeds) {
+      mockNeeds.insert(0, n);
+    }
     feedNeedsNotifier.value = [
       ...postedNeeds,
       ...feedNeedsNotifier.value.where((n) => !postedIds.contains(n.id)),

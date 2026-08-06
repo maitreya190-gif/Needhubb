@@ -7,6 +7,7 @@ import '../../l10n/app_strings.dart';
 import '../../models/need.dart';
 import '../../providers/language_provider.dart';
 import '../../theme/tokens.dart';
+import '../onboarding/tutorial_screen.dart';
 import 'tabs/hub_home_tab.dart';
 import 'tabs/feed_tab.dart';
 import 'tabs/chats_tab.dart';
@@ -29,6 +30,9 @@ class _HubScreenState extends ConsumerState<HubScreen> {
   void initState() {
     super.initState();
     uiLanguageNotifier.addListener(_onLangChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) maybeShowTutorial(context);
+    });
   }
 
   @override
@@ -77,7 +81,7 @@ class _HubScreenState extends ConsumerState<HubScreen> {
       const ChatsTab(),
       const SizedBox.shrink(),
       const AlertsTab(),
-      YouScreen(),
+      const YouScreen(),
     ];
 
     return Scaffold(

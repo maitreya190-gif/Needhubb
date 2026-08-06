@@ -444,7 +444,7 @@ class _FeedTabState extends ConsumerState<FeedTab> {
                           width: 1,
                         ),
                       ),
-                      child: Center(
+                      child: const Center(
                         child: Icon(Icons.map_rounded, size: 20, color: NeedHubTokens.clay),
                       ),
                     ),
@@ -1931,14 +1931,14 @@ class _ChitChatFeedInlineState extends ConsumerState<_ChitChatFeedInline> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 120),
         children: [
-          NhSkeleton(width: double.infinity, height: 52, radius: 14),
+          const NhSkeleton(width: double.infinity, height: 52, radius: 14),
           const SizedBox(height: 22),
-          NhSkeleton(width: 180, height: 13, radius: 5),
+          const NhSkeleton(width: 180, height: 13, radius: 5),
           const SizedBox(height: 12),
           ...List.generate(
               3,
-              (_) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
+              (_) => const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
                     child: NhSkeleton(
                         width: double.infinity, height: 80, radius: 16),
                   )),
@@ -2135,7 +2135,7 @@ class _ChitChatPersonCuboidalTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chat_bubble_outline_rounded,
+              const Icon(Icons.chat_bubble_outline_rounded,
                   size: 16, color: NeedHubTokens.clay),
             ],
           ),
@@ -2743,7 +2743,7 @@ class _ChitChatRealCuboidalTile extends ConsumerWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chat_bubble_outline_rounded,
+              const Icon(Icons.chat_bubble_outline_rounded,
                   size: 16, color: NeedHubTokens.clay),
             ],
           ),
@@ -2927,7 +2927,7 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Icon(Icons.chat_bubble_outline_rounded,
+                      const Icon(Icons.chat_bubble_outline_rounded,
                           size: 20, color: NeedHubTokens.clay),
                     ],
                   ),
@@ -3007,7 +3007,7 @@ class _ChitChatFriendsDmsHeader extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Icon(Icons.chat_bubble_outline_rounded,
+                      const Icon(Icons.chat_bubble_outline_rounded,
                           size: 20, color: NeedHubTokens.clay),
                     ],
                   ),
@@ -3065,7 +3065,7 @@ class _ActiveFilterRibbon extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.filter_alt_rounded,
+              const Icon(Icons.filter_alt_rounded,
                   size: 14, color: NeedHubTokens.clay),
               const SizedBox(width: 6),
               Text(
@@ -3136,7 +3136,7 @@ class _ActiveFilterRibbon extends StatelessWidget {
                       onTap: () {
                         notifier.value = filter.removeBadge(badge);
                       },
-                      child: Icon(
+                      child: const Icon(
                         Icons.cancel_rounded,
                         size: 15,
                         color: NeedHubTokens.clay,

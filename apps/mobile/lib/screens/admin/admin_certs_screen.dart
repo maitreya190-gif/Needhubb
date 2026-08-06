@@ -30,15 +30,19 @@ class _AdminCertsScreenState extends State<AdminCertsScreen> {
     });
     try {
       final c = await AdminApi.instance.certs();
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _certs = c;
         _loading = false;
       });
+      }
     } catch (e) {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _error = e.toString();
         _loading = false;
       });
+      }
     }
   }
 

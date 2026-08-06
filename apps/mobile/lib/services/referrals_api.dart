@@ -52,6 +52,6 @@ class ReferralsApi {
 
   Future<ReferralMe> me() async {
     final data = await _client.get('/referrals/me');
-    return ReferralMe.fromJson(data as Map<String, dynamic>);
+    return ReferralMe.fromJson(data);
   }
 }
