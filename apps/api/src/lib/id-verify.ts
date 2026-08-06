@@ -132,9 +132,19 @@ async function checkLiveness(
     return { verified: false, reason: 'Selfie is too blurry — please retake in better lighting.', code: 'TOO_BLURRY' }
   }
 
-  // Eyes open — core liveness signal: a printed photo has closed/absent eyes
-  const leftOpen = attrs.eyestatus?.left_eye_status?.normal_eye_open ?? 0
-  const rightOpen = attrs.eyestatus?.right_eye_status?.normal_eye_open ?? 0
+  // Eyes open — core liveness signal: a printed photo has closed/absent eyes.
+  //
+  // Face++ returns eyestatus as six named probabilities per eye that sum to
+  // ~100: normal_glass_eye_open, normal_glass_eye_close, no_glass_eye_open,
+  // no_glass_eye_close, occlusion, dark_glasses. My earlier code read a
+  // non-existent `normal_eye_open` field, defaulted to 0 for both eyes, and
+  // always tripped this check — genuine users with wide-open eyes saw
+  // "please open your eyes" every time. Sum the two "open" variants (with
+  // and without glasses) to get an actual open-ness score.
+  const openScore = (e: any) =>
+    (e?.no_glass_eye_open ?? 0) + (e?.normal_glass_eye_open ?? 0)
+  const leftOpen = openScore(attrs.eyestatus?.left_eye_status)
+  const rightOpen = openScore(attrs.eyestatus?.right_eye_status)
   if (leftOpen < 30 && rightOpen < 30) {
     return { verified: false, reason: 'Please open your eyes and retake the selfie.', code: 'EYES_CLOSED' }
   }
