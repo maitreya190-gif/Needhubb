@@ -48,15 +48,27 @@ function buildForm(apiKey: string, apiSecret: string): FormData {
   return form
 }
 
+/**
+ * Try each Face++ endpoint until one succeeds. The caller passes a **factory**
+ * (not a pre-built FormData) because Node/undici FormData is single-use:
+ * once fetch() consumes the multipart body stream, sending the same instance
+ * again produces an empty request. That was silently corrupting the fallback
+ * to the CN region — Face++ received a POST with no api_key and returned
+ * AUTHENTICATION_ERROR from the second (and final) attempt.
+ *
+ * face-verify.ts avoided this by rebuilding the FormData inside its retry
+ * loop; this brings id-verify in line.
+ */
 async function fetchFacePP(
   endpoints: string[],
-  form: FormData,
+  buildForm: () => FormData,
 ): Promise<any> {
   let lastErr = 'Unknown error'
   for (const endpoint of endpoints) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
     try {
+      const form = buildForm()
       const res = await fetch(endpoint, { method: 'POST', body: form, signal: controller.signal })
       const text = await res.text()
       let data: any = {}
@@ -89,15 +101,20 @@ async function checkLiveness(
   selfieBuffer: Buffer,
   selfieMime: string,
 ): Promise<LivenessResult> {
-  const form = buildForm(apiKey, apiSecret)
-  form.append(
-    'image_file',
-    new Blob([new Uint8Array(selfieBuffer)], { type: selfieMime || 'image/jpeg' }),
-    'selfie.jpg',
-  )
-  form.append('return_attributes', 'eyestatus,headpose,blur,occlusion')
-
-  const data = await fetchFacePP(FACEPP_DETECT_ENDPOINTS, form)
+  const data = await fetchFacePP(FACEPP_DETECT_ENDPOINTS, () => {
+    const form = buildForm(apiKey, apiSecret)
+    form.append(
+      'image_file',
+      new Blob([new Uint8Array(selfieBuffer)], { type: selfieMime || 'image/jpeg' }),
+      'selfie.jpg',
+    )
+    // NOTE: `occlusion` is NOT a valid Face++ Detect attribute — sending it
+    // makes Face++ reject the whole request with BAD_ARGUMENTS. Removed.
+    // (occlusion IS exposed via the separate "faceanalyze" API which needs
+    // a paid tier, so we get by with blur + eyestatus + headpose only.)
+    form.append('return_attributes', 'eyestatus,headpose,blur')
+    return form
+  })
   const faces: any[] = data.faces ?? []
 
   if (faces.length === 0) {
@@ -115,23 +132,27 @@ async function checkLiveness(
     return { verified: false, reason: 'Selfie is too blurry — please retake in better lighting.', code: 'TOO_BLURRY' }
   }
 
-  // Eyes open — core liveness signal: a printed photo has closed/absent eyes
-  const leftOpen = attrs.eyestatus?.left_eye_status?.normal_eye_open ?? 0
-  const rightOpen = attrs.eyestatus?.right_eye_status?.normal_eye_open ?? 0
+  // Eyes open — core liveness signal: a printed photo has closed/absent eyes.
+  //
+  // Face++ returns eyestatus as six named probabilities per eye that sum to
+  // ~100: normal_glass_eye_open, normal_glass_eye_close, no_glass_eye_open,
+  // no_glass_eye_close, occlusion, dark_glasses. My earlier code read a
+  // non-existent `normal_eye_open` field, defaulted to 0 for both eyes, and
+  // always tripped this check — genuine users with wide-open eyes saw
+  // "please open your eyes" every time. Sum the two "open" variants (with
+  // and without glasses) to get an actual open-ness score.
+  const openScore = (e: any) =>
+    (e?.no_glass_eye_open ?? 0) + (e?.normal_glass_eye_open ?? 0)
+  const leftOpen = openScore(attrs.eyestatus?.left_eye_status)
+  const rightOpen = openScore(attrs.eyestatus?.right_eye_status)
   if (leftOpen < 30 && rightOpen < 30) {
     return { verified: false, reason: 'Please open your eyes and retake the selfie.', code: 'EYES_CLOSED' }
   }
 
-  // Occlusion — Face++ returns per-region 0–1 values (higher = more occluded).
-  // Blocks masks and sunglasses, which the eye-open check alone misses
-  // because Face++ may still infer eyes from other landmarks.
-  const occ = attrs.occlusion ?? {}
-  if ((occ.eye_left ?? 0) > 0.7 || (occ.eye_right ?? 0) > 0.7) {
-    return { verified: false, reason: 'Please remove any glasses or covering from your eyes and retake the selfie.', code: 'EYES_OCCLUDED' }
-  }
-  if ((occ.mouth ?? 0) > 0.7 || (occ.nose ?? 0) > 0.7) {
-    return { verified: false, reason: 'Please remove any mask or covering from your face and retake the selfie.', code: 'FACE_OCCLUDED' }
-  }
+  // (Occlusion check removed — the `occlusion` attribute isn't available on
+  // Face++'s standard Detect API. Sunglasses/masks are partially caught by
+  // the eyes-open check above and, if the whole face is covered, by the
+  // face-match step failing.)
 
   // Head pose — a photo of a photo held perfectly parallel to the camera has
   // pitch, roll, and yaw all essentially zero. Real faces have micro-tilt
@@ -156,19 +177,20 @@ async function matchFaces(
   selfieBuffer: Buffer,
   selfieMime: string,
 ): Promise<IdVerifyResult> {
-  const form = buildForm(apiKey, apiSecret)
-  form.append(
-    'image_file1',
-    new Blob([new Uint8Array(idBuffer)], { type: idMime || 'image/jpeg' }),
-    'id.jpg',
-  )
-  form.append(
-    'image_file2',
-    new Blob([new Uint8Array(selfieBuffer)], { type: selfieMime || 'image/jpeg' }),
-    'selfie.jpg',
-  )
-
-  const data = await fetchFacePP(FACEPP_COMPARE_ENDPOINTS, form)
+  const data = await fetchFacePP(FACEPP_COMPARE_ENDPOINTS, () => {
+    const form = buildForm(apiKey, apiSecret)
+    form.append(
+      'image_file1',
+      new Blob([new Uint8Array(idBuffer)], { type: idMime || 'image/jpeg' }),
+      'id.jpg',
+    )
+    form.append(
+      'image_file2',
+      new Blob([new Uint8Array(selfieBuffer)], { type: selfieMime || 'image/jpeg' }),
+      'selfie.jpg',
+    )
+    return form
+  })
 
   // Face++ returns null confidence when it can't find a face in one of the images
   const confidence: number | null = data.confidence ?? null
