@@ -191,49 +191,42 @@ List<Need> filterAndSortNeeds(List<Need> source, FeedFilter filter) {
   final pool = source.where((n) => passesHardFilters(n, filter)).toList();
   final chips = {...filter.interests, ...filter.skills};
 
-  final matched = chips.isEmpty
-      ? pool
-      : pool
-          .where((n) => chipHits(needHaystack(n), chips) == chips.length)
-          .toList();
-
-  stableSortNeeds(matched, (a, b) => compareBySort(a, b, filter));
-  return matched;
-}
-
-/// Needs that satisfy at least one selected chip but not all of them.
-///
-/// [filterAndSortNeeds] is a strict AND by design, so it can legitimately
-/// return nothing — pick "Flutter" and "Cooking" and no need is both. Rather
-/// than leave a dead feed, the surfaces render these underneath, clearly
-/// labelled as *not* exact matches. The user's AND result always comes first
-/// and is never padded, so a partial match can't be mistaken for one that
-/// satisfied every chip.
-///
-/// Deliberately not the silent fallback to the unfiltered list that was
-/// removed in fbb9f8e: the hard filters still apply, and a need matching zero
-/// chips never appears here. Ordered by how many chips each need does satisfy.
-List<Need> partialMatchNeeds(List<Need> source, FeedFilter filter) {
-  final chips = {...filter.interests, ...filter.skills};
-  if (chips.isEmpty) return const [];
-
-  final scored = <({Need need, int hits, int i})>[];
-  for (final n in source) {
-    if (!passesHardFilters(n, filter)) continue;
-    final hits = chipHits(needHaystack(n), chips);
-    if (hits > 0 && hits < chips.length) {
-      scored.add((need: n, hits: hits, i: scored.length));
-    }
+  // No chips: hard filters already did the narrowing, keep the server order.
+  if (chips.isEmpty) {
+    stableSortNeeds(pool, (a, b) => compareBySort(a, b, filter));
+    return pool;
   }
-  // Original index is the final tie-breaker so equal-scoring needs keep the
-  // server's AI order under the default sort.
+
+  // OR match, ranked by how many chips each need satisfies. A need hitting
+  // every chip still leads the list, so adding a second chip *re-ranks* the
+  // feed instead of emptying it — which is what made two filters together
+  // look broken under the old strict-AND rule.
+  final scored = <({Need need, int hits, int i})>[];
+  for (var i = 0; i < pool.length; i++) {
+    final hits = chipHits(needHaystack(pool[i]), chips);
+    if (hits > 0) scored.add((need: pool[i], hits: hits, i: i));
+  }
   scored.sort((a, b) {
     if (a.hits != b.hits) return b.hits.compareTo(a.hits);
     final c = compareBySort(a.need, b.need, filter);
+    // Original index last, so equal-ranked needs keep the server's AI order.
     return c != 0 ? c : a.i.compareTo(b.i);
   });
   return scored.map((s) => s.need).toList();
 }
+
+/// Always empty, deliberately.
+///
+/// This used to hold "matches some chips but not all", shown in a separate
+/// section beneath a strict-AND result that could legitimately be empty.
+/// [filterAndSortNeeds] is now an OR match, so every need this once returned
+/// is already in the main list, ranked by hit count. Returning anything here
+/// would render those needs a second time.
+///
+/// Kept as a function (rather than deleting it) so the surfaces that render a
+/// "partial matches" section stay untouched — they guard on `isNotEmpty`, so
+/// the section simply never appears.
+List<Need> partialMatchNeeds(List<Need> source, FeedFilter filter) => const [];
 
 /// Separator introducing the partial matches below an exact-AND result, so
 /// the two groups can never be visually confused.
@@ -809,9 +802,11 @@ class _ConnectFeedState extends State<_ConnectFeed> {
     final t = widget.t;
     final filter = connectFilterNotifier.value;
     // Same rules as needs: 50 means "any distance", explicit gender filters
-    // exclude unknown-gender profiles, and topic chips combine as a strict
-    // AND — a person must satisfy every selected chip.
+    // exclude unknown-gender profiles, and topic chips combine as OR —
+    // a person shows if they satisfy any selected chip, ranked below by how
+    // many they match, so two chips widen the result instead of emptying it.
     final chips = {...filter.interests, ...filter.skills};
+    final peopleHits = <String, int>{};
     var filteredPeople = <Person>[];
     for (final p in mockPeople) {
       if (filter.maxDistanceKm < 50 && p.distanceKm > filter.maxDistanceKm) {
@@ -825,25 +820,30 @@ class _ConnectFeedState extends State<_ConnectFeed> {
           continue;
         }
       }
-      if (chips.isNotEmpty &&
-          chipHits([...p.interests, ...p.skills], chips) != chips.length) {
-        continue;
+      if (chips.isNotEmpty) {
+        final hits = chipHits([...p.interests, ...p.skills], chips);
+        if (hits == 0) continue;
+        peopleHits[p.id] = hits;
       }
       filteredPeople.add(p);
     }
     filteredPeople.sort((a, b) {
-      if (filter.sortBy == 'nearest') {
+      // People matching more of the selected chips lead, mirroring how the
+      // needs list ranks an OR match.
+      final ah = peopleHits[a.id] ?? 0;
+      final bh = peopleHits[b.id] ?? 0;
+      if (ah != bh) return bh.compareTo(ah);
+      if (filter.sortBy == kSortNearest) {
         return a.distanceKm.compareTo(b.distanceKm);
       }
-      if (filter.sortBy == 'highest_points') {
+      if (filter.sortBy == kSortHighestPoints) {
         return b.points.compareTo(a.points);
       }
       return 0;
     });
 
     final needs = filterAndSortNeeds(widget.needs, filter);
-    // Chips are a strict AND, so `needs` can be empty even when related needs
-    // exist. These are shown below it, always labelled as inexact.
+    // Always empty now that chips are an OR match — see partialMatchNeeds.
     final partialNeeds = partialMatchNeeds(widget.needs, filter);
 
     final activeCount = filter.filterCount;

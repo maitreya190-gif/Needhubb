@@ -214,11 +214,11 @@ void main() {
     });
   });
 
-  group('chips combine as a strict AND', () {
-    test('a need must satisfy every selected chip', () {
+  group('chips combine as an OR, ranked by hit count', () {
+    test('a need matching every chip leads the list', () {
       final needs = [
-        makeNeed('both', tags: const ['Flutter', 'Tutoring']),
         makeNeed('onlyFlutter', tags: const ['Flutter']),
+        makeNeed('both', tags: const ['Flutter', 'Tutoring']),
         makeNeed('onlyTutoring', tags: const ['Tutoring']),
         makeNeed('neither', tags: const ['Chess']),
       ];
@@ -226,10 +226,13 @@ void main() {
         needs,
         const FeedFilter(interests: {'Flutter'}, skills: {'Tutoring'}),
       );
-      expect(idsOf(result), ['both']);
+      // Every partial match is kept; the 2-hit need is ranked first.
+      expect(result.first.id, 'both');
+      expect(idsOf(result).toSet(), {'both', 'onlyFlutter', 'onlyTutoring'});
+      expect(idsOf(result), isNot(contains('neither')));
     });
 
-    test('selecting more chips narrows, never widens', () {
+    test('selecting a second chip widens, never empties', () {
       final needs = [
         makeNeed('a', tags: const ['Flutter']),
         makeNeed('b', tags: const ['Chess']),
@@ -239,15 +242,19 @@ void main() {
       final two = filterAndSortNeeds(
           needs, const FeedFilter(interests: {'Flutter', 'Chess'}));
       expect(one.length, 1);
-      expect(two.length, lessThanOrEqualTo(one.length));
-      expect(two, isEmpty);
+      // This is the exact case that made two filters look broken before.
+      expect(two.length, greaterThanOrEqualTo(one.length));
+      expect(idsOf(two).toSet(), {'a', 'b'});
     });
 
-    test('chips with no overlap correctly return nothing', () {
-      final needs = [makeNeed('a', tags: const ['Flutter'])];
+    test('two orthogonal chips still return both sides, never nothing', () {
+      final needs = [
+        makeNeed('f', tags: const ['Flutter']),
+        makeNeed('c', tags: const ['Cooking']),
+      ];
       final result = filterAndSortNeeds(
           needs, const FeedFilter(interests: {'Flutter', 'Cooking'}));
-      expect(result, isEmpty);
+      expect(idsOf(result).toSet(), {'f', 'c'});
     });
   });
 
@@ -322,75 +329,39 @@ void main() {
     });
   });
 
-  group('partialMatchNeeds', () {
-    // Strict AND can legitimately return nothing. These back the "closest
-    // matches" section so the feed is never dead — without reintroducing the
-    // silent fallback to an unfiltered list that fbb9f8e removed.
-    test('returns needs matching some chips but not all', () {
+  group('partialMatchNeeds is retired', () {
+    // Under OR matching, every "partial" need is already in the main list.
+    // If this ever returned rows again the surfaces would render them twice.
+    test('is always empty, so nothing renders twice', () {
       final needs = [
         makeNeed('both', tags: const ['Flutter', 'Tutoring']),
         makeNeed('one', tags: const ['Flutter']),
         makeNeed('none', tags: const ['Chess']),
       ];
-      const filter =
-          FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
-      expect(idsOf(partialMatchNeeds(needs, filter)), ['one']);
-    });
-
-    test('never includes an exact match — those belong to the AND result', () {
-      final needs = [makeNeed('both', tags: const ['Flutter', 'Tutoring'])];
-      const filter =
-          FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
-      expect(partialMatchNeeds(needs, filter), isEmpty);
-      expect(idsOf(filterAndSortNeeds(needs, filter)), ['both']);
-    });
-
-    test('never includes a need matching zero chips', () {
-      final needs = [makeNeed('none', tags: const ['Chess'])];
-      const filter =
-          FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
+      const filter = FeedFilter(interests: {'Flutter'}, skills: {'Tutoring'});
       expect(partialMatchNeeds(needs, filter), isEmpty);
     });
 
-    test('is empty when no chips are selected, so nothing is padded', () {
-      final needs = [makeNeed('a'), makeNeed('b')];
-      expect(partialMatchNeeds(needs, const FeedFilter()), isEmpty);
-    });
-
-    test('still honours hard filters — distance, budget, gender', () {
-      final needs = [
-        makeNeed('near', distanceKm: 2, tags: const ['Flutter']),
-        makeNeed('far', distanceKm: 90, tags: const ['Flutter']),
-      ];
-      const filter = FeedFilter(
-        maxDistanceKm: 10,
-        interests: const {'Flutter', 'Cooking'},
-      );
-      expect(idsOf(partialMatchNeeds(needs, filter)), ['near']);
-    });
-
-    test('orders by how many chips each need satisfies', () {
-      final needs = [
-        makeNeed('one', tags: const ['Flutter']),
-        makeNeed('two', tags: const ['Flutter', 'Tutoring']),
-      ];
-      const filter = FeedFilter(
-        interests: const {'Flutter'},
-        skills: const {'Tutoring', 'Python'},
-      );
-      expect(idsOf(partialMatchNeeds(needs, filter)), ['two', 'one']);
-    });
-
-    test('exact and partial results never overlap', () {
+    test('the main list already carries every partial match', () {
       final needs = [
         makeNeed('both', tags: const ['Flutter', 'Tutoring']),
         makeNeed('one', tags: const ['Flutter']),
       ];
-      const filter =
-          FeedFilter(interests: const {'Flutter'}, skills: const {'Tutoring'});
-      final exact = idsOf(filterAndSortNeeds(needs, filter)).toSet();
+      const filter = FeedFilter(interests: {'Flutter'}, skills: {'Tutoring'});
+      final main = idsOf(filterAndSortNeeds(needs, filter)).toSet();
+      expect(main, containsAll(<String>['both', 'one']));
+      expect(partialMatchNeeds(needs, filter), isEmpty);
+    });
+
+    test('main and partial can never overlap, so no duplicate rendering', () {
+      final needs = [
+        makeNeed('both', tags: const ['Flutter', 'Tutoring']),
+        makeNeed('one', tags: const ['Flutter']),
+      ];
+      const filter = FeedFilter(interests: {'Flutter'}, skills: {'Tutoring'});
+      final main = idsOf(filterAndSortNeeds(needs, filter)).toSet();
       final partial = idsOf(partialMatchNeeds(needs, filter)).toSet();
-      expect(exact.intersection(partial), isEmpty);
+      expect(main.intersection(partial), isEmpty);
     });
   });
 
@@ -541,6 +512,250 @@ void main() {
       final needs = [makeNeed('pricey', budgetMin: 5000, budgetMax: 9000)];
       expect(
         filterAndSortNeeds(needs, const FeedFilter(maxBudget: 1000)),
+        isEmpty,
+      );
+    });
+  });
+
+  // ── Full sweep: every filter alone, then every combination ──────────────
+  // Built from the brief "all filters must work individually AND in group".
+  // Each filter is proven to (a) keep what matches, (b) drop what doesn't,
+  // and (c) still behave when stacked with the others.
+  group('every filter, individually', () {
+    List<Need> sample() => [
+          makeNeed('a',
+              distanceKm: 2,
+              budgetMin: 500,
+              budgetMax: 1500,
+              posterGender: 'Female',
+              tags: const ['Flutter'],
+              createdAt: DateTime(2026, 3, 1)),
+          makeNeed('b',
+              distanceKm: 25,
+              budgetMin: 3000,
+              budgetMax: 5000,
+              posterGender: 'Male',
+              tags: const ['Cooking'],
+              createdAt: DateTime(2026, 1, 1)),
+          makeNeed('c',
+              distanceKm: 8,
+              posterGender: 'Non-binary',
+              tags: const ['Chess'],
+              createdAt: DateTime(2026, 2, 1)),
+        ];
+
+    test('distance alone keeps only what is inside the radius', () {
+      final r =
+          filterAndSortNeeds(sample(), const FeedFilter(maxDistanceKm: 10));
+      expect(idsOf(r).toSet(), {'a', 'c'});
+    });
+
+    test('minBudget alone keeps budget-less needs and clears the bar', () {
+      final r = filterAndSortNeeds(sample(), const FeedFilter(minBudget: 2000));
+      // 'a' tops out at 1500 → dropped. 'c' declares no budget → kept.
+      expect(idsOf(r).toSet(), {'b', 'c'});
+    });
+
+    test('maxBudget alone drops needs priced entirely above it', () {
+      final r = filterAndSortNeeds(sample(), const FeedFilter(maxBudget: 2000));
+      expect(idsOf(r).toSet(), {'a', 'c'});
+    });
+
+    test('gender alone keeps exactly the matching poster', () {
+      final r =
+          filterAndSortNeeds(sample(), const FeedFilter(genders: {'Male'}));
+      expect(idsOf(r), ['b']);
+    });
+
+    test('a single interest chip alone keeps only that topic', () {
+      final r = filterAndSortNeeds(
+          sample(), const FeedFilter(interests: {'Flutter'}));
+      expect(idsOf(r), ['a']);
+    });
+
+    test('a single skill chip alone behaves the same as an interest', () {
+      final r =
+          filterAndSortNeeds(sample(), const FeedFilter(skills: {'Chess'}));
+      expect(idsOf(r), ['c']);
+    });
+
+    test('sort alone reorders without dropping anything', () {
+      final r =
+          filterAndSortNeeds(sample(), const FeedFilter(sortBy: kSortNewest));
+      expect(r.length, 3);
+      expect(idsOf(r), ['a', 'c', 'b']);
+    });
+
+    test('nearest sort orders by distance ascending', () {
+      final r =
+          filterAndSortNeeds(sample(), const FeedFilter(sortBy: kSortNearest));
+      expect(idsOf(r), ['a', 'c', 'b']);
+    });
+
+    test('an untouched filter returns everything, untouched', () {
+      final r = filterAndSortNeeds(sample(), const FeedFilter());
+      expect(idsOf(r), ['a', 'b', 'c']);
+    });
+  });
+
+  group('filters in combination', () {
+    List<Need> sample() => [
+          makeNeed('match',
+              distanceKm: 3,
+              budgetMin: 800,
+              budgetMax: 2000,
+              posterGender: 'Female',
+              tags: const ['Flutter', 'Tutoring']),
+          makeNeed('tooFar',
+              distanceKm: 40,
+              budgetMin: 800,
+              budgetMax: 2000,
+              posterGender: 'Female',
+              tags: const ['Flutter']),
+          makeNeed('wrongGender',
+              distanceKm: 3,
+              budgetMin: 800,
+              budgetMax: 2000,
+              posterGender: 'Male',
+              tags: const ['Flutter']),
+          makeNeed('tooCheap',
+              distanceKm: 3,
+              budgetMin: 50,
+              budgetMax: 100,
+              posterGender: 'Female',
+              tags: const ['Flutter']),
+          makeNeed('offTopic',
+              distanceKm: 3,
+              budgetMin: 800,
+              budgetMax: 2000,
+              posterGender: 'Female',
+              tags: const ['Chess']),
+        ];
+
+    test('distance + gender', () {
+      final r = filterAndSortNeeds(sample(),
+          const FeedFilter(maxDistanceKm: 10, genders: {'Female'}));
+      expect(idsOf(r).toSet(), {'match', 'tooCheap', 'offTopic'});
+    });
+
+    test('distance + budget', () {
+      final r = filterAndSortNeeds(
+          sample(), const FeedFilter(maxDistanceKm: 10, minBudget: 500));
+      expect(idsOf(r).toSet(), {'match', 'wrongGender', 'offTopic'});
+    });
+
+    test('gender + chip', () {
+      final r = filterAndSortNeeds(sample(),
+          const FeedFilter(genders: {'Female'}, interests: {'Flutter'}));
+      expect(idsOf(r).toSet(), {'match', 'tooFar', 'tooCheap'});
+    });
+
+    test('all four hard filters plus a chip resolve to the one real match', () {
+      final r = filterAndSortNeeds(
+        sample(),
+        const FeedFilter(
+          maxDistanceKm: 10,
+          minBudget: 500,
+          maxBudget: 2500,
+          genders: {'Female'},
+          interests: {'Flutter'},
+        ),
+      );
+      expect(idsOf(r), ['match']);
+    });
+
+    test('hard filters still apply on top of an OR chip match', () {
+      // 'offTopic' hits the Chess chip but is out of radius once narrowed.
+      final r = filterAndSortNeeds(
+        sample(),
+        const FeedFilter(
+          maxDistanceKm: 5,
+          genders: {'Female'},
+          interests: {'Flutter', 'Chess'},
+        ),
+      );
+      expect(idsOf(r).toSet(), {'match', 'tooCheap', 'offTopic'});
+      expect(idsOf(r), isNot(contains('tooFar')));
+      expect(idsOf(r), isNot(contains('wrongGender')));
+    });
+
+    test('combining filters never resurrects something a filter excluded', () {
+      final r = filterAndSortNeeds(
+        sample(),
+        const FeedFilter(
+          maxDistanceKm: 10,
+          genders: {'Female'},
+          interests: {'Flutter', 'Chess', 'Tutoring'},
+        ),
+      );
+      // Adding more chips widens the topic net but can never override the
+      // hard distance/gender constraints.
+      expect(idsOf(r), isNot(contains('tooFar')));
+      expect(idsOf(r), isNot(contains('wrongGender')));
+    });
+
+    test('an over-narrow combination returns empty rather than wrong rows', () {
+      final r = filterAndSortNeeds(
+        sample(),
+        const FeedFilter(maxDistanceKm: 1, genders: {'Non-binary'}),
+      );
+      expect(r, isEmpty);
+    });
+  });
+
+  group('boundary values', () {
+    test('a need exactly at the distance limit is kept', () {
+      final needs = [makeNeed('edge', distanceKm: 10)];
+      expect(
+          idsOf(filterAndSortNeeds(needs, const FeedFilter(maxDistanceKm: 10))),
+          ['edge']);
+    });
+
+    test('a need exactly at the min budget is kept', () {
+      final needs = [makeNeed('edge', budgetMin: 1000, budgetMax: 1000)];
+      expect(idsOf(filterAndSortNeeds(needs, const FeedFilter(minBudget: 1000))),
+          ['edge']);
+    });
+
+    test('a need exactly at the max budget is kept', () {
+      final needs = [makeNeed('edge', budgetMin: 1000, budgetMax: 1000)];
+      expect(idsOf(filterAndSortNeeds(needs, const FeedFilter(maxBudget: 1000))),
+          ['edge']);
+    });
+
+    test('min and max budget together form an inclusive window', () {
+      final needs = [
+        makeNeed('inside', budgetMin: 800, budgetMax: 1200),
+        makeNeed('below', budgetMin: 100, budgetMax: 200),
+        makeNeed('above', budgetMin: 5000, budgetMax: 9000),
+      ];
+      final r = filterAndSortNeeds(
+          needs, const FeedFilter(minBudget: 500, maxBudget: 2000));
+      expect(idsOf(r), ['inside']);
+    });
+
+    test('a need with unknown distance survives a radius filter', () {
+      // Distance is unknown until the server geocodes both ends — hiding it
+      // would silently shrink the feed for reasons the user cannot see.
+      final needs = [makeNeed('unknown')];
+      expect(
+          idsOf(filterAndSortNeeds(needs, const FeedFilter(maxDistanceKm: 5))),
+          ['unknown']);
+    });
+
+    test('an empty source list never throws', () {
+      expect(
+        filterAndSortNeeds(const <Need>[],
+            const FeedFilter(maxDistanceKm: 5, genders: {'Male'}, interests: {'Flutter'})),
+        isEmpty,
+      );
+    });
+
+    test('a chip matching nothing returns empty, not everything', () {
+      final needs = [makeNeed('a', tags: const ['Flutter'])];
+      expect(
+        filterAndSortNeeds(
+            needs, const FeedFilter(interests: {'Underwater Basketweaving'})),
         isEmpty,
       );
     });
