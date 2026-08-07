@@ -41,6 +41,24 @@ import { uploadFile, storageKey } from '../../lib/storage'
 export const needsRouter: IRouter = Router()
 const RESPONSE_EDIT_WINDOW_MS = 10 * 60 * 1000
 
+/**
+ * Collapses however a gender was stored down to one canonical token.
+ *
+ * Profile.gender is a free-form String, and values arrive from several code
+ * paths: the demo seed writes lowercase `male`/`female`, the signup and
+ * edit-profile chips write `Male`/`Female`/`Non-binary`, and older rows can
+ * hold a bare initial. Comparing raw strings matched some posters and
+ * silently dropped others. Mirrors canonicalGender() in the Flutter client so
+ * the server-side page and the client-side re-filter always agree.
+ */
+function canonicalGender(raw: string): string {
+  const n = raw.toLowerCase().trim().replace(/[^a-z0-9]+/g, ' ').trim()
+  if (['m', 'male', 'man', 'men', 'boy'].includes(n)) return 'male'
+  if (['f', 'female', 'woman', 'women', 'girl'].includes(n)) return 'female'
+  if (['nb', 'enby', 'non binary', 'nonbinary', 'other'].includes(n)) return 'non binary'
+  return n
+}
+
 const LANG_NAMES: Record<string, string> = {
   hi: 'Hindi', mr: 'Marathi', bn: 'Bengali', te: 'Telugu',
   ta: 'Tamil', gu: 'Gujarati', kn: 'Kannada',
@@ -409,9 +427,18 @@ needsRouter.get('/', async (req, res, next) => {
         continue
       }
 
-      // Gender filter (poster's declared gender).
-      if (q.genders?.length && (!n.poster.profile?.gender ||
-          !q.genders.map((g) => g.toLowerCase()).includes(n.poster.profile.gender.toLowerCase()))) continue
+      // Gender filter (poster's declared gender). Canonicalised on both sides
+      // so `male`, `Male` and `M` are one value — stored gender comes from
+      // several eras (seed writes lowercase, the signup chips write
+      // capitalised), and a plain lowercase compare matched some rows while
+      // silently dropping others.
+      if (q.genders?.length) {
+        const want = q.genders.map(canonicalGender)
+        const actual = n.poster.profile?.gender
+          ? canonicalGender(n.poster.profile.gender)
+          : null
+        if (!actual || !want.includes(actual)) continue
+      }
 
       // Distance filter (hard cap — user's chosen radius). Rescue Mode (stage
       // 2+, see lib/urgency.ts) lets a struggling urgent need surface past it,
@@ -671,7 +698,10 @@ needsRouter.get('/:id', async (req, res, next) => {
         poster: {
           select: {
             id: true, displayName: true, emailVerifiedAt: true, phoneVerifiedAt: true,
-            profile: { select: { avatarUrl: true, bio: true, pointsTotal: true, faceVerifiedAt: true, idVerifiedAt: true } },
+            // gender is selected here too — the detail screen reuses the same
+            // Need model as the feed, and omitting it made a need's poster
+            // look genderless once opened.
+            profile: { select: { avatarUrl: true, gender: true, bio: true, pointsTotal: true, faceVerifiedAt: true, idVerifiedAt: true } },
           },
         },
         subNeeds: true,

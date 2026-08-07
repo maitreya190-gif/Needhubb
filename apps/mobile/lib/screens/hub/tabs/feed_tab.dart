@@ -54,6 +54,45 @@ bool termMatches(String haystack, String term) {
   return false;
 }
 
+/// Collapses however a gender happened to be stored down to one canonical
+/// token, so the filter compares like with like.
+///
+/// Values reach the database from several eras and code paths — the demo seed
+/// writes lowercase `male`/`female`, the signup and edit-profile chips write
+/// `Male`/`Female`/`Non-binary`, and older rows can hold a bare initial. A
+/// plain string compare therefore matched some posters and silently dropped
+/// others, which read as "the gender filter does nothing".
+String canonicalGender(String raw) {
+  final n = normalizeTerm(raw);
+  if (n == 'm' || n == 'male' || n == 'man' || n == 'men' || n == 'boy') {
+    return 'male';
+  }
+  if (n == 'f' ||
+      n == 'female' ||
+      n == 'woman' ||
+      n == 'women' ||
+      n == 'girl') {
+    return 'female';
+  }
+  if (n == 'nb' ||
+      n == 'enby' ||
+      n == 'non binary' ||
+      n == 'nonbinary' ||
+      n == 'other') {
+    return 'non binary';
+  }
+  return n;
+}
+
+/// True when a poster's stored gender satisfies any selected gender chip.
+/// Unknown/unset gender never satisfies an explicit gender filter.
+bool genderMatches(String? posterGender, Set<String> selected) {
+  if (selected.isEmpty) return true;
+  if (posterGender == null || posterGender.trim().isEmpty) return false;
+  final actual = canonicalGender(posterGender);
+  return selected.any((s) => canonicalGender(s) == actual);
+}
+
 /// Every text signal a chip may legitimately match against.
 ///
 /// `tags` leads because the server now fills it with semantic tags drawn from
@@ -94,15 +133,11 @@ bool passesHardFilters(Need n, FeedFilter filter) {
     }
   }
   // Gender is one-of by nature (a poster has a single gender), so selecting
-  // several widens. A poster who never set a gender can't satisfy an
-  // explicit gender filter.
-  if (filter.genders.isNotEmpty) {
-    final g = n.posterGender;
-    if (g == null) return false;
-    if (!filter.genders.any((f) => normalizeTerm(f) == normalizeTerm(g))) {
-      return false;
-    }
-  }
+  // several widens. Matching is canonicalised on both sides — see
+  // [canonicalGender] — so a poster stored as `male` still satisfies the
+  // `Male` chip. A poster who never set a gender can't satisfy an explicit
+  // gender filter.
+  if (!genderMatches(n.posterGender, filter.genders)) return false;
   return true;
 }
 
@@ -812,14 +847,7 @@ class _ConnectFeedState extends State<_ConnectFeed> {
       if (filter.maxDistanceKm < 50 && p.distanceKm > filter.maxDistanceKm) {
         continue;
       }
-      if (filter.genders.isNotEmpty) {
-        final g = p.gender;
-        if (g == null) continue;
-        if (!filter.genders
-            .any((f) => normalizeTerm(f) == normalizeTerm(g))) {
-          continue;
-        }
-      }
+      if (!genderMatches(p.gender, filter.genders)) continue;
       if (chips.isNotEmpty) {
         final hits = chipHits([...p.interests, ...p.skills], chips);
         if (hits == 0) continue;

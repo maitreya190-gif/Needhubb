@@ -592,7 +592,7 @@ profilesRouter.get('/search', authenticate, async (req, res, next) => {
         id: true,
         username: true,
         displayName: true,
-        profile: { select: { avatarUrl: true, bio: true } },
+        profile: { select: { avatarUrl: true, gender: true, bio: true } },
       },
       take: 20,
       orderBy: { displayName: 'asc' },
